@@ -1,5 +1,6 @@
-﻿import Database from 'better-sqlite3';
+import Database from 'better-sqlite3';
 import { runMigrations } from './migrations';
+import { getVecExtensionPath } from './vec-loading';
 
 export interface DatabaseOptions {
   /** Path to the SQLite database file. Use ':memory:' for testing. */
@@ -8,8 +9,10 @@ export interface DatabaseOptions {
   walMode?: boolean;
   /** Whether to run pending migrations on open (default: true). */
   runMigrations?: boolean;
-  /** Path to the sqlite-vec extension library (optional). */
+  /** Path to the sqlite-vec extension library (optional). Auto-resolved by default. */
   vecExtensionPath?: string;
+  /** Whether to automatically discover and load the sqlite-vec extension (default: true). */
+  autoLoadVec?: boolean;
 }
 
 /**
@@ -19,6 +22,7 @@ export interface DatabaseOptions {
  * Responsibilities:
  * - Open/create a SQLite database file
  * - Enable WAL mode
+ * - Set exclusive locking mode (worker owns the DB exclusively)
  * - Load the sqlite-vec extension
  * - Run pending schema migrations
  * - Provide access to the underlying database instance
@@ -38,7 +42,7 @@ export class DatabaseManager {
       dbPath: options.dbPath,
       walMode: options.walMode ?? true,
       runMigrations: options.runMigrations ?? true,
-      vecExtensionPath: options.vecExtensionPath,
+      vecExtensionPath: options.vecExtensionPath ?? (options.autoLoadVec !== false ? getVecExtensionPath() : undefined),
     };
   }
 
@@ -64,6 +68,21 @@ export class DatabaseManager {
 
     // Enable foreign keys
     this.db.pragma('foreign_keys = ON');
+
+    // Set exclusive locking mode so the worker has sole ownership
+    if (this.opts.dbPath !== ':memory:') {
+      this.db.pragma('locking_mode = EXCLUSIVE');
+    }
+
+    // Load the sqlite-vec extension for vector search support
+    if (this.opts.vecExtensionPath) {
+      try {
+        this.db.loadExtension(this.opts.vecExtensionPath);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error('Failed to load sqlite-vec extension from ' + this.opts.vecExtensionPath + ': ' + msg);
+      }
+    }
 
     // Run pending migrations
     if (this.opts.runMigrations) {
@@ -117,5 +136,11 @@ export class DatabaseManager {
   getJournalMode(): string {
     const result = this.getDb().pragma('journal_mode') as { journal_mode: string }[];
     return result[0]?.journal_mode || 'unknown';
+  }
+
+  /** Check the current locking_mode. */
+  getLockingMode(): string {
+    const result = this.getDb().pragma('locking_mode') as { locking_mode: string }[];
+    return result[0]?.locking_mode || 'unknown';
   }
 }

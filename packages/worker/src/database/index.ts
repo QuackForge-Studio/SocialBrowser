@@ -1,5 +1,6 @@
-﻿export { DatabaseManager } from './database';
+export { DatabaseManager } from './database';
 export type { DatabaseOptions } from './database';
+export { getVecExtensionPath } from './vec-loading';
 export { runMigrations, getAppliedVersions, ALL_MIGRATIONS } from './migrations';
 export type { Migration } from './migrations';
 export {

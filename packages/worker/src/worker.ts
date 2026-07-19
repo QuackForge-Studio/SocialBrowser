@@ -1,4 +1,4 @@
-﻿import { parentPort as _parentPort } from "worker_threads";
+import { parentPort as _parentPort } from "worker_threads";
 import path from "path";
 import { DatabaseManager } from "./database/database";
 import { IngestionPipeline, createIngestionPipeline, PAYLOAD_SCHEMA_VERSION } from "./ingestion/ingestion";
@@ -15,6 +15,7 @@ function initialize(): void {
       dbPath,
       walMode: dbPath !== ":memory:",
       runMigrations: true,
+      // autoLoadVec is true by default, which will auto-discover the sqlite-vec extension path
     });
     dbManager.open();
     pipeline = createIngestionPipeline(dbManager.getDb());

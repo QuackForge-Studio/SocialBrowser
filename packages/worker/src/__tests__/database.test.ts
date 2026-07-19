@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest';
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -9,6 +9,7 @@ import {
   runMigrations,
   getAppliedVersions,
   ALL_MIGRATIONS,
+  getVecExtensionPath,
 } from '../database';
 import { vecTableName, createVecTableSQL } from '../database/schema';
 
@@ -36,6 +37,7 @@ describe('DatabaseManager (in-memory)', () => {
       dbPath: ':memory:',
       walMode: false, // :memory: databases can't use WAL
       runMigrations: true,
+      autoLoadVec: false, // Don't attempt to load sqlite-vec for in-memory DB tests
     });
     manager.open();
   });
@@ -166,6 +168,7 @@ describe('DatabaseManager (in-memory)', () => {
         dbPath: ':memory:',
         walMode: false,
         runMigrations: true,
+        autoLoadVec: false,
       });
       manager2.open();
 
@@ -188,6 +191,7 @@ describe('DatabaseManager (in-memory)', () => {
         dbPath: ':memory:',
         walMode: false,
         runMigrations: false,
+        autoLoadVec: false,
       });
       manager2.open();
 
@@ -213,6 +217,7 @@ describe('DatabaseManager (in-memory)', () => {
         dbPath: ':memory:',
         walMode: false,
         runMigrations: false,
+        autoLoadVec: false,
       });
       expect(() => freshManager.getDb()).toThrow('Database is not open');
     });
@@ -222,6 +227,7 @@ describe('DatabaseManager (in-memory)', () => {
         dbPath: ':memory:',
         walMode: false,
         runMigrations: false,
+        autoLoadVec: false,
       });
       expect(freshManager.isOpen()).toBe(false);
       freshManager.open();
@@ -344,8 +350,8 @@ describe('DatabaseManager (in-memory)', () => {
   });
 });
 
-// ===== File-based tests for WAL mode (VAL-FOUND-080) =====
-describe('VAL-FOUND-080: WAL mode', () => {
+// ===== File-based tests for WAL mode and exclusive locking =====
+describe('File-based DB: WAL mode and exclusive locking', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-test-'));
   const dbPath = path.join(tmpDir, 'test-wal.sqlite');
 
@@ -353,27 +359,143 @@ describe('VAL-FOUND-080: WAL mode', () => {
     try { fs.rmSync(tmpDir, { recursive: true }); } catch { /* ignore */ }
   });
 
-  it('should enable WAL mode on file-based database', () => {
-    const m = new DatabaseManager({
-      dbPath,
-      walMode: true,
-      runMigrations: false,
+  // ===== VAL-AI-003: DB opens in WAL mode =====
+  describe('VAL-AI-003: DB opens in WAL mode', () => {
+    it('should enable WAL mode on file-based database', () => {
+      const m = new DatabaseManager({
+        dbPath,
+        walMode: true,
+        runMigrations: false,
+        autoLoadVec: false,
+      });
+      m.open();
+      expect(m.getJournalMode()).toBe('wal');
+      m.close();
     });
-    m.open();
-    expect(m.getJournalMode()).toBe('wal');
-    m.close();
+
+    it('should not enable WAL on :memory: database', () => {
+      const m = new DatabaseManager({
+        dbPath: ':memory:',
+        walMode: true,
+        runMigrations: false,
+        autoLoadVec: false,
+      });
+      m.open();
+      // :memory: databases report 'memory' as journal mode
+      expect(m.getJournalMode()).toBe('memory');
+      m.close();
+    });
   });
 
-  it('should not enable WAL on :memory: database', () => {
-    const m = new DatabaseManager({
-      dbPath: ':memory:',
-      walMode: true,
-      runMigrations: false,
+  // ===== Exclusive locking mode test =====
+  describe('Exclusive locking mode', () => {
+    it('should set exclusive locking mode on file-based database', () => {
+      const m = new DatabaseManager({
+        dbPath,
+        walMode: true,
+        runMigrations: false,
+        autoLoadVec: false,
+      });
+      m.open();
+      expect(m.getLockingMode()).toBe('exclusive');
+      m.close();
     });
-    m.open();
-    // :memory: databases report 'memory' as journal mode
-    expect(m.getJournalMode()).toBe('memory');
-    m.close();
+  });
+});
+
+// ===== sqlite-vec loading tests =====
+describe('sqlite-vec extension loading', () => {
+  // ===== VAL-AI-004: sqlite-vec loads in worker =====
+  describe('VAL-AI-004: sqlite-vec loads in worker', () => {
+    it('should resolve a vec extension path from the npm package', () => {
+      const extPath = getVecExtensionPath();
+      // On this platform (win32-x64), the path should be resolvable
+      expect(extPath).toBeDefined();
+      expect(typeof extPath).toBe('string');
+      expect(extPath!.length).toBeGreaterThan(0);
+    });
+
+    it('should return path ending with vec0.dll on Windows', () => {
+      const extPath = getVecExtensionPath();
+      expect(extPath).toBeDefined();
+      // The resolved path should point to the vec0.dll file
+      expect(extPath!.toLowerCase()).toContain('vec0');
+    });
+
+    it('should load the extension and create a vec0 virtual table on file-based DB', () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sb-vec-'));
+      const dbPath2 = path.join(tmpDir, 'test-vec.sqlite');
+      try {
+        const m = new DatabaseManager({
+          dbPath: dbPath2,
+          walMode: true,
+          runMigrations: false,
+          autoLoadVec: true, // Auto-load the extension
+        });
+        m.open();
+
+        const db = m.getDb();
+
+        // Create a vec0 virtual table to verify extension is loaded
+        db.exec('CREATE VIRTUAL TABLE IF NOT EXISTS test_vec USING vec0(embedding float[3])');
+
+        // Verify the table exists
+        const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='test_vec'").get();
+        expect(row).toBeDefined();
+
+        // Insert and query a vector
+        db.exec("INSERT INTO test_vec (rowid, embedding) VALUES (1, '[1.0, 2.0, 3.0]')");
+        const result = db.prepare('SELECT rowid FROM test_vec WHERE embedding MATCH ? ORDER BY distance LIMIT 1').get('[1.0, 2.0, 3.0]') as { rowid: number };
+        expect(result).toBeDefined();
+        expect(result.rowid).toBe(1);
+
+        m.close();
+      } finally {
+        try { fs.rmSync(tmpDir, { recursive: true }); } catch { /* ignore */ }
+      }
+    });
+  });
+
+  it('should throw a clear error when loading from non-existent path', () => {
+    const manager = new DatabaseManager({
+      dbPath: ':memory:',
+      walMode: false,
+      runMigrations: false,
+      vecExtensionPath: 'C:/nonexistent/vec0.dll',
+    });
+    expect(() => manager.open()).toThrow(/Failed to load sqlite-vec extension/);
+  });
+});
+
+// ===== VAL-AI-005: Pending migrations applied on startup =====
+describe('VAL-AI-005: Pending migrations applied on startup', () => {
+  it('should run migrations when runMigrations=true', () => {
+    const manager = new DatabaseManager({
+      dbPath: ':memory:',
+      walMode: false,
+      runMigrations: true,
+      autoLoadVec: false,
+    });
+    manager.open();
+
+    // schema_migrations should exist with version 1
+    const versions = getAppliedVersions(manager.getDb());
+    expect(versions).toEqual([1]);
+    manager.close();
+  });
+
+  it('should NOT run migrations when runMigrations=false', () => {
+    const manager = new DatabaseManager({
+      dbPath: ':memory:',
+      walMode: false,
+      runMigrations: false,
+      autoLoadVec: false,
+    });
+    manager.open();
+
+    // No schema_migrations table
+    expect(manager.hasTable('accounts')).toBe(false);
+    manager.close();
   });
 });
 
@@ -448,5 +570,3 @@ describe('Migration system (standalone)', () => {
     expect(postsIndexes.length).toBeGreaterThan(0);
   });
 });
-
-
