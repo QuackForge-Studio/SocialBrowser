@@ -1,4 +1,4 @@
-﻿import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 
 export class AiRunTracker {
@@ -21,7 +21,7 @@ export class AiRunTracker {
 
     this.db.prepare(
       "INSERT INTO ai_runs (id, run_type, provider, model, prompt_template_version, source_post_ids, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)"
-    ).run(id, params.runType, params.provider, params.model, params.promptTemplateVersion ?? null, sourcePostIdsStr, now);
+    ).run(id, params.runType, params.provider, params.model, params.promptTemplateVersion ?? 1, sourcePostIdsStr, now);
 
     return id;
   }
