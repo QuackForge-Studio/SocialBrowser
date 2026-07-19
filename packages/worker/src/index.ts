@@ -1,0 +1,1 @@
+﻿export const WORKER_VERSION = "0.1.0";export type WorkerMessageType = "shutdown" | "ping" | "process_capture" | "generate_draft" | "compute_scores";export interface WorkerMessage {type: WorkerMessageType;payload?: unknown;id: string;}
