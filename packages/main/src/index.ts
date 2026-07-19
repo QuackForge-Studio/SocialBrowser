@@ -29,6 +29,8 @@ import { sanitizeLog } from './log-sanitizer';
  */
 
 let worker: Worker | null = null;
+let workerRestartCount = 0;
+const MAX_WORKER_RESTARTS = 5;
 
 function startWorker(): void {
   const workerPath = path.join(__dirname, '..', '..', 'worker', 'dist', 'worker.js');
@@ -69,11 +71,21 @@ function startWorker(): void {
     worker.on('error', (err: Error) => {
       // Worker failure must NOT crash the main process
       console.warn(sanitizeLog('[Main] Worker error (non-fatal):'), err.message);
+      // On error, terminate and let the exit handler restart
+      try { worker?.terminate(); } catch {}
     });
 
     worker.on('exit', (code: number) => {
       console.log(sanitizeLog('[Main] Worker exited with code'), code);
       worker = null;
+      // Restart worker on non-zero exit (fatal error), unless shutting down
+      if (code !== 0 && !app.isQuitting() && workerRestartCount < MAX_WORKER_RESTARTS) {
+        workerRestartCount++;
+        console.log(sanitizeLog('[Main] Restarting worker (attempt'), workerRestartCount + '/' + MAX_WORKER_RESTARTS + ')');
+        startWorker();
+      } else if (code !== 0 && workerRestartCount >= MAX_WORKER_RESTARTS) {
+        console.error(sanitizeLog('[Main] Worker restart limit reached. Not restarting.'));
+      }
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -159,3 +171,4 @@ app.on('will-quit', () => {
   removeIpcGateHandlers();
   platformViewRegistry.clear();
 });
+// Add worker restart constants at top
