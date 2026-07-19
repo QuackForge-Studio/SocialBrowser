@@ -9,10 +9,13 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
+    "@types/uuid": "^11.0.0",
     "typescript": "5.8.3",
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "better-sqlite3": "12.11.1"
+    "@social-browser/shared": "workspace:^",
+    "better-sqlite3": "12.11.1",
+    "uuid": "^14.0.1"
   }
 }

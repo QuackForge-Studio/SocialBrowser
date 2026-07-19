@@ -1,0 +1,33 @@
+export {
+  X_ADAPTER_VERSION,
+  X_PLATFORM,
+  X_CONTENT_SELECTORS,
+  X_COMPOSE_SELECTOR,
+  detectXOwnership,
+  extractXPost,
+  extractXEngagementSnapshot,
+  extractXComments,
+  extractAuthorHandle,
+  extractPlatformPostId,
+  extractTweetText,
+  extractMediaRefs,
+  extractPublishedAt,
+  extractLikeCount,
+  extractReplyCount,
+  extractRepostCount,
+  extractViewCount,
+  parseCountText,
+  normalizeHandle,
+  generateXAdapterInjectionScript,
+  createXAdapter,
+} from './x-adapter';
+
+export type {
+  OwnershipResult,
+  OwnershipStatus,
+  NormalizedPost,
+  EngagementMetrics,
+  CommentData,
+  AdapterInfo,
+  PlatformAdapter,
+} from './platform-adapter';
