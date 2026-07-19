@@ -1,67 +1,62 @@
-﻿import { app, BrowserWindow } from "electron";
-import path from "path";
+import { app } from "electron";
+import { BaseWindow } from "./base-window";
+import { ShellView } from "./shell-view";
+import { ViewLayoutManager } from "./view-layout-manager";
 
-let mainWindow: BrowserWindow | null = null;
+let baseWindow: BaseWindow | null = null;
+let shellView: ShellView | null = null;
+let layoutManager: ViewLayoutManager | null = null;
 
 function createWindow(): void {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 1024,
-    minHeight: 700,
-    title: "Social Browser",
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-    },
+  baseWindow = new BaseWindow();
+  shellView = new ShellView();
+  layoutManager = new ViewLayoutManager(baseWindow, shellView);
+  baseWindow.onClose((event) => {
+    event.preventDefault();
+    void handleGracefulShutdown();
   });
+  baseWindow.show();
+}
 
-  mainWindow.loadFile(path.join(__dirname, "index.html"));
-
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
+async function handleGracefulShutdown(): Promise<void> {
+  console.log("[main] Graceful shutdown initiated");
+  if (layoutManager) { layoutManager.closeAllViews(); }
+  try {
+    const { session } = await import("electron");
+    const s = session.defaultSession;
+    if (s && typeof s.cookies.flushStore === "function") {
+      await s.cookies.flushStore();
+      console.log("[main] Cookies flushed");
+    }
+  } catch (err: any) {
+    console.warn("[main] Cookie flush error:", err.message);
+  }
+  if (baseWindow) { baseWindow.destroy(); baseWindow = null; }
+  app.quit();
 }
 
 function verifyNativeAddons(): void {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const Database = require("better-sqlite3") as new (...args: unknown[]) => {
       pragma: (s: string) => string;
-      prepare: (s: string) => { get: () => Record<string, unknown> };
+      prepare: (s: string) => { get: () => Record<string, unknown>; };
       close: () => void;
       loadExtension: (s: string) => void;
     };
     const db = new Database(":memory:");
     db.pragma("journal_mode = WAL");
-
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const sqliteVec = require("sqlite-vec") as { load: (db: unknown) => void };
+    const sqliteVec = require("sqlite-vec") as { load: (db: unknown) => void; };
     sqliteVec.load(db);
-
     const row = db.prepare("SELECT vec_version() AS version").get();
-    console.log(`[main] better-sqlite3 OK — sqlite-vec v${String(row.version)} loaded`);
-
+    console.log("[main] better-sqlite3 OK - sqlite-vec v" + String(row.version) + " loaded");
     db.close();
-  } catch (err) {
-    console.error("[main] Native addon load error:", (err as Error).message);
+  } catch (err: any) {
+    console.error("[main] Native addon load error:", err.message);
   }
 }
 
-app.whenReady().then(() => {
-  verifyNativeAddons();
-  createWindow();
-});
+app.whenReady().then(() => { verifyNativeAddons(); createWindow(); });
+app.on("window-all-closed", () => { if (process.platform !== "darwin") { app.quit(); } });
+app.on("activate", () => { if (baseWindow === null) { createWindow(); } });
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
-
-app.on("activate", () => {
-  if (mainWindow === null) {
-    createWindow();
-  }
-});
+export { BaseWindow, ShellView, ViewLayoutManager };
