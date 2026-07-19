@@ -10,6 +10,7 @@ import {
   getAppliedVersions,
   ALL_MIGRATIONS,
 } from '../database';
+import { vecTableName, createVecTableSQL } from '../database/schema';
 
 // Helper: count tables in the database
 function countTables(db: Database.Database): number {
@@ -117,7 +118,6 @@ describe('DatabaseManager (in-memory)', () => {
   // ===== VAL-FOUND-083: sqlite-vec virtual tables =====
   describe('VAL-FOUND-083: sqlite-vec virtual tables', () => {
     it('should produce correct vec0 CREATE VIRTUAL TABLE SQL', () => {
-      const { createVecTableSQL } = require('../database');
       const sql = createVecTableSQL('openai', 'text-embedding-3-small', 1536);
       expect(sql).toBe(
         'CREATE VIRTUAL TABLE IF NOT EXISTS vec_openai_text_embedding_3_small_1536 USING vec0(embedding float[1536])'
@@ -125,13 +125,11 @@ describe('DatabaseManager (in-memory)', () => {
     });
 
     it('should produce correct table name for provider/model/dimensions', () => {
-      const { vecTableName } = require('../database');
       const name = vecTableName('openai', 'text-embedding-3-small', 1536);
       expect(name).toBe('vec_openai_text_embedding_3_small_1536');
     });
 
     it('should sanitize special characters in provider name', () => {
-      const { vecTableName } = require('../database');
       const name = vecTableName('my-provider-v2', 'test-model', 768);
       expect(name).toBe('vec_my_provider_v2_test_model_768');
     });
@@ -450,3 +448,5 @@ describe('Migration system (standalone)', () => {
     expect(postsIndexes.length).toBeGreaterThan(0);
   });
 });
+
+
