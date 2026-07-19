@@ -5,7 +5,9 @@ export type WorkerMessageType =
   | 'ping'
   | 'process_capture'
   | 'generate_draft'
-  | 'compute_scores';
+  | 'compute_scores'
+  | 'batch_sentiment'
+  | 'batch_config';
 
 export interface WorkerMessage {
   type: WorkerMessageType;
@@ -35,3 +37,6 @@ export type {
   CaptureMetadata,
   CaptureResult,
 } from './ingestion';
+
+export { BatchProcessor } from './ai/batch-processor';
+export type { BatchProcessorOptions } from './ai/batch-processor';
