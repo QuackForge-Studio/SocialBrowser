@@ -12,10 +12,23 @@ import {
   getPublishAssistManager,
   resetPublishAssistManager,
 } from './publish-assist-manager';
+import { BaseWindow } from './base-window';
+import { ShellView } from './shell-view';
+import { ViewLayoutManager } from './view-layout-manager';
+import { SessionManager } from './session-manager';
+import { WorkspaceTabController } from './workspace-tab-controller';
 
 let worker: Worker | null = null;
 let workerRestartCount = 0;
 const MAX_WORKER_RESTARTS = 5;
+
+// ===== App Components =====
+
+let baseWindow: BaseWindow | null = null;
+let shellView: ShellView | null = null;
+let layoutManager: ViewLayoutManager | null = null;
+let sessionManager: SessionManager | null = null;
+let workspaceController: WorkspaceTabController | null = null;
 
 /**
  * Map of pending IPC requests from renderer -> worker.
@@ -251,11 +264,29 @@ function setupClipboardHandler(): void {
     }
   });
 }
+
 app.whenReady().then(() => {
   console.log('[Main] Social Browser starting...');
-  startWorker();
-  setupDashboardIpc();
 
+  // 1. Start worker thread
+  startWorker();
+
+  // 2. Set up base window, shell view, layout manager, and session manager
+  baseWindow = new BaseWindow();
+  shellView = new ShellView();
+  layoutManager = new ViewLayoutManager(baseWindow, shellView);
+  sessionManager = new SessionManager();
+
+  // 3. Initialize publish assist manager
+  const publishMgr = getPublishAssistManager();
+
+  // 4. Wire up IPC handlers
+  setupDashboardIpc();
+  setupNavigateToHandler(publishMgr);
+  setupPrefillComposeHandler(publishMgr);
+  setupClipboardHandler();
+
+  // 5. Wire up capture IPC validation gate
   wireUpIpcGate((channel: string, data: unknown) => {
     if (worker) {
       worker.postMessage({ type: 'process_capture', payload: { channel, data }, id: 'capture-' + Date.now() });
@@ -264,15 +295,33 @@ app.whenReady().then(() => {
     }
   });
 
-  console.log('[Main] IPC validation gate active');
+  // 6. Create the workspace tab controller (above ViewLayoutManager)
+  workspaceController = new WorkspaceTabController(
+    layoutManager,
+    sessionManager,
+    workerRequest,
+  );
+
+  // 7. Show the window
+  baseWindow.show();
+
+  console.log('[Main] WorkspaceTabController active — verified native navigation while ShellView is hidden');
   console.log('[Main] Social Browser ready');
 });
 
 app.on('will-quit', () => {
+  // Clean up workspace controller
+  if (workspaceController) {
+    workspaceController.dispose();
+    workspaceController = null;
+  }
+
+  // Shut down worker
   if (worker) {
     worker.postMessage({ type: 'shutdown', id: 'shutdown-' + Date.now() });
   }
+
+  // Clean up IPC gate and registries
   removeIpcGateHandlers();
   platformViewRegistry.clear();
 });
-
