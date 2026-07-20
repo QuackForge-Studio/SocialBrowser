@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Scoring Engine
  *
  * Null-safe scoring pipeline:
@@ -55,6 +55,7 @@ export interface ScoreResult {
   sampleConfidence: number | null;
   engagementScore: number | null;
   sentimentScore: number | null;
+  timingScore: number | null;
   compositeScore: number | null;
   formulaVersion: number;
 }
@@ -171,23 +172,25 @@ export function getPeerEngagementValues(
   contentType: ContentType,
   excludePostId?: string,
 ): number[] {
-  const query = 
-    SELECT s.engagement_score
+  let query = 
+    SELECT s.engagement_raw
     FROM scores s
     JOIN posts p ON p.id = s.post_id
     JOIN accounts a ON a.id = p.account_id
     WHERE a.id = ?
       AND a.platform = ?
       AND (p.content_type = ? OR p.content_type IS NULL)
-      AND s.engagement_score IS NOT NULL
-      
-    ORDER BY s.engagement_score ASC
+      AND s.engagement_raw IS NOT NULL
   ;
   const params: unknown[] = [accountId, platform, contentType];
-  if (excludePostId) params.push(excludePostId);
 
-  const rows = db.prepare(query).all(...params) as { engagement_score: number }[];
-  return rows.map(v => v.engagement_score);
+  if (excludePostId) {
+    query = query.replace(';', ' AND p.id != ?');
+    params.push(excludePostId);
+  }
+
+  const rows = db.prepare(query).all(...params) as { engagement_raw: number }[];
+  return rows.map(v => v.engagement_raw);
 }
 
 /**
@@ -398,6 +401,7 @@ export function computeScoreForPost(
       sampleConfidence: null,
       engagementScore: null,
       sentimentScore: null,
+      timingScore: null,
       compositeScore: null,
       formulaVersion: CURRENT_FORMULA_VERSION,
     };
@@ -451,6 +455,7 @@ export function computeScoreForPost(
     sampleConfidence,
     engagementScore,
     sentimentScore,
+    timingScore,
     compositeScore,
     formulaVersion: CURRENT_FORMULA_VERSION,
   };
@@ -470,17 +475,18 @@ export function storeScore(
 
   db.prepare(
     INSERT INTO scores (id, post_id, formula_version, engagement_score,
-      engagement_percentile, sentiment_score, timing_score, composite_score,
+      engagement_percentile, engagement_raw, sentiment_score, timing_score, composite_score,
       sample_confidence, computed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ).run(
     scoreId,
     postId,
     result.formulaVersion,
     result.engagementScore ?? null,
     result.engagementPercentile ?? null,
+    result.engagementRaw ?? null,
     result.sentimentScore ?? null,
-    null,
+    result.timingScore ?? null,
     result.compositeScore ?? null,
     result.sampleConfidence ?? null,
     computedAt,

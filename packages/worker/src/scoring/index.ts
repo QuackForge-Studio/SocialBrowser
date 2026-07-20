@@ -27,5 +27,4 @@ export type {
   ContentType,
   EngagementMetrics,
   ScoreResult,
-  ScoreRow,
 } from './scoring-engine';
