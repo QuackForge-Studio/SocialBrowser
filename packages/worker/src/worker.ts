@@ -1,10 +1,11 @@
-import { parentPort as _parentPort } from 'worker_threads';
+﻿import { parentPort as _parentPort } from 'worker_threads';
 import path from 'path';
 import { DatabaseManager } from './database/database';
 import { IngestionPipeline, createIngestionPipeline, PAYLOAD_SCHEMA_VERSION } from './ingestion/ingestion';
 import { setActiveProvider, getActiveProviderName, getProvider } from './ai/provider-registry';
 import { AiRunTracker } from './ai/ai-run-tracker';
 import { BatchProcessor } from './ai/batch-processor';
+import { computeAndStoreScore, CURRENT_FORMULA_VERSION } from './scoring/scoring-engine';
 import type { WorkerMessage, WorkerResponse } from './index';
 
 export type { WorkerMessage, WorkerResponse } from './index';
@@ -93,6 +94,16 @@ function initialize(): void {
   }
 }
 
+function triggerScoring(postId: string): void {
+  if (!dbManager) return;
+  try {
+    computeAndStoreScore(dbManager.getDb(), postId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[Worker] Scoring error (non-fatal):', msg);
+  }
+}
+
 function processCaptureEvent(channel: string, data: Record<string, unknown>): unknown {
   if (!pipeline || !dbManager) {
     return { status: 'error', reason: 'Ingestion pipeline not initialized' };
@@ -155,6 +166,40 @@ function processCaptureEvent(channel: string, data: Record<string, unknown>): un
 
     default:
       return null;
+  }
+}
+
+function handleComputeScores(payload: { postId?: string; accountId?: string }, msgId: string): void {
+  try {
+    if (!dbManager) {
+      send({ id: msgId, success: false, error: 'Database not initialized' });
+      return;
+    }
+    const db = dbManager.getDb();
+    if (payload.postId) {
+      const scoreId = computeAndStoreScore(db, payload.postId);
+      send({ id: msgId, success: true, data: { scoreId, formulaVersion: CURRENT_FORMULA_VERSION } });
+    } else if (payload.accountId) {
+      const posts = db.prepare('SELECT id FROM posts WHERE account_id = ?').all(payload.accountId) as { id: string }[];
+      const results = [];
+      for (const post of posts) {
+        const scoreId = computeAndStoreScore(db, post.id);
+        results.push({ postId: post.id, scoreId });
+      }
+      send({ id: msgId, success: true, data: { results, formulaVersion: CURRENT_FORMULA_VERSION } });
+    } else {
+      const posts = db.prepare('SELECT id FROM posts').all() as { id: string }[];
+      let count = 0;
+      for (const post of posts) {
+        const scoreId = computeAndStoreScore(db, post.id);
+        if (scoreId) count++;
+      }
+      send({ id: msgId, success: true, data: { postsProcessed: count, formulaVersion: CURRENT_FORMULA_VERSION } });
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[Worker] Compute scores error:', msg);
+    send({ id: msgId, success: false, error: msg });
   }
 }
 
@@ -233,3 +278,5 @@ function handleShutdown(msgId: string): void {
     }
 
     }
+
+
