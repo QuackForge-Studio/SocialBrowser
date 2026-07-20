@@ -6,12 +6,17 @@ export interface BatchProcessorOptions {
   costLimitDaily: number;
 }
 
+interface QueueEntry {
+  resolve: () => void;
+  reject: (err: Error) => void;
+}
+
 export class BatchProcessor {
   private maxConcurrent: number;
   private maxRetries: number;
   private costLimitDaily: number;
   private running: number = 0;
-  private queue: Array<() => void> = [];
+  private queue: QueueEntry[] = [];
   private tracker: AiRunTracker | null = null;
   private shutdownRequested: boolean = false;
 
@@ -63,18 +68,25 @@ export class BatchProcessor {
         throw new Error('Daily cost limit exceeded ($' + this.costLimitDaily.toFixed(4) + ')');
       }
     }
-    if (this.running < this.maxConcurrent) {
-      return this.runWithRetry(fn, 0);
-    }
-    return new Promise<T>((resolve, reject) => {
-      this.queue.push(() => {
-        this.runWithRetry(fn, 0).then(resolve).catch(reject);
+
+    // Reserve capacity: if at the limit, wait until a slot opens
+    if (this.running >= this.maxConcurrent) {
+      await new Promise<void>((resolve, reject) => {
+        this.queue.push({ resolve, reject });
       });
-    });
+    } else {
+      this.running++;
+    }
+
+    try {
+      return await this.runWithRetry(fn, 0);
+    } finally {
+      this.running--;
+      this.drainQueue();
+    }
   }
 
   private async runWithRetry<T>(fn: () => Promise<T>, attempt: number): Promise<T> {
-    this.running++;
     try {
       const result = await fn();
       return result;
@@ -87,17 +99,15 @@ export class BatchProcessor {
         return this.runWithRetry(fn, attempt + 1);
       }
       throw err;
-    } finally {
-      this.running--;
-      this.drainQueue();
     }
   }
 
   private drainQueue(): void {
     if (this.shutdownRequested) return;
-    while (this.queue.length > 0 && this.running < this.maxConcurrent) {
-      const next = this.queue.shift();
-      if (next) setImmediate(next);
+    if (this.queue.length > 0 && this.running < this.maxConcurrent) {
+      const entry = this.queue.shift()!;
+      this.running++;
+      setImmediate(() => entry.resolve());
     }
   }
 
@@ -105,9 +115,9 @@ export class BatchProcessor {
     this.shutdownRequested = true;
     const remaining = this.queue;
     this.queue = [];
-    for (const item of remaining) {
+    for (const entry of remaining) {
       setImmediate(() => {
-        try { throw new Error('BatchProcessor is shutting down'); } catch { }
+        entry.reject(new Error('BatchProcessor is shutting down'));
       });
     }
   }
