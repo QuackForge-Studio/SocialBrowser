@@ -1,3 +1,44 @@
+// ===== Compliance Tables =====
+
+export const CREATE_AUDIT_EVENT_LOG = `
+CREATE TABLE IF NOT EXISTS audit_event_log (
+  id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  actor_id TEXT,
+  target_id TEXT,
+  platform TEXT,
+  outcome TEXT,
+  limit_class TEXT,
+  metadata_json TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`;
+
+export const CREATE_ACKNOWLEDGEMENTS = `
+CREATE TABLE IF NOT EXISTS acknowledgements (
+  account_id TEXT PRIMARY KEY,
+  acknowledged_at TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`;
+
+export const CREATE_RATE_LIMITS = `
+CREATE TABLE IF NOT EXISTS rate_limits (
+  id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  operation TEXT NOT NULL CHECK (operation IN ('capture', 'ai')),
+  window_start TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 1
+);
+`;
+
+export const COMPLIANCE_TABLE_STATEMENTS: string[] = [
+  CREATE_AUDIT_EVENT_LOG,
+  CREATE_ACKNOWLEDGEMENTS,
+  CREATE_RATE_LIMITS,
+];
 import type Database from 'better-sqlite3';
 
 // ===== SQL Schema Definitions =====
@@ -260,6 +301,7 @@ export const AUDIT_TABLE_STATEMENTS: string[] = [
   CREATE_EMBEDDING_RECORDS,
   CREATE_AI_RUNS,
   CREATE_SETTINGS,
+  ...COMPLIANCE_TABLE_STATEMENTS,
 ];
 
 /**
@@ -290,10 +332,11 @@ export function createVecTableSQL(
 }
 
 /**
- * List of all table names for verification (17 total).
+ * List of all table names for verification (20 total).
  * Core (7): schema_migrations, accounts, posts, engagement_snapshots, comments, content_drafts, scores
  * Workspace (4): workspaces, tab_groups, group_accounts, group_tabs
  * Audit (6): capture_batches, capture_events, adapter_versions, embedding_records, ai_runs, settings
+ * Compliance (3): audit_event_log, acknowledgements, rate_limits
  */
 export const ALL_TABLE_NAMES: string[] = [
   'schema_migrations',
@@ -313,4 +356,7 @@ export const ALL_TABLE_NAMES: string[] = [
   'tab_groups',
   'group_accounts',
   'group_tabs',
+  'audit_event_log',
+  'acknowledgements',
+  'rate_limits',
 ];

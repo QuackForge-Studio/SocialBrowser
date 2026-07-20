@@ -38,8 +38,9 @@ describe('Workspace Data Migration (VAL-WORKSPACE-023)', () => {
   // ===== Migration 005 structure =====
   describe('Migration 005 structure', () => {
     it('should have 5 total migrations with version 5', () => {
-      expect(ALL_MIGRATIONS.length).toBe(5);
+      expect(ALL_MIGRATIONS.length).toBe(6);
       expect(ALL_MIGRATIONS[4].version).toBe(5);
+      expect(ALL_MIGRATIONS[5].version).toBe(6);
     });
 
     it('should apply migration 005 idempotently', () => {
@@ -52,7 +53,7 @@ describe('Workspace Data Migration (VAL-WORKSPACE-023)', () => {
     it('should have recorded migration 005 as applied', () => {
       const versions = getAppliedVersions(db).sort((a, b) => a - b);
       expect(versions).toContain(5);
-      expect(versions.length).toBe(5);
+      expect(versions.length).toBe(6);
     });
   });
 
@@ -68,7 +69,7 @@ describe('Workspace Data Migration (VAL-WORKSPACE-023)', () => {
 
     it('should have 17 total tables including workspace tables', () => {
       const tables = listTables(db);
-      expect(tables.length).toBe(18);
+      expect(tables.length).toBe(21);
     });
 
     it('should have correct columns in workspaces table', () => {

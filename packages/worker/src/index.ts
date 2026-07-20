@@ -35,7 +35,15 @@ export type WorkerMessageType =
   | 'get_settings'
   | 'update_settings'
   | 'get_analytics'
-  | 'get_heatmap';
+  | 'get_heatmap'
+  | 'acknowledge_account'
+  | 'check_acknowledged'
+  | 'check_capture_rate_limit'
+  | 'check_ai_rate_limit'
+  | 'record_capture_audit'
+  | 'record_ai_audit'
+  | 'get_audit_events'
+  | 'get_group_account_ids';
 
 export interface WorkerMessage {
   type: WorkerMessageType;
@@ -82,3 +90,12 @@ export type {
   GenerateWithRAGResult,
   RAGPipelineOptions,
 } from './ai';
+
+export {
+  recordAuditEvent,
+  acknowledgeAccount,
+  isAccountAcknowledged,
+  checkAndConsumeRateLimit,
+  getAuditEvents,
+  getGroupAccountIds,
+} from'./workspace/compliance';

@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { ALL_TABLE_STATEMENTS, WORKSPACE_TABLE_STATEMENTS, SQL_ENABLE_FOREIGN_KEYS } from './schema';
+import { ALL_TABLE_STATEMENTS, WORKSPACE_TABLE_STATEMENTS, SQL_ENABLE_FOREIGN_KEYS, COMPLIANCE_TABLE_STATEMENTS } from './schema';
 
 // ===== Migration Types =====
 
@@ -186,12 +186,40 @@ export function migrateLegacyAccounts(db: Database.Database): void {
   insertAll();
 }
 
+/**
+ * Migration 006: Compliance tables for audit events, acknowledgements, and rate limits
+ *
+ * Creates the three compliance tables needed by the workspace policy/audit/limits
+ * feature:
+ * - audit_event_log: append-only, payload-minimized audit records
+ * - acknowledgements: per-account ToS/account-risk acknowledgement persistence
+ * - rate_limits: canonical per (accountId, platform, operation) rate limiting
+ *
+ * These tables support:
+ * - VAL-WORKSPACE-012: Append-only audit for acknowledgement and group/tab actions
+ * - VAL-WORKSPACE-013: Capture allow/reject/throttle audit outcomes
+ * - VAL-WORKSPACE-014: AI rate-limit and publish-assist audit outcomes
+ * - VAL-WORKSPACE-015: Allowlisted minimum metadata in audit records
+ * - VAL-WORKSPACE-016: Canonical per-account/platform capture limits
+ * - VAL-WORKSPACE-017: Canonical per-account/platform AI limits
+ * - VAL-CROSS-028: Per-account/platform guardrail isolation
+ */
+export const MIGRATION_006: Migration = {
+  version: 6,
+  description: 'Compliance tables for audit events, acknowledgements, and rate limits',
+  up: (db: Database.Database) => {
+    for (const stmt of COMPLIANCE_TABLE_STATEMENTS) {
+      db.exec(stmt);
+    }
+  },
+};
 export const ALL_MIGRATIONS: Migration[] = [
   MIGRATION_001,
   MIGRATION_002,
   MIGRATION_003,
   MIGRATION_004,
   MIGRATION_005,
+  MIGRATION_006,
 ];
 
 // ===== Migration Runner =====

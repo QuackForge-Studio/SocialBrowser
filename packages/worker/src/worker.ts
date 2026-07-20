@@ -41,6 +41,16 @@ import {
   removeGroupTabHandler,
   reorderGroupTabsHandler,
 } from './workspace';
+import {
+  recordAuditEvent,
+  acknowledgeAccount,
+  isAccountAcknowledged,
+  checkAndConsumeRateLimit,
+  getAuditEvents,
+  getGroupAccountIds,
+  recordCaptureResult,
+  recordAiResult,
+} from './workspace/compliance';
 import type { WorkerMessage, WorkerResponse } from './index';
 
 export type { WorkerMessage, WorkerResponse } from './index';
@@ -425,6 +435,70 @@ if (port) {
       case 'reorder_group_tabs':
         dbFn(reorderGroupTabsHandler);
         break;
+      case 'acknowledge_account':
+        {
+          if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
+          const p = payload as any;
+          acknowledgeAccount(dbManager.getDb(), p.accountId);
+          send({ id: msgId, success: true, data: { acknowledged: true } });
+          break;
+        }
+      case 'check_acknowledged':
+        {
+          if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
+          const p = payload as any;
+          const acknowledged = isAccountAcknowledged(dbManager.getDb(), p.accountId);
+          send({ id: msgId, success: true, data: { acknowledged } });
+          break;
+        }
+      case 'check_capture_rate_limit':
+        {
+          if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
+          const p = payload as any;
+          const allowed = checkAndConsumeRateLimit(dbManager.getDb(), p.accountId, p.platform, 'capture', p.config);
+          send({ id: msgId, success: true, data: { allowed } });
+          break;
+        }
+      case 'check_ai_rate_limit':
+        {
+          if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
+          const p = payload as any;
+          const allowed = checkAndConsumeRateLimit(dbManager.getDb(), p.accountId, p.platform, 'ai', p.config);
+          send({ id: msgId, success: true, data: { allowed } });
+          break;
+        }
+      case 'record_capture_audit':
+        {
+          if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
+          const p = payload as any;
+          recordCaptureResult(dbManager.getDb(), p.outcome, p.accountId, p.platform, p.reason);
+          send({ id: msgId, success: true, data: { recorded: true } });
+          break;
+        }
+      case 'record_ai_audit':
+        {
+          if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
+          const p = payload as any;
+          recordAiResult(dbManager.getDb(), p.outcome, p.accountId, p.platform, p.reason);
+          send({ id: msgId, success: true, data: { recorded: true } });
+          break;
+        }
+      case 'get_audit_events':
+        {
+          if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
+          const p = payload as any;
+          const events = getAuditEvents(dbManager.getDb(), p);
+          send({ id: msgId, success: true, data: events });
+          break;
+        }
+      case 'get_group_account_ids':
+        {
+          if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
+          const p = payload as any;
+          const accountIds = getGroupAccountIds(dbManager.getDb(), p.groupId);
+          send({ id: msgId, success: true, data: accountIds });
+          break;
+        }
       default:
         send({ id: msgId, success: false, error: 'Unknown type: ' + type });
         break;
