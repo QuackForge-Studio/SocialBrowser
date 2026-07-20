@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { ALL_TABLE_STATEMENTS, SQL_ENABLE_FOREIGN_KEYS } from './schema';
+import { ALL_TABLE_STATEMENTS, WORKSPACE_TABLE_STATEMENTS, SQL_ENABLE_FOREIGN_KEYS } from './schema';
 
 // ===== Migration Types =====
 
@@ -96,11 +96,102 @@ export const MIGRATION_004: Migration = {
   },
 };
 
+/**
+ * Migration 005: Workspace tables & legacy account data migration
+ *
+ * Ensures workspace-related tables exist and migrates existing legacy
+ * accounts into a default workspace + group.
+ *
+ * The migration is:
+ * - Non-destructive: preserves all account IDs, partitions, content
+ * - Deterministic: orders accounts by created_at ASC, id ASC
+ * - Idempotent: safe to run multiple times (checks for existing workspaces)
+ * - Fresh-DB safe: does nothing if no accounts exist
+ */
+export const MIGRATION_005: Migration = {
+  version: 5,
+  description: 'Workspace tables and legacy account data migration',
+  up: (db: Database.Database) => {
+    // Create workspace tables (idempotent, IF NOT EXISTS)
+    for (const stmt of WORKSPACE_TABLE_STATEMENTS) {
+      db.exec(stmt);
+    }
+
+    // Migrate legacy accounts if there are accounts and no workspaces yet
+    migrateLegacyAccounts(db);
+  },
+};
+
+/**
+ * Migrate legacy accounts into a default workspace and ordered group.
+ *
+ * Scans the accounts table for any accounts that are not yet assigned
+ * to a workspace group, then creates a default workspace, a default
+ * tab group, and assigns all accounts to that group in deterministic
+ * order (created_at ASC, id ASC as tiebreaker).
+ *
+ * This function is idempotent: if workspaces already exist, it returns
+ * immediately without making changes.
+ *
+ * Postconditions:
+ * - A "Default Workspace" and "Default Group" exist (if accounts existed)
+ * - All accounts are members of the default group in deterministic order
+ * - All existing account IDs, session_partitions, and content preserved
+ * - No browser storage or sessions are read, cleared, or modified
+ */
+export function migrateLegacyAccounts(db: Database.Database): void {
+  // Skip if no accounts exist
+  const accountCount = db.prepare(
+    'SELECT COUNT(*) as count FROM accounts'
+  ).get() as { count: number };
+  if (accountCount.count === 0) return;
+
+  // Skip if workspaces already exist (idempotency guard)
+  const wsCount = db.prepare(
+    'SELECT COUNT(*) as count FROM workspaces'
+  ).get() as { count: number };
+  if (wsCount.count > 0) return;
+
+  const now = new Date().toISOString();
+
+  // Create default workspace at sort_order 0
+  const wsId = 'workspace-default';
+  db.prepare(
+    'INSERT INTO workspaces (id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+  ).run(wsId, 'Default Workspace', 0, now, now);
+
+  // Create default tab group in the default workspace at sort_order 0
+  const groupId = 'group-default';
+  db.prepare(
+    'INSERT INTO tab_groups (id, workspace_id, name, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(groupId, wsId, 'Default Group', 0, now, now);
+
+  // Fetch all accounts ordered deterministically: created_at ASC, id ASC
+  const accounts = db.prepare(
+    'SELECT id FROM accounts ORDER BY created_at ASC, id ASC'
+  ).all() as { id: string }[];
+
+  // Insert group-account memberships in a single transaction for atomicity
+  const insertStmt = db.prepare(
+    'INSERT INTO group_accounts (id, group_id, account_id, sort_order, created_at) VALUES (?, ?, ?, ?, ?)'
+  );
+
+  const insertAll = db.transaction(() => {
+    for (let i = 0; i < accounts.length; i++) {
+      const gmId = 'gm-' + accounts[i].id;
+      insertStmt.run(gmId, groupId, accounts[i].id, i, now);
+    }
+  });
+
+  insertAll();
+}
+
 export const ALL_MIGRATIONS: Migration[] = [
   MIGRATION_001,
   MIGRATION_002,
   MIGRATION_003,
   MIGRATION_004,
+  MIGRATION_005,
 ];
 
 // ===== Migration Runner =====
@@ -116,7 +207,6 @@ export function getAppliedVersions(db: Database.Database): number[] {
     ).all() as { version: number }[];
     return rows.map(r => r.version);
   } catch {
-    // schema_migrations table doesn't exist yet; treat as fresh DB with no migrations applied
     return [];
   }
 }
@@ -134,8 +224,6 @@ export function runMigrations(db: Database.Database): number {
     return 0;
   }
 
-  // Use exec-based approach for migration tracking since schema_migrations
-  // table may not exist yet at statement-prepare time for the first migration.
   const runAll = db.transaction(() => {
     for (const migration of pending) {
       migration.up(db);
@@ -152,4 +240,3 @@ export function runMigrations(db: Database.Database): number {
 
   return pending.length;
 }
-

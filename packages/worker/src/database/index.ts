@@ -1,7 +1,7 @@
-export { DatabaseManager } from './database';
+﻿export { DatabaseManager } from './database';
 export type { DatabaseOptions } from './database';
 export { getVecExtensionPath } from './vec-loading';
-export { runMigrations, getAppliedVersions, ALL_MIGRATIONS } from './migrations';
+export { runMigrations, getAppliedVersions, ALL_MIGRATIONS, migrateLegacyAccounts } from './migrations';
 export type { Migration } from './migrations';
 export {
   ALL_TABLE_NAMES,
@@ -24,4 +24,9 @@ export {
   vecTableName,
   createVecTableSQL,
   SQL_ENABLE_WAL,
+  WORKSPACE_TABLE_STATEMENTS,
+  CREATE_WORKSPACES,
+  CREATE_TAB_GROUPS,
+  CREATE_GROUP_ACCOUNTS,
+  CREATE_GROUP_TABS,
 } from './schema';

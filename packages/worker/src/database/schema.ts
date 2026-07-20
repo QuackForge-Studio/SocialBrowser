@@ -1,4 +1,4 @@
-﻿import type Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 
 // ===== SQL Schema Definitions =====
 
@@ -171,6 +171,54 @@ CREATE TABLE IF NOT EXISTS ai_runs (
 );
 `;
 
+
+// ===== Workspace Tables =====
+
+export const CREATE_WORKSPACES = `
+CREATE TABLE IF NOT EXISTS workspaces (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`;
+
+export const CREATE_TAB_GROUPS = `
+CREATE TABLE IF NOT EXISTS tab_groups (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`;
+
+export const CREATE_GROUP_ACCOUNTS = `
+CREATE TABLE IF NOT EXISTS group_accounts (
+  id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES tab_groups(id) ON DELETE CASCADE,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(group_id, account_id)
+);
+`;
+
+export const CREATE_GROUP_TABS = `
+CREATE TABLE IF NOT EXISTS group_tabs (
+  id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES tab_groups(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  url TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`;
+
 export const CREATE_SETTINGS = `
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -178,6 +226,14 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `;
+;
+
+export const WORKSPACE_TABLE_STATEMENTS: string[] = [
+  CREATE_WORKSPACES,
+  CREATE_TAB_GROUPS,
+  CREATE_GROUP_ACCOUNTS,
+  CREATE_GROUP_TABS,
+];
 
 // ===== All CREATE TABLE statements =====
 
@@ -212,6 +268,7 @@ export const AUDIT_TABLE_STATEMENTS: string[] = [
 export const ALL_TABLE_STATEMENTS: string[] = [
   ...CORE_TABLE_STATEMENTS,
   ...AUDIT_TABLE_STATEMENTS,
+  ...WORKSPACE_TABLE_STATEMENTS,
 ];
 
 /**
@@ -233,8 +290,9 @@ export function createVecTableSQL(
 }
 
 /**
- * List of all table names for verification (13 total).
+ * List of all table names for verification (17 total).
  * Core (7): schema_migrations, accounts, posts, engagement_snapshots, comments, content_drafts, scores
+ * Workspace (4): workspaces, tab_groups, group_accounts, group_tabs
  * Audit (6): capture_batches, capture_events, adapter_versions, embedding_records, ai_runs, settings
  */
 export const ALL_TABLE_NAMES: string[] = [
@@ -251,4 +309,8 @@ export const ALL_TABLE_NAMES: string[] = [
   'embedding_records',
   'ai_runs',
   'settings',
+  'workspaces',
+  'tab_groups',
+  'group_accounts',
+  'group_tabs',
 ];

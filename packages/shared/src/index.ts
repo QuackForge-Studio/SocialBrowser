@@ -1,4 +1,42 @@
-﻿export interface Account {id: string;platform: string;handle: string;displayName?: string;avatarUrl?: string;sessionPartition: string;adapterVersion?: number;createdAt: string;updatedAt: string;}export interface Post {id: string;accountId: string;platformPostId: string;contentText?: string;mediaRefs?: string;payloadSchemaVersion: number;adapterVersion: number;publishedAt?: string;capturedAt: string;}export interface EngagementSnapshot {id: string;postId: string;capturedAt: string;views?: number;likes?: number;commentsCount?: number;shares?: number;otherMetrics?: string;}export interface Comment {id: string;postId: string;platformCommentId?: string;authorHandle?: string;text?: string;sentimentLabel?: string;sentimentScore?: number;capturedAt: string;}export interface ContentDraft {id: string;accountId: string;generatedText?: string;sourcePrompt?: string;ragContextIds?: string;predictedScore?: number;status: string;createdAt: string;updatedAt: string;}export interface Score {id: string;postId: string;formulaVersion: number;engagementScore?: number;engagementPercentile?: number;sentimentScore?: number;timingScore?: number;compositeScore?: number;sampleConfidence?: number;computedAt: string;}export interface CaptureBatch {id: string;accountId: string;startedAt: string;completedAt?: string;eventCount: number;status: string;}export interface CaptureEvent {id: string;batchId: string;eventType: string;payloadSchemaVersion: number;adapterVersion: number;platform: string;accountId: string;rawPayload?: string;status: string;rejectionReason?: string;capturedAt: string;}export interface AiRun {id: string;runType: string;provider: string;model: string;promptTemplateVersion?: number;sourcePostIds?: string;latencyMs?: number;tokenCount?: number;status: string;errorMessage?: string;costEstimate?: number;createdAt: string;}export interface Setting {key: string;value: string;updatedAt: string;}export type Platform = "x" | "threads" | "instagram" | "tiktok" | "facebook";
+export interface Account {id: string;platform: string;handle: string;displayName?: string;avatarUrl?: string;sessionPartition: string;adapterVersion?: number;createdAt: string;updatedAt: string;}export interface Post {id: string;accountId: string;platformPostId: string;contentText?: string;mediaRefs?: string;payloadSchemaVersion: number;adapterVersion: number;publishedAt?: string;capturedAt: string;}export interface EngagementSnapshot {id: string;postId: string;capturedAt: string;views?: number;likes?: number;commentsCount?: number;shares?: number;otherMetrics?: string;}export interface Comment {id: string;postId: string;platformCommentId?: string;authorHandle?: string;text?: string;sentimentLabel?: string;sentimentScore?: number;capturedAt: string;}export interface ContentDraft {id: string;accountId: string;generatedText?: string;sourcePrompt?: string;ragContextIds?: string;predictedScore?: number;status: string;createdAt: string;updatedAt: string;}export interface Score {id: string;postId: string;formulaVersion: number;engagementScore?: number;engagementPercentile?: number;sentimentScore?: number;timingScore?: number;compositeScore?: number;sampleConfidence?: number;computedAt: string;}export interface CaptureBatch {id: string;accountId: string;startedAt: string;completedAt?: string;eventCount: number;status: string;}export interface CaptureEvent {id: string;batchId: string;eventType: string;payloadSchemaVersion: number;adapterVersion: number;platform: string;accountId: string;rawPayload?: string;status: string;rejectionReason?: string;capturedAt: string;}export interface AiRun {id: string;runType: string;provider: string;model: string;promptTemplateVersion?: number;sourcePostIds?: string;latencyMs?: number;tokenCount?: number;status: string;errorMessage?: string;costEstimate?: number;createdAt: string;}export interface Setting {key: string;value: string;updatedAt: string;}
+
+// ===== Workspace & Group Types =====
+
+export interface Workspace {
+  id: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TabGroup {
+  id: string;
+  workspaceId: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupAccount {
+  id: string;
+  groupId: string;
+  accountId: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface GroupTab {
+  id: string;
+  groupId: string;
+  platform: string;
+  accountId: string;
+  url?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}}export type Platform = "x" | "threads" | "instagram" | "tiktok" | "facebook";
 
 // AI Provider Result Types
 export interface GenerateResult {

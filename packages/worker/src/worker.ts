@@ -21,6 +21,26 @@ import {
   getAnalyticsHandler,
   getHeatmapHandler,
 } from './dashboard-handlers';
+import {
+  getWorkspacesHandler,
+  createWorkspaceHandler,
+  renameWorkspaceHandler,
+  deleteWorkspaceHandler,
+  reorderWorkspacesHandler,
+  getTabGroupsHandler,
+  createTabGroupHandler,
+  renameTabGroupHandler,
+  deleteTabGroupHandler,
+  reorderTabGroupsHandler,
+  getGroupAccountsHandler,
+  addAccountToGroupHandler,
+  removeAccountFromGroupHandler,
+  reorderGroupAccountsHandler,
+  getGroupTabsHandler,
+  addGroupTabHandler,
+  removeGroupTabHandler,
+  reorderGroupTabsHandler,
+} from './workspace';
 import type { WorkerMessage, WorkerResponse } from './index';
 
 export type { WorkerMessage, WorkerResponse } from './index';
@@ -350,6 +370,60 @@ if (port) {
         break;
       case 'shutdown':
         handleShutdown(msgId);
+        break;
+      case 'get_workspaces':
+        dbFn(getWorkspacesHandler);
+        break;
+      case 'create_workspace':
+        dbFn(createWorkspaceHandler);
+        break;
+      case 'rename_workspace':
+        dbFn(renameWorkspaceHandler);
+        break;
+      case 'delete_workspace':
+        dbFn(deleteWorkspaceHandler);
+        break;
+      case 'reorder_workspaces':
+        dbFn(reorderWorkspacesHandler);
+        break;
+      case 'get_tab_groups':
+        dbFn(getTabGroupsHandler);
+        break;
+      case 'create_tab_group':
+        dbFn(createTabGroupHandler);
+        break;
+      case 'rename_tab_group':
+        dbFn(renameTabGroupHandler);
+        break;
+      case 'delete_tab_group':
+        dbFn(deleteTabGroupHandler);
+        break;
+      case 'reorder_tab_groups':
+        dbFn(reorderTabGroupsHandler);
+        break;
+      case 'get_group_accounts':
+        dbFn(getGroupAccountsHandler);
+        break;
+      case 'add_account_to_group':
+        dbFn(addAccountToGroupHandler);
+        break;
+      case 'remove_account_from_group':
+        dbFn(removeAccountFromGroupHandler);
+        break;
+      case 'reorder_group_accounts':
+        dbFn(reorderGroupAccountsHandler);
+        break;
+      case 'get_group_tabs':
+        dbFn(getGroupTabsHandler);
+        break;
+      case 'add_group_tab':
+        dbFn(addGroupTabHandler);
+        break;
+      case 'remove_group_tab':
+        dbFn(removeGroupTabHandler);
+        break;
+      case 'reorder_group_tabs':
+        dbFn(reorderGroupTabsHandler);
         break;
       default:
         send({ id: msgId, success: false, error: 'Unknown type: ' + type });
