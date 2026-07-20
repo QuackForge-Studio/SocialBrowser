@@ -1,4 +1,4 @@
-﻿export const WORKER_VERSION = '0.1.0';
+export const WORKER_VERSION = '0.1.0';
 
 export type WorkerMessageType =
   | 'shutdown'
@@ -7,7 +7,17 @@ export type WorkerMessageType =
   | 'generate_draft'
   | 'compute_scores'
   | 'batch_sentiment'
-  | 'batch_config';
+  | 'batch_config'
+  | 'get_accounts'
+  | 'get_posts'
+  | 'get_drafts'
+  | 'create_draft'
+  | 'update_draft'
+  | 'delete_draft'
+  | 'get_settings'
+  | 'update_settings'
+  | 'get_analytics'
+  | 'get_heatmap';
 
 export interface WorkerMessage {
   type: WorkerMessageType;

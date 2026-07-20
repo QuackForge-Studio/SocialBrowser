@@ -1,11 +1,26 @@
-﻿import { parentPort as _parentPort } from 'worker_threads';
+import { parentPort as _parentPort } from 'worker_threads';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { DatabaseManager } from './database/database';
 import { IngestionPipeline, createIngestionPipeline, PAYLOAD_SCHEMA_VERSION } from './ingestion/ingestion';
 import { setActiveProvider, getActiveProviderName, getProvider } from './ai/provider-registry';
 import { AiRunTracker } from './ai/ai-run-tracker';
 import { BatchProcessor } from './ai/batch-processor';
 import { computeAndStoreScore, CURRENT_FORMULA_VERSION } from './scoring/scoring-engine';
+import { EmbeddingPipeline } from './ai/embedding-pipeline';
+import { RAGPipeline } from './ai/rag-pipeline';
+import {
+  getAccounts,
+  getPosts,
+  createDraftHandler,
+  getDrafts,
+  updateDraftHandler,
+  deleteDraftHandler,
+  getSettingsHandler,
+  updateSettingsHandler,
+  getAnalyticsHandler,
+  getHeatmapHandler,
+} from './dashboard-handlers';
 import type { WorkerMessage, WorkerResponse } from './index';
 
 export type { WorkerMessage, WorkerResponse } from './index';
@@ -17,12 +32,13 @@ let dbManager: DatabaseManager | null = null;
 let pipeline: IngestionPipeline | null = null;
 let runTracker: AiRunTracker | null = null;
 let batchProcessor: BatchProcessor | null = null;
+let embeddingPipeline: EmbeddingPipeline | null = null;
+let ragPipeline: RAGPipeline | null = null;
 
-const pendingKeyRequests = new Map<string, { resolve: (key: string) => void; reject: (err: Error) => void }>();
-
+const pendingKeyRequests = new Map();
 let shutdownRequested = false;
 
-function send(msg: { id: string; success: boolean; data?: unknown; error?: string }): void {
+function send(msg: WorkerResponse): void {
   if (port) {
     port.postMessage(msg);
   }
@@ -34,7 +50,7 @@ function requestApiKeyFromMain(provider: string): Promise<string> {
     const timeout = setTimeout(() => {
       if (pendingKeyRequests.has(id)) {
         pendingKeyRequests.delete(id);
-        reject(new Error('API key request timed out for provider: ' + provider));
+        reject(new Error('API key request timed out for: ' + provider));
       }
     }, 15000);
     pendingKeyRequests.set(id, {
@@ -75,15 +91,18 @@ function initialize(): void {
       runMigrations: true,
     });
     dbManager.open();
+    const db = dbManager.getDb();
 
-    pipeline = createIngestionPipeline(dbManager.getDb());
-    runTracker = new AiRunTracker(dbManager.getDb());
+    pipeline = createIngestionPipeline(db);
+    runTracker = new AiRunTracker(db);
     batchProcessor = new BatchProcessor({
       maxConcurrent: 5,
       maxRetries: 3,
       costLimitDaily: 0,
     });
     batchProcessor.setRunTracker(runTracker);
+    embeddingPipeline = new EmbeddingPipeline(db);
+    ragPipeline = new RAGPipeline(db, embeddingPipeline);
 
     console.log('[Worker] Initialized successfully');
     send({ id: 'ready', success: true, data: { version: '0.1.0', dbPath } });
@@ -94,21 +113,10 @@ function initialize(): void {
   }
 }
 
-function triggerScoring(postId: string): void {
-  if (!dbManager) return;
-  try {
-    computeAndStoreScore(dbManager.getDb(), postId);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('[Worker] Scoring error (non-fatal):', msg);
-  }
-}
-
 function processCaptureEvent(channel: string, data: Record<string, unknown>): unknown {
   if (!pipeline || !dbManager) {
-    return { status: 'error', reason: 'Ingestion pipeline not initialized' };
+    return { status: 'error', reason: 'Pipeline not initialized' };
   }
-
   const platform = data.platform as string;
   const accountId = data.accountId as string;
   const batchId = pipeline.ensureActiveBatch(accountId);
@@ -126,74 +134,56 @@ function processCaptureEvent(channel: string, data: Record<string, unknown>): un
         publishedAt: np.publishedAt,
       }, meta);
     }
-
     case 'capture:snapshot': {
       const snap = (data as any).snapshot;
       const dbo = dbManager.getDb();
-      const row = dbo.prepare('SELECT id FROM posts WHERE account_id = ? AND platform_post_id = ?').get(accountId, data.postId) as { id: string } | undefined;
+      const row = dbo.prepare('SELECT id FROM posts WHERE account_id = ? AND platform_post_id = ?').get(accountId, data.postId) as any;
       if (row) {
         return pipeline.ingestSnapshot(row.id, {
-          views: snap.views,
-          likes: snap.likes,
-          commentsCount: snap.commentsCount,
-          shares: snap.shares,
+          views: snap.views, likes: snap.likes,
+          commentsCount: snap.commentsCount, shares: snap.shares,
           otherMetrics: snap.otherMetrics,
         }, meta);
       }
       return { status: 'rejected', reason: 'Post not found for snapshot' };
     }
-
     case 'capture:comment': {
       const cmt = (data as any).comment;
       const dbo = dbManager.getDb();
-      const row = dbo.prepare('SELECT id FROM posts WHERE account_id = ? AND platform_post_id = ?').get(accountId, data.postId) as { id: string } | undefined;
+      const row = dbo.prepare('SELECT id FROM posts WHERE account_id = ? AND platform_post_id = ?').get(accountId, data.postId) as any;
       if (row) {
         return pipeline.ingestComment(row.id, {
           platformCommentId: cmt.platformCommentId,
-          authorHandle: cmt.authorHandle,
-          text: cmt.text,
+          authorHandle: cmt.authorHandle, text: cmt.text,
         }, meta);
       }
       return { status: 'rejected', reason: 'Post not found for comment' };
     }
-
     case 'capture:adapter-ready':
       return pipeline.handleAdapterReady(data as any);
-
     case 'capture:error':
       pipeline.handleError(data as any, batchId);
       return { status: 'logged', error: data.error };
-
     default:
       return null;
   }
 }
 
-function handleComputeScores(payload: { postId?: string; accountId?: string }, msgId: string): void {
+function handleComputeScores(payload: any, msgId: string): void {
   try {
-    if (!dbManager) {
-      send({ id: msgId, success: false, error: 'Database not initialized' });
-      return;
-    }
+    if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); return; }
     const db = dbManager.getDb();
-    if (payload.postId) {
+    if (payload?.postId) {
       const scoreId = computeAndStoreScore(db, payload.postId);
       send({ id: msgId, success: true, data: { scoreId, formulaVersion: CURRENT_FORMULA_VERSION } });
-    } else if (payload.accountId) {
-      const posts = db.prepare('SELECT id FROM posts WHERE account_id = ?').all(payload.accountId) as { id: string }[];
-      const results = [];
-      for (const post of posts) {
-        const scoreId = computeAndStoreScore(db, post.id);
-        results.push({ postId: post.id, scoreId });
-      }
+    } else if (payload?.accountId) {
+      const posts = db.prepare('SELECT id FROM posts WHERE account_id = ?').all(payload.accountId) as any[];
+      const results = posts.map(p => ({ postId: p.id, scoreId: computeAndStoreScore(db, p.id) }));
       send({ id: msgId, success: true, data: { results, formulaVersion: CURRENT_FORMULA_VERSION } });
     } else {
-      const posts = db.prepare('SELECT id FROM posts').all() as { id: string }[];
+      const posts = db.prepare('SELECT id FROM posts').all() as any[];
       let count = 0;
-      for (const post of posts) {
-        const scoreId = computeAndStoreScore(db, post.id);
-        if (scoreId) count++;
-      }
+      for (const post of posts) { if (computeAndStoreScore(db, post.id)) count++; }
       send({ id: msgId, success: true, data: { postsProcessed: count, formulaVersion: CURRENT_FORMULA_VERSION } });
     }
   } catch (err) {
@@ -203,20 +193,48 @@ function handleComputeScores(payload: { postId?: string; accountId?: string }, m
   }
 }
 
-async function handleGenerateDraft(payload: { accountId: string; prompt: string; context?: string[] }, msgId: string): Promise<void> {
+async function handleGenerateDraft(payload: any, msgId: string): Promise<void> {
   try {
+    if (!dbManager || !ragPipeline) {
+      send({ id: msgId, success: false, error: 'Pipeline not initialized' });
+      return;
+    }
+    await ensureProvider();
     const provider = getProvider();
-    runTracker?.createRun({
-      runType: 'generate',
-      provider: provider.provider,
-      model: provider.model,
+    const brief = payload.brief || payload.prompt;
+
+    const ragResult = await ragPipeline.generateWithRAG(payload.prompt, brief, provider);
+    const draftId = ragPipeline.createDraft({
+      accountId: payload.accountId,
+      generatedText: ragResult.generateResult.text,
+      sourcePrompt: payload.prompt,
+      ragContextIds: ragResult.ragContextIds,
+      status: 'draft',
     });
 
-    const start = Date.now();
-    const result = await provider.generate(payload.prompt, payload.context);
-    const latencyMs = Date.now() - start;
+    let predictedScore: number | undefined;
+    if (ragResult.contextPosts.length > 0) {
+      const scores = ragResult.contextPosts
+        .map((p: any) => p.compositeScore)
+        .filter((s: any) => s !== undefined && s !== null);
+      if (scores.length > 0) {
+        predictedScore = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
+        dbManager.getDb().prepare('UPDATE content_drafts SET predicted_score = ? WHERE id = ?').run(predictedScore, draftId);
+      }
+    }
 
-    send({ id: msgId, success: true, data: result });
+    send({ id: msgId, success: true, data: {
+      draftId, id: draftId, accountId: payload.accountId,
+      generatedText: ragResult.generateResult.text, sourcePrompt: payload.prompt,
+      ragContextIds: ragResult.ragContextIds, predictedScore, status: 'draft',
+      ragUsed: ragResult.ragUsed,
+      contextPosts: ragResult.contextPosts.map((p: any) => ({
+        postId: p.postId, contentText: p.contentText,
+        engagementScore: p.engagementScore, compositeScore: p.compositeScore,
+        similarity: p.distance !== undefined ? 1 - p.distance : undefined,
+      })),
+      createdAt: new Date().toISOString(),
+    }});
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[Worker] Generate draft error:', msg);
@@ -224,59 +242,122 @@ async function handleGenerateDraft(payload: { accountId: string; prompt: string;
   }
 }
 
-async function handleBatchSentiment(payload: { texts: string[] }, msgId: string): Promise<void> {
+async function handleBatchSentiment(payload: any, msgId: string): Promise<void> {
   try {
     const provider = getProvider();
-
-    const runId = runTracker?.createRun({
-      runType: 'batch_sentiment',
-      provider: provider.provider,
-      model: provider.model,
-    });
-
+    const runId = runTracker?.createRun({ runType: 'batch_sentiment', provider: provider.provider, model: provider.model });
     const start = Date.now();
-    const result = await batchProcessor!.execute(async () => {
-      return await provider.classifySentiment(payload.texts);
-    });
+    const result = await batchProcessor!.execute(async () => provider.classifySentiment(payload.texts));
     const latencyMs = Date.now() - start;
-
-    if (runId) {
-      runTracker?.completeRun({
-        runId,
-        latencyMs,
-        tokenCount: 0,
-        costEstimate: 0,
-      });
-    }
-
+    if (runId) runTracker?.completeRun({ runId, latencyMs, tokenCount: 0, costEstimate: 0 });
     send({ id: msgId, success: true, data: result });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('[Worker] Batch sentiment error:', msg);
     send({ id: msgId, success: false, error: msg });
   }
 }
 
 function handleShutdown(msgId: string): void {
   shutdownRequested = true;
-
   try {
-    if (batchProcessor) {
-      batchProcessor.requestShutdown();
-    }
-
+    batchProcessor?.requestShutdown();
     if (dbManager) {
-      try {
-        dbManager.getDb().pragma('wal_checkpoint(TRUNCATE)');
-      } catch {
-      }
+      try { dbManager.getDb().pragma('wal_checkpoint(TRUNCATE)'); } catch {}
       dbManager.close();
-      dbManager = null;
-      pipeline = null;
-      runTracker = null;
-      batchProcessor = null;
+      dbManager = null; pipeline = null; runTracker = null;
+      batchProcessor = null; embeddingPipeline = null; ragPipeline = null;
+    }
+    send({ id: msgId, success: true, data: { shutdown: true } });
+  } catch (err) {
+    send({ id: msgId, success: false, error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+// ===== Message Dispatch Loop =====
+
+if (port) {
+  port.on('message', async (msg: WorkerMessage) => {
+    const { type, payload, id: msgId } = msg;
+
+    // Handle API key responses
+    if (type === 'get-api-key-response') {
+      const p = payload as any;
+      const pending = pendingKeyRequests.get(msgId);
+      if (pending) {
+        pendingKeyRequests.delete(msgId);
+        if (p.apiKey) pending.resolve(p.apiKey);
+        else pending.reject(new Error(p.error || 'API key request failed'));
+      }
+      return;
     }
 
+    const dbFn = (fn: (db: any, send: any, id: string, payload?: any) => void) => {
+      if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); return; }
+      fn(dbManager.getDb(), send, msgId, payload);
+    };
+
+    switch (type) {
+      case 'ping':
+        send({ id: msgId, success: true, data: { pong: true, version: '0.1.0' } });
+        break;
+      case 'process_capture':
+        try {
+          if (!payload) { send({ id: msgId, success: false, error: 'Missing payload' }); break; }
+          const p = payload as { channel: string; data: Record<string, unknown> };
+          send({ id: msgId, success: true, data: processCaptureEvent(p.channel, p.data) });
+        } catch (err) {
+          send({ id: msgId, success: false, error: err instanceof Error ? err.message : String(err) });
+        }
+        break;
+      case 'compute_scores':
+        handleComputeScores(payload, msgId);
+        break;
+      case 'generate_draft':
+        await handleGenerateDraft(payload, msgId);
+        break;
+      case 'batch_sentiment':
+        await handleBatchSentiment(payload, msgId);
+        break;
+      case 'get_accounts':
+        dbFn(getAccounts);
+        break;
+      case 'get_posts':
+        dbFn(getPosts);
+        break;
+      case 'get_drafts':
+        dbFn(getDrafts);
+        break;
+      case 'create_draft':
+        dbFn(createDraftHandler);
+        break;
+      case 'update_draft':
+        dbFn(updateDraftHandler);
+        break;
+      case 'delete_draft':
+        dbFn(deleteDraftHandler);
+        break;
+      case 'get_settings':
+        dbFn(getSettingsHandler);
+        break;
+      case 'update_settings':
+        dbFn(updateSettingsHandler);
+        break;
+      case 'get_analytics':
+        dbFn(getAnalyticsHandler);
+        break;
+      case 'get_heatmap':
+        dbFn(getHeatmapHandler);
+        break;
+      case 'shutdown':
+        handleShutdown(msgId);
+        break;
+      default:
+        send({ id: msgId, success: false, error: 'Unknown type: ' + type });
+        break;
     }
+  });
 
-
+  initialize();
+} else {
+  console.error('[Worker] No parentPort available');
+}

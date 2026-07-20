@@ -7,6 +7,9 @@ import path from 'path';
  * Security: nodeIntegration=false, contextIsolation=true, sandbox=false,
  * webSecurity=true. Sandbox is false because the dashboard preload script
  * needs to communicate via contextBridge IPC.
+ *
+ * Note: The dashboard dist files are copied into __dirname/dashboard/
+ * during the build process via scripts/copy-assets.js.
  */
 export class ShellView {
   public readonly view: WebContentsView;
@@ -22,10 +25,9 @@ export class ShellView {
       },
     });
 
-    // Load the built dashboard HTML.
-    const indexPath = path.join(
-      __dirname, '..', '..', '..', 'dashboard', 'dist', 'index.html'
-    );
+    // Load the built dashboard HTML from __dirname/dashboard/index.html.
+    // Assets are copied here by scripts/copy-assets.js during build.
+    const indexPath = path.join(__dirname, 'dashboard', 'index.html');
     this.view.webContents.loadFile(indexPath);
   }
 

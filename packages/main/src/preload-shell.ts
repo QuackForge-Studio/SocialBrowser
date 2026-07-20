@@ -11,8 +11,10 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
   updateSettings: (settings: unknown): Promise<void> => ipcRenderer.invoke('dash:update-settings', settings),
   getKeyStatus: (): Promise<{ provider: string; configured: boolean }> =>
     ipcRenderer.invoke('dash:get-key-status'),
-  navigateTo: (params: { platform: string; accountId: string; url?: string }): void =>
-    ipcRenderer.send('dash:navigate-to', params),
-  prefillCompose: (params: { platform: string; accountId: string; text: string }): void =>
-    ipcRenderer.send('dash:prefill-compose', params),
+  navigateTo: (params: { platform: string; accountId: string; url?: string }): Promise<unknown> =>
+    ipcRenderer.invoke('dash:navigate-to', params),
+  prefillCompose: (params: { platform: string; accountId: string; text: string }): Promise<unknown> =>
+    ipcRenderer.invoke('dash:prefill-compose', params),
+  copyToClipboard: (params: { text: string }): Promise<unknown> =>
+    ipcRenderer.invoke('dash:copy-to-clipboard', params),
 });

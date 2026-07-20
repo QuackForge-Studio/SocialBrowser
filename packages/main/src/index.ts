@@ -24,7 +24,8 @@ const MAX_WORKER_RESTARTS = 5;
 const pendingWorkerRequests = new Map<string, { resolve: (data: unknown) => void; reject: (err: Error) => void }>();
 
 function startWorker(): void {
-  const workerPath = path.join(__dirname, '..', '..', 'worker', 'dist', 'worker.js');
+  // Worker dist files are copied to __dirname/worker/ during build
+  const workerPath = path.join(__dirname, 'worker', 'worker.js');
   try {
     worker = new Worker(workerPath);
 
@@ -70,7 +71,7 @@ function startWorker(): void {
     worker.on('exit', (code: number) => {
       console.log(sanitizeLog('[Main] Worker exited with code'), code);
       worker = null;
-      if (code !== 0 && !app.isQuitting() && workerRestartCount < MAX_WORKER_RESTARTS) {
+      if (code !== 0 && !(app as any).isQuitting && workerRestartCount < MAX_WORKER_RESTARTS) {
         workerRestartCount++;
         console.log(sanitizeLog('[Main] Restarting worker (attempt ' + workerRestartCount + ')'));
         startWorker();
