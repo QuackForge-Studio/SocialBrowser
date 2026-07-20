@@ -106,3 +106,45 @@ declare global {
     __socialBrowserDashboard?: DashboardBridge;
   }
 }
+
+/** Analytics trend data point */
+export interface TrendDataPoint {
+  date: string;
+  avgScore: number | null;
+  postCount: number;
+}
+
+/** Analytics post (top/bottom) */
+export interface AnalyticsPost {
+  id: string;
+  contentText?: string;
+  publishedAt?: string;
+  authorHandle?: string;
+  platform: string;
+  compositeScore?: number;
+  engagementScore?: number;
+}
+
+/** Analytics response from worker */
+export interface AnalyticsData {
+  totalPosts: number;
+  trendData: TrendDataPoint[];
+  topPosts: AnalyticsPost[];
+  bottomPosts: AnalyticsPost[];
+}
+
+/** Heatmap cell from worker */
+export interface HeatmapCellData {
+  id: string;
+  accountId: string;
+  contentType: string;
+  hourOfDay: number;
+  dayOfWeek: number;
+  avgEngagementScore: number | null;
+  sampleSize: number;
+  confidence: number;
+  updatedAt: string;
+}
+
+/** Minimum posts required for meaningful analytics */
+export const MIN_ANALYTICS_POSTS = 3;

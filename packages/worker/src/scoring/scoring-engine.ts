@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Scoring Engine
  *
  * Null-safe scoring pipeline:
@@ -526,8 +526,7 @@ export function setFormulaVersion(
   version: number,
 ): void {
   db.prepare(
-    INSERT INTO settings (key, value, updated_at)
-    VALUES ('scoring_formula_version', ?, datetime('now'))
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `INSERT INTO settings (key, value, updated_at) VALUES ('scoring_formula_version', ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
   ).run(String(version));
 }
+

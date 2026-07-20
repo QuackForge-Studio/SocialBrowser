@@ -364,3 +364,111 @@ export function CalendarView() {
     setCurrentMonth(today.getMonth());
     setCurrentYear(today.getFullYear());
   };
+
+  if (loading) {
+    return (
+      <div>
+        <h2>Calendar</h2>
+        <div className="loading-state" style={{ marginTop: 40, textAlign: "center" }}>
+          <div className="spinner"></div>
+          <p>Loading calendar data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Build empty calendar days array
+  const calendarDays: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) calendarDays.push(null);
+  for (let d = 1; d <= daysInMonth; d++) calendarDays.push(d);
+  while (calendarDays.length % 7 !== 0) calendarDays.push(null);
+
+  return (
+    <div>
+      <div className="calendar-header-row">
+        <h2>Calendar</h2>
+        <div className="calendar-nav">
+          <button className="btn btn-secondary btn-sm" onClick={prevMonth}>&larr;</button>
+          <span className="calendar-month-label">{MONTHS[currentMonth]} {currentYear}</span>
+          <button className="btn btn-secondary btn-sm" onClick={nextMonth}>&rarr;</button>
+          <button className="btn btn-secondary btn-sm" onClick={goToToday}>Today</button>
+        </div>
+      </div>
+
+      <div className="calendar-grid">
+        {DAYS.map(d => (
+          <div key={d} className="calendar-day-header">{d}</div>
+        ))}
+        {calendarDays.map((day, idx) => {
+          if (day === null) return <div key={"empty-" + idx} className="calendar-day empty"></div>;
+          const dateStr = formatDate(currentYear, currentMonth, day);
+          const dayPosts = getPostsForDate(dateStr);
+          const dayDrafts = getDraftsForDate(dateStr);
+          const isCurrentDay = isToday(currentYear, currentMonth, day);
+          const isPastOrToday = !isFuture(currentYear, currentMonth, day);
+          return (
+            <div
+              key={dateStr}
+              className={"calendar-day" + (isCurrentDay ? " today" : "") + (isPastOrToday ? "" : " future")}
+              onClick={() => isPastOrToday ? handleDateClick(dateStr) : undefined}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, dateStr)}
+            >
+              <div className="calendar-day-number">{day}</div>
+              {dayPosts.slice(0, 3).map(p => (
+                <div key={p.id} className="calendar-post-badge" title={p.contentText?.slice(0, 100)}>
+                  <span className="badge-dot"></span>
+                  <span className="badge-score">{p.compositeScore?.toFixed(0) ?? "?"}</span>
+                </div>
+              ))}
+              {dayDrafts.slice(0, 2).map(d => (
+                <div
+                  key={d.id}
+                  className="calendar-draft-badge"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, d.id)}
+                  onClick={(e) => { e.stopPropagation(); handleDraftReview(d); }}
+                >
+                  <span className="badge-draft-icon">{String.fromCharCode(9997)}</span>
+                </div>
+              ))}
+              {(dayPosts.length + dayDrafts.length) > 5 ? (
+                <div className="calendar-more">+{dayPosts.length + dayDrafts.length - 5} more</div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {selectedDate && filteredPosts.length > 0 ? (
+        <div className="filtered-posts">
+          <h3>Posts for {selectedDate}</h3>
+          {filteredPosts.map(p => (
+            <div key={p.id} className="filtered-post-item">
+              <span className="badge-score">{p.compositeScore?.toFixed(1) ?? "N/A"}</span>
+              <span>{p.contentText?.slice(0, 100)}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleCreateDraft}>
+        + New Draft
+      </button>
+
+      {showCreateModal ? (
+        <DraftCreateModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={() => { setShowCreateModal(false); handleDraftCreated(); }}
+        />
+      ) : null}
+
+      {reviewDraft ? (
+        <DraftReviewModal
+          draft={reviewDraft}
+          onClose={() => setReviewDraft(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
