@@ -1,4 +1,4 @@
-/** Dashboard view identifiers */
+﻿/** Dashboard view identifiers */
 export type DashboardView = 'calendar' | 'analytics' | 'settings';
 
 /** A platform tab entry */
@@ -97,8 +97,9 @@ export interface DashboardBridge {
   getSettings: () => Promise<Record<string, string>>;
   updateSettings: (settings: Record<string, unknown>) => Promise<void>;
   getKeyStatus: () => Promise<{ provider: string; configured: boolean }>;
-  navigateTo: (params: { platform: string; accountId: string; url?: string }) => void;
-  prefillCompose: (params: { platform: string; accountId: string; text: string }) => void;
+  navigateTo: (params: { platform: string; accountId: string; url?: string }) => Promise<unknown>;
+  prefillCompose: (params: { platform: string; accountId: string; text: string }) => Promise<unknown>;
+  copyToClipboard: (params: { text: string }) => Promise<unknown>;
 }
 
 declare global {
@@ -148,3 +149,4 @@ export interface HeatmapCellData {
 
 /** Minimum posts required for meaningful analytics */
 export const MIN_ANALYTICS_POSTS = 3;
+
