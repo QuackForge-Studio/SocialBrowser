@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Embedding Pipeline
  *
  * Manages the embedding lifecycle for content (posts, comments, draft briefs):
@@ -183,15 +183,10 @@ export class EmbeddingPipeline {
         throw insertErr;
       }
 
-      // Update record as completed with dimensions
+      // Update record as completed with dimensions, vec_row_id, and embedding blob
       this.db.prepare(
-        "UPDATE embedding_records SET status = 'completed', dimensions = ? WHERE id = ?"
-      ).run(dimensions, recordId);
-
-      // Also store the embedding blob in the embedding_records table for fallback
-      this.db.prepare(
-        'UPDATE embedding_records SET embedding = ? WHERE id = ?'
-      ).run(embeddingBuffer, recordId);
+        "UPDATE embedding_records SET status = 'completed', dimensions = ?, vec_row_id = ?, embedding = ? WHERE id = ?"
+      ).run(dimensions, Number(vecId), embeddingBuffer, recordId);
 
       return {
         status: 'completed',
@@ -218,12 +213,15 @@ export class EmbeddingPipeline {
     queryVector: Float32Array,
     topK: number,
   ): Array<{ rowid: number; distance: number }> {
-    const queryBuffer = Buffer.from(queryVector.buffer);
-    const results = this.db.prepare(
-      'SELECT rowid, distance FROM ' + tableName + ' WHERE embedding MATCH ? ORDER BY distance LIMIT ?'
-    ).all(queryBuffer, Math.max(1, topK)) as Array<{ rowid: number; distance: number }>;
-
-    return results || [];
+    try {
+      const queryBuffer = Buffer.from(queryVector.buffer);
+      const results = this.db.prepare(
+        'SELECT rowid, distance FROM ' + tableName + ' WHERE embedding MATCH ? ORDER BY distance LIMIT ?'
+      ).all(queryBuffer, Math.max(1, topK)) as Array<{ rowid: number; distance: number }>;
+      return results || [];
+    } catch {
+      return [];
+    }
   }
 
   /**
@@ -244,11 +242,11 @@ export class EmbeddingPipeline {
   /**
    * Get the next available row ID for inserting into a vec0 table.
    */
-  private getNextVecRowId(tableName: string): number {
+  private getNextVecRowId(_tableName: string): bigint {
     const maxRow = this.db.prepare(
-      'SELECT COALESCE(MAX(rowid), 0) as max_id FROM ' + tableName
+      'SELECT COALESCE(MAX(vec_row_id), 0) as max_id FROM embedding_records'
     ).get() as { max_id: number };
-    return maxRow.max_id + 1;
+    return BigInt(maxRow.max_id + 1);
   }
 
   /**

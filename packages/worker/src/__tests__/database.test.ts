@@ -155,7 +155,7 @@ describe('DatabaseManager (in-memory)', () => {
 
     it('should have exactly one migration applied', () => {
       const versions = getAppliedVersions(manager.getDb());
-      expect(versions).toEqual([1]);
+      expect(versions).toEqual([1, 2]);
     });
   });
 
@@ -174,7 +174,7 @@ describe('DatabaseManager (in-memory)', () => {
 
       // On a fresh :memory: DB, this is a new database so migrations run again.
       const versions = getAppliedVersions(manager2.getDb());
-      expect(versions).toEqual([1]);
+      expect(versions).toEqual([1, 2]);
 
       // Calling runMigrations again should return 0 (nothing pending)
       const count = runMigrations(manager2.getDb());
@@ -200,7 +200,7 @@ describe('DatabaseManager (in-memory)', () => {
 
       // Run migrations - should apply 1
       const count = runMigrations(manager2.getDb());
-      expect(count).toBe(1);
+      expect(count).toBe(2);
 
       // Run again - should apply 0
       const count2 = runMigrations(manager2.getDb());
@@ -480,7 +480,7 @@ describe('VAL-AI-005: Pending migrations applied on startup', () => {
 
     // schema_migrations should exist with version 1
     const versions = getAppliedVersions(manager.getDb());
-    expect(versions).toEqual([1]);
+    expect(versions).toEqual([1, 2]);
     manager.close();
   });
 
@@ -518,7 +518,7 @@ describe('Migration system (standalone)', () => {
 
   it('should apply migration 001 when run', () => {
     const count = runMigrations(db);
-    expect(count).toBe(1);
+    expect(count).toBe(2);
 
     const tables = db.prepare(
       "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
@@ -535,7 +535,7 @@ describe('Migration system (standalone)', () => {
   it('should have correct migration version recorded', () => {
     runMigrations(db);
     const versions = getAppliedVersions(db);
-    expect(versions).toEqual([1]);
+    expect(versions).toEqual([1, 2]);
   });
 
   it('should enable foreign keys during migration', () => {

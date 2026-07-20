@@ -30,8 +30,22 @@ export const MIGRATION_001: Migration = {
  * All registered migrations, ordered by version.
  * Add new migrations at the end to preserve version ordering.
  */
+
+/**
+ * Migration 002: Add vec_row_id column to embedding_records
+ * Enables mapping vec0 row IDs back to content IDs without fragile LIKE patterns.
+ */
+export const MIGRATION_002: Migration = {
+  version: 2,
+  description: 'Add vec_row_id column to embedding_records',
+  up: (db: Database.Database) => {
+    db.exec("ALTER TABLE embedding_records ADD COLUMN vec_row_id INTEGER");
+  },
+};
+
 export const ALL_MIGRATIONS: Migration[] = [
   MIGRATION_001,
+  MIGRATION_002,
 ];
 
 // ===== Migration Runner =====

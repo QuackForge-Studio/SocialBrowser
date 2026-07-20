@@ -1,4 +1,4 @@
-export const WORKER_VERSION = '0.1.0';
+﻿export const WORKER_VERSION = '0.1.0';
 
 export type WorkerMessageType =
   | 'shutdown'
@@ -40,3 +40,17 @@ export type {
 
 export { BatchProcessor } from './ai/batch-processor';
 export type { BatchProcessorOptions } from './ai/batch-processor';
+
+export {
+  EmbeddingPipeline,
+  computeContentHash,
+  RAGPipeline,
+} from './ai';
+export type {
+  EmbeddingStatus,
+  EmbeddingRecord,
+  EmbedContentResult,
+  SimilarityResult,
+  GenerateWithRAGResult,
+  RAGPipelineOptions,
+} from './ai';

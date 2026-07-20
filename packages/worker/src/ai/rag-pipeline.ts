@@ -139,10 +139,9 @@ export class RAGPipeline {
       if (seen.has(rowid)) { continue; }
       seen.add(rowid);
 
-      const hexSuffix = rowid.toString(16);
       const rows = this.db.prepare(
-        "SELECT content_id FROM embedding_records WHERE id LIKE '%' || ? ORDER BY created_at DESC LIMIT 1"
-      ).all(hexSuffix) as Array<{ content_id: string }>;
+        'SELECT content_id FROM embedding_records WHERE vec_row_id = ? ORDER BY created_at DESC LIMIT 1'
+      ).all(rowid) as Array<{ content_id: string }>;
 
       if (rows.length > 0 && rows[0].content_id) {
         results.push([rowid, rows[0].content_id]);
