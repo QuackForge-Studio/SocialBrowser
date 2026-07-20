@@ -407,6 +407,7 @@ describe('WorkspaceTabController', () => {
       mockWorkerRequest.mockResolvedValue(['acct-1']);
       await controller.openTab('x', 'acct-1');
 
+      mockWorkerRequest.mockResolvedValue([]);
       await controller.handleGroupDeleted('group-a');
 
       expect(controller.getState().activeGroupId).toBeNull();
@@ -497,6 +498,301 @@ describe('WorkspaceTabController', () => {
       expect(mockIpcMainRemoveHandler).toHaveBeenCalled();
     });
   });
+
+  // ==================================================================
+  // Group Switch Lifecycle — VAL-WORKSPACE-005
+  // ==================================================================
+
+  describe('group switch lifecycle (VAL-WORKSPACE-005)', () => {
+    it('should keep hidden views tracked in groupViews after switching away', async () => {
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+      await controller.setActiveGroup('ws-1', 'group-a');
+      await controller.openTab('x', 'acct-1');
+
+      await controller.setActiveGroup('ws-1', 'group-b');
+
+      const allViews = controller.getAllGroupViews();
+      expect(allViews.has('group-a')).toBe(true);
+      const groupAViews = allViews.get('group-a');
+      expect(groupAViews.size).toBe(1);
+    });
+
+    it('should reuse hidden PlatformView when switching back (no recreation)', async () => {
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+      await controller.setActiveGroup('ws-1', 'group-a');
+      await controller.openTab('x', 'acct-1');
+
+      const { PlatformView } = await import('../platform-view');
+      const createCount1 = PlatformView.mock.calls.length;
+
+      await controller.setActiveGroup('ws-1', 'group-b');
+      await controller.setActiveGroup('ws-1', 'group-a');
+
+      await controller.openTab('x', 'acct-1');
+      const createCount2 = PlatformView.mock.calls.length;
+
+      expect(createCount2 - createCount1).toBe(0);
+    });
+
+    it('should have zero shown tabs after switching away from a group', async () => {
+      mockWorkerRequest.mockResolvedValue(['acct-1', 'acct-2']);
+      await controller.setActiveGroup('ws-1', 'group-a');
+      await controller.openTab('x', 'acct-1');
+      await controller.openTab('x', 'acct-2');
+
+      expect(controller.getShownTabs()).toHaveLength(2);
+      await controller.setActiveGroup('ws-1', 'group-b');
+      expect(controller.getShownTabs()).toHaveLength(0);
+    });
+
+    it('should not leave orphaned PlatformViews visible after switching away', async () => {
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+      await controller.setActiveGroup('ws-1', 'group-a');
+      await controller.openTab('x', 'acct-1');
+
+      const platformViewInstance = mockPlatformViewInstances[0];
+      await controller.setActiveGroup('ws-1', 'group-b');
+
+      expect(platformViewInstance.view.setVisible).toHaveBeenCalledWith(false);
+    });
+  });
+
+  // ==================================================================
+  // closeTab — VAL-WORKSPACE-019 (extended)
+  // ==================================================================
+
+  describe('closeTab extended (VAL-WORKSPACE-019)', () => {
+    it('should close only the specified tab without affecting other tabs', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockResolvedValue(['acct-1', 'acct-2']);
+
+      const tab1 = await controller.openTab('x', 'acct-1');
+      await controller.openTab('x', 'acct-2');
+
+      expect(controller.getShownTabs()).toHaveLength(2);
+      await controller.closeTab(tab1.tabId);
+
+      const remaining = controller.getShownTabs();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].accountId).toBe('acct-2');
+    });
+  });
+
+  // ==================================================================
+  // handleGroupDeleted — VAL-WORKSPACE-022 (extended)
+  // ==================================================================
+
+  describe('handleGroupDeleted sibling selection (VAL-WORKSPACE-022)', () => {
+    it('should select next sibling group when active group is deleted', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+      await controller.openTab('x', 'acct-1');
+
+      await controller.setActiveGroup('ws-1', 'group-b');
+
+      mockWorkerRequest.mockImplementation(async (type, payload) => {
+        if (type === 'get_ordered_group_ids') { return ['group-a', 'group-c']; }
+        if (type === 'get_ordered_workspace_ids') { return ['ws-1']; }
+        return [];
+      });
+
+      await controller.handleGroupDeleted('group-b');
+
+      const state = controller.getState();
+      expect(state.activeWorkspaceId).toBe('ws-1');
+      expect(state.activeGroupId).toBe('group-c');
+    });
+
+    it('should select previous sibling when next sibling does not exist', async () => {
+      await controller.setActiveGroup('ws-1', 'group-c');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+
+      mockWorkerRequest.mockImplementation(async (type, payload) => {
+        if (type === 'get_ordered_group_ids') { return ['group-a', 'group-b']; }
+        if (type === 'get_ordered_workspace_ids') { return ['ws-1']; }
+        if (type === 'get_group_account_ids') { return ['acct-1']; }
+        return [];
+      });
+
+      await controller.handleGroupDeleted('group-c');
+
+      const state = controller.getState();
+      expect(state.activeWorkspaceId).toBe('ws-1');
+      expect(state.activeGroupId).toBe('group-b');
+    });
+
+    it('should select next available workspace when no groups remain', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+
+      mockWorkerRequest.mockImplementation(async (type, payload) => {
+        if (type === 'get_ordered_group_ids') { return []; }
+        if (type === 'get_ordered_workspace_ids') { return ['ws-2']; }
+        return [];
+      });
+
+      await controller.handleGroupDeleted('group-a');
+
+      const state = controller.getState();
+      expect(state.activeWorkspaceId).toBe('ws-2');
+    });
+
+    it('should not affect views in other groups', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+      await controller.openTab('x', 'acct-1');
+
+      await controller.setActiveGroup('ws-1', 'group-b');
+      mockWorkerRequest.mockResolvedValue(['acct-2']);
+      await controller.openTab('x', 'acct-2');
+
+      mockWorkerRequest.mockImplementation(async (type, payload) => {
+        if (type === 'get_ordered_group_ids') { return ['group-a', 'group-c']; }
+        if (type === 'get_ordered_workspace_ids') { return ['ws-1']; }
+        return [];
+      });
+
+      await controller.handleGroupDeleted('group-a');
+
+      expect(controller.getState().activeGroupId).toBe('group-b');
+    });
+  });
+
+  // ==================================================================
+  // handleWorkspaceDeleted — VAL-WORKSPACE-019, VAL-WORKSPACE-022
+  // ==================================================================
+
+  describe('handleWorkspaceDeleted (VAL-WORKSPACE-019, VAL-WORKSPACE-022)', () => {
+    it('should clean up views and select next sibling workspace', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+      await controller.openTab('x', 'acct-1');
+
+      mockWorkerRequest.mockImplementation(async (type, payload) => {
+        if (type === 'get_ordered_workspace_ids') { return ['ws-1', 'ws-2']; }
+        if (type === 'get_groups_in_workspace') { return ['group-a']; }
+        if (type === 'get_ordered_group_ids') { return ['group-x']; }
+        return [];
+      });
+
+      await controller.handleWorkspaceDeleted('ws-1');
+
+      const state = controller.getState();
+      expect(state.activeWorkspaceId).toBe('ws-2');
+      expect(state.activeGroupId).toBe('group-x');
+    });
+
+    it('should select previous sibling when next sibling does not exist', async () => {
+      await controller.setActiveGroup('ws-3', 'group-a');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+
+      mockWorkerRequest.mockImplementation(async (type, payload) => {
+        if (type === 'get_ordered_workspace_ids') { return ['ws-1', 'ws-2']; }
+        if (type === 'get_groups_in_workspace') { return ['group-a']; }
+        if (type === 'get_ordered_group_ids') { return ['group-x']; }
+        return [];
+      });
+
+      await controller.handleWorkspaceDeleted('ws-3');
+
+      const state = controller.getState();
+      expect(state.activeWorkspaceId).toBe('ws-2');
+    });
+
+    it('should select empty state when no workspaces remain', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+
+      mockWorkerRequest.mockImplementation(async (type, payload) => {
+        if (type === 'get_ordered_workspace_ids') { return []; }
+        if (type === 'get_groups_in_workspace') { return ['group-a']; }
+        return [];
+      });
+
+      await controller.handleWorkspaceDeleted('ws-1');
+
+      const state = controller.getState();
+      expect(state.activeWorkspaceId).toBeNull();
+      expect(state.activeGroupId).toBeNull();
+    });
+
+    it('should close views for all groups in the deleted workspace', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+      await controller.openTab('x', 'acct-1');
+      await controller.setActiveGroup('ws-1', 'group-b');
+      mockWorkerRequest.mockResolvedValue(['acct-2']);
+      await controller.openTab('x', 'acct-2');
+
+      mockWorkerRequest.mockImplementation(async (type, payload) => {
+        if (type === 'get_ordered_workspace_ids') { return ['ws-2']; }
+        if (type === 'get_groups_in_workspace') { return ['group-a', 'group-b']; }
+        if (type === 'get_ordered_group_ids') { return ['group-x']; }
+        return [];
+      });
+
+      await controller.handleWorkspaceDeleted('ws-1');
+
+      const allViews = controller.getAllGroupViews();
+      expect(allViews.has('group-a')).toBe(false);
+      expect(allViews.has('group-b')).toBe(false);
+      expect(controller.getShownTabs()).toHaveLength(0);
+    });
+
+    it('should not cascade to account/content/partition deletion', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+      await controller.openTab('x', 'acct-1');
+
+      mockWorkerRequest.mockImplementation(async (type, payload) => {
+        if (type === 'get_ordered_workspace_ids') { return ['ws-2']; }
+        if (type === 'get_groups_in_workspace') { return ['group-a']; }
+        if (type === 'get_ordered_group_ids') { return ['group-x']; }
+        return [];
+      });
+
+      await controller.handleWorkspaceDeleted('ws-1');
+
+      expect(mockVLMCloseTab).toHaveBeenCalled();
+    });
+  });
+
+  // ==================================================================
+  // Canonical Partition Across Groups — VAL-WORKSPACE-004
+  // ==================================================================
+
+  describe('canonical partition across groups (VAL-WORKSPACE-004)', () => {
+    it('should use same partition for shared account across groups', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+      await controller.openTab('x', 'acct-1');
+
+      await controller.setActiveGroup('ws-2', 'group-b');
+      mockWorkerRequest.mockResolvedValue(['acct-1']);
+      await controller.openTab('x', 'acct-1');
+
+      const registerCalls = mockRegistryRegister.mock.calls.filter((c) => c[0].accountId === 'acct-1');
+      for (const call of registerCalls) {
+        if (call[0].partition !== 'persist:social-browser:x:acct-1') {
+          throw new Error('Expected partition persist:social-browser:x:acct-1 but got ' + call[0].partition)
+        }
+      }
+    });
+  });
+
+  // ==================================================================
+  // Trusted Native Navigation — VAL-CROSS-017 (extended)
+  // ==================================================================
+
+  describe('trusted native navigation extended (VAL-CROSS-017)', () => {
+    it('IPC handlers remain functional while PlatformView would be active', () => {
+      const showDashboardHandler = mockIpcMainHandle.mock.calls.find(
+        (c) => c[0] === 'dash:workspace:show-dashboard'
+      );
+      expect(showDashboardHandler).toBeDefined();
+    });
+  });
+
 });
 
 

@@ -1,17 +1,35 @@
 ﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock the electron module before importing SessionManager
-const mockFlushStore = vi.fn().mockResolvedValue(undefined);
-const mockSetPermissionRequestHandler = vi.fn();
-const mockSessionOn = vi.fn();
-const mockWcOn = vi.fn();
-const mockSetWindowOpenHandler = vi.fn();
+// Use vi.hoisted() so mock variables are available when the factory runs
+const {
+  mockFlushStore,
+  mockSetPermissionRequestHandler,
+  mockSessionOn,
+  mockWcOn,
+  mockSetWindowOpenHandler,
+  mockSession,
+} = vi.hoisted(() => {
+  const mockFlushStore = vi.fn().mockResolvedValue(undefined);
+  const mockSetPermissionRequestHandler = vi.fn();
+  const mockSessionOn = vi.fn();
+  const mockWcOn = vi.fn();
+  const mockSetWindowOpenHandler = vi.fn();
 
-const mockSession = {
-  cookies: { flushStore: mockFlushStore },
-  setPermissionRequestHandler: mockSetPermissionRequestHandler,
-  on: mockSessionOn,
-};
+  const mockSession = {
+    cookies: { flushStore: mockFlushStore },
+    setPermissionRequestHandler: mockSetPermissionRequestHandler,
+    on: mockSessionOn,
+  };
+
+  return {
+    mockFlushStore,
+    mockSetPermissionRequestHandler,
+    mockSessionOn,
+    mockWcOn,
+    mockSetWindowOpenHandler,
+    mockSession,
+  };
+});
 
 vi.mock('electron', () => ({
   session: {

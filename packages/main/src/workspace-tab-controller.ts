@@ -13,6 +13,10 @@
  * Preconditions:
  * - workspace-data-migration and workspace-policy-audit-limits are completed
  * - SessionManager remains the sole partition authority
+ *
+ * Fulfills: VAL-WORKSPACE-003, VAL-WORKSPACE-004, VAL-WORKSPACE-005,
+ *           VAL-WORKSPACE-006, VAL-WORKSPACE-019, VAL-WORKSPACE-021,
+ *           VAL-WORKSPACE-022, VAL-CROSS-017
  */
 
 import { ipcMain } from 'electron';
@@ -93,6 +97,13 @@ export class WorkspaceTabController {
    * Track which tab IDs are currently shown (visible).
    */
   private readonly shownTabIds: Set<string> = new Set();
+
+  /**
+   * Cached workspace-to-group membership for cleanup on workspace deletion.
+   * This is populated lazily when groups are created/registered.
+   * Map<workspaceId, Set<groupId>>
+   */
+  private readonly workspaceGroups: Map<string, Set<string>> = new Map();
 
   constructor(
     layoutManager: ViewLayoutManager,
@@ -186,6 +197,9 @@ export class WorkspaceTabController {
    */
   async setActiveGroup(workspaceId: string, groupId: string): Promise<SetActiveGroupResult> {
     try {
+      // Record workspace-to-group mapping for cleanup tracking
+      this.ensureWorkspaceGroupMapping(workspaceId, groupId);
+
       // Hide all shown tabs from the previous group
       this.hideAllShownTabs();
 
@@ -229,7 +243,7 @@ export class WorkspaceTabController {
       const groupMap = this.getOrCreateGroupMap(this.activeGroupId);
       const existing = groupMap.get(tabId);
       if (existing) {
-        // Activate the existing platform view
+        // Activate the existing platform view (reuse preserves session state)
         this.layoutManager.activateTab(existing.webContentsId.toString());
         this.shownTabIds.add(tabId);
         return { success: true, tabId };
@@ -288,6 +302,8 @@ export class WorkspaceTabController {
 
   /**
    * Close a tab by its runtime tab ID.
+   * Only the specified tab is closed — other tabs and memberships are
+   * unaffected (VAL-WORKSPACE-019).
    */
   async closeTab(tabId: string): Promise<{ success: boolean; error?: string }> {
     try {
@@ -334,6 +350,14 @@ export class WorkspaceTabController {
     return tabs;
   }
 
+  /**
+   * Get all group view maps (for lifecycle inspection).
+   * Each entry: groupId -> Map<tabId, RuntimeTabInfo>
+   */
+  getAllGroupViews(): Map<string, Map<string, RuntimeTabInfo>> {
+    return this.groupViews;
+  }
+
   // ==================================================================
   // Membership & Lifecycle Change Handlers
   // ==================================================================
@@ -341,6 +365,7 @@ export class WorkspaceTabController {
   /**
    * Handle removal of an account from a group.
    * Immediately revokes access by closing all views for that account in the group.
+   * Does not affect other groups' memberhips (VAL-WORKSPACE-021).
    */
   async handleMembershipRemoved(
     groupId: string,
@@ -380,12 +405,69 @@ export class WorkspaceTabController {
   }
 
   /**
-   * Handle workspace deletion.
-   * The dashboard/worker handles sibling selection; we just clean up views.
+   * Handle workspace deletion (VAL-WORKSPACE-019, VAL-WORKSPACE-022).
+   * Cleans up all views for groups in the deleted workspace,
+   * then selects the next sibling workspace, previous sibling, or empty state.
+   * Never cascades to account/content/partition deletion.
    */
-  async handleWorkspaceDeleted(_workspaceId: string): Promise<{ success: boolean; error?: string }> {
+  async handleWorkspaceDeleted(workspaceId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // The workspace's groups will be handled via group deletion events
+      // Get groups that belong to this workspace from our local tracking
+      const workspaceGroupIds = this.workspaceGroups.get(workspaceId);
+      const groupsToClean: string[] = [];
+
+      if (workspaceGroupIds && workspaceGroupIds.size > 0) {
+        groupsToClean.push(...workspaceGroupIds);
+      } else {
+        // Try querying the worker for groups in this workspace
+        try {
+          const result = await this.workerRequest<string[]>('get_groups_in_workspace', { workspaceId });
+          if (Array.isArray(result)) {
+            groupsToClean.push(...result);
+          }
+        } catch {
+          // Worker may not support this query
+        }
+      }
+
+      // Clean up views for each affected group
+      for (const groupId of groupsToClean) {
+        const groupMap = this.groupViews.get(groupId);
+        if (groupMap) {
+          for (const [, info] of groupMap) {
+            try {
+              this.layoutManager.closeTab(info.webContentsId.toString());
+            } catch {
+              // Tab may already be closed
+            }
+            platformViewRegistry.unregister(info.webContentsId);
+            this.shownTabIds.delete(info.tabId);
+          }
+          this.groupViews.delete(groupId);
+        }
+      }
+
+      // Clean up workspace tracking
+      this.workspaceGroups.delete(workspaceId);
+
+      // If the deleted workspace was the active workspace, select next sibling
+      if (this.activeWorkspaceId === workspaceId) {
+        this.activeGroupId = null;
+        this.activeWorkspaceId = null;
+
+        // Find next sibling workspace via worker
+        const siblingWorkspaceId = await this.findNextSiblingWorkspace(workspaceId);
+        if (siblingWorkspaceId) {
+          // A sibling workspace exists — select its first group
+          const firstGroupId = await this.findFirstGroupInWorkspace(siblingWorkspaceId);
+          this.activeWorkspaceId = siblingWorkspaceId;
+          this.activeGroupId = firstGroupId; // null if no groups
+        }
+        // If no sibling workspace, stay in empty state (both null)
+
+        this.layoutManager.activateDashboard();
+      }
+
       return { success: true };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -394,11 +476,18 @@ export class WorkspaceTabController {
   }
 
   /**
-   * Handle group deletion.
-   * Closes all views for the group and shows dashboard if it was the active group.
+   * Handle group deletion (VAL-WORKSPACE-022).
+   * Closes all views for the group.
+   * If it was the active group, selects next sibling, previous sibling,
+   * or empty state.
+   * Never cascades to account/content/partition deletion.
    */
   async handleGroupDeleted(groupId: string): Promise<{ success: boolean; error?: string }> {
     try {
+      const wasActive = this.activeGroupId === groupId;
+      const currentWorkspaceId = this.activeWorkspaceId;
+
+      // Close all views for this group
       const groupMap = this.groupViews.get(groupId);
       if (groupMap) {
         for (const [, info] of groupMap) {
@@ -413,8 +502,46 @@ export class WorkspaceTabController {
         this.groupViews.delete(groupId);
       }
 
-      // If the active group was deleted, reset state and show dashboard
-      if (this.activeGroupId === groupId) {
+      // Clean up workspace->group mapping
+      if (currentWorkspaceId) {
+        const wsGroups = this.workspaceGroups.get(currentWorkspaceId);
+        if (wsGroups) {
+          wsGroups.delete(groupId);
+        }
+      }
+
+      // If the active group was deleted, select next sibling
+      if (wasActive && currentWorkspaceId) {
+        this.activeGroupId = null;
+
+        // Find next/previous sibling group in the same workspace
+        const nextGroupId = await this.findNextSiblingGroup(currentWorkspaceId, groupId);
+        if (nextGroupId) {
+          // Next sibling available
+          this.activeGroupId = nextGroupId;
+        } else {
+          // No next sibling — try previous sibling
+          const prevGroupId = await this.findPreviousSiblingGroup(currentWorkspaceId, groupId);
+          if (prevGroupId) {
+            this.activeGroupId = prevGroupId;
+          } else {
+            // No groups left in workspace — stay in workspace but without a group
+            // or find next workspace if this was the last
+            this.activeGroupId = null;
+            this.activeWorkspaceId = null;
+
+            const nextWs = await this.findNextSiblingWorkspace(currentWorkspaceId);
+            if (nextWs) {
+              const firstGroup = await this.findFirstGroupInWorkspace(nextWs);
+              this.activeWorkspaceId = nextWs;
+              this.activeGroupId = firstGroup;
+            }
+          }
+        }
+
+        this.layoutManager.activateDashboard();
+      } else if (wasActive) {
+        // No workspace context — just reset
         this.activeGroupId = null;
         this.activeWorkspaceId = null;
         this.layoutManager.activateDashboard();
@@ -450,6 +577,7 @@ export class WorkspaceTabController {
 
     this.groupViews.clear();
     this.shownTabIds.clear();
+    this.workspaceGroups.clear();
     this.activeGroupId = null;
     this.activeWorkspaceId = null;
   }
@@ -497,6 +625,18 @@ export class WorkspaceTabController {
   }
 
   /**
+   * Ensure a workspace-to-group mapping is tracked.
+   */
+  private ensureWorkspaceGroupMapping(workspaceId: string, groupId: string): void {
+    let groups = this.workspaceGroups.get(workspaceId);
+    if (!groups) {
+      groups = new Set();
+      this.workspaceGroups.set(workspaceId, groups);
+    }
+    groups.add(groupId);
+  }
+
+  /**
    * Remove a tab from its group (internal cleanup).
    */
   private removeTabFromGroup(tabId: string): void {
@@ -516,6 +656,8 @@ export class WorkspaceTabController {
   /**
    * Hide all currently shown tabs (make them invisible).
    * Used during group switching.
+   * The views remain in contentView with visible=false to preserve
+   * session state (cookies, localStorage, etc.).
    */
   private hideAllShownTabs(): void {
     // Iterate over a copy since shownTabIds might change during iteration
@@ -531,5 +673,97 @@ export class WorkspaceTabController {
       }
     }
   }
-}
 
+  // ==================================================================
+  // Sibling Selection (VAL-WORKSPACE-022)
+  // ==================================================================
+
+  /**
+   * Find the next sibling workspace after the given workspace.
+   * Returns null if no more workspaces exist.
+   */
+  private async findNextSiblingWorkspace(deletedWorkspaceId: string): Promise<string | null> {
+    try {
+      const orderedWorkspaces = await this.workerRequest<string[]>('get_ordered_workspace_ids', {});
+      if (!Array.isArray(orderedWorkspaces) || orderedWorkspaces.length === 0) {
+        return null;
+      }
+      let deletedIndex = orderedWorkspaces.indexOf(deletedWorkspaceId);
+      if (deletedIndex < 0) {
+        deletedIndex = orderedWorkspaces.length;
+      }
+      if (deletedIndex >= 0 && deletedIndex + 1 < orderedWorkspaces.length) {
+        return orderedWorkspaces[deletedIndex + 1];
+      }
+      // No next sibling — try previous sibling
+      if (deletedIndex > 0) {
+        return orderedWorkspaces[deletedIndex - 1];
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Find the next sibling group after the given group in the same workspace.
+   * Returns null if no more groups exist.
+   */
+  private async findNextSiblingGroup(workspaceId: string, deletedGroupId: string): Promise<string | null> {
+    try {
+      const orderedGroups = await this.workerRequest<string[]>('get_ordered_group_ids', { workspaceId });
+      if (!Array.isArray(orderedGroups) || orderedGroups.length === 0) {
+        return null;
+      }
+      let deletedIndex = orderedGroups.indexOf(deletedGroupId);
+      if (deletedIndex < 0) {
+        deletedIndex = orderedGroups.length;
+      }
+      if (deletedIndex >= 0 && deletedIndex + 1 < orderedGroups.length) {
+        return orderedGroups[deletedIndex + 1];
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Find the previous sibling group before the given group in the same workspace.
+   * Returns null if no previous group exists.
+   */
+  private async findPreviousSiblingGroup(workspaceId: string, deletedGroupId: string): Promise<string | null> {
+    try {
+      const orderedGroups = await this.workerRequest<string[]>('get_ordered_group_ids', { workspaceId });
+      if (!Array.isArray(orderedGroups) || orderedGroups.length === 0) {
+        return null;
+      }
+      let deletedIndex = orderedGroups.indexOf(deletedGroupId);
+      if (deletedIndex < 0) {
+        deletedIndex = orderedGroups.length;
+      }
+      if (deletedIndex > 0) {
+        return orderedGroups[deletedIndex - 1];
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Find the first group in a workspace.
+   * Returns null if the workspace has no groups.
+   */
+  private async findFirstGroupInWorkspace(workspaceId: string): Promise<string | null> {
+    try {
+      const orderedGroups = await this.workerRequest<string[]>('get_ordered_group_ids', { workspaceId });
+      if (Array.isArray(orderedGroups) && orderedGroups.length > 0) {
+        return orderedGroups[0];
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+}
