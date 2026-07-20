@@ -1,10 +1,12 @@
-﻿import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { DashboardView, PlatformTab } from './types';
+import type { DashboardBridge } from './types';
 import { Sidebar } from './Sidebar';
 import { TabBar } from './TabBar';
 import { CalendarView } from './views/CalendarView';
 import { AnalyticsView } from './views/AnalyticsView';
 import { SettingsView } from './views/SettingsView';
+import { PrivacyModal } from './PrivacyModal';
 
 const NAV_ITEMS: Array<{ view: DashboardView; label: string; icon: string }> = [
   { view: 'calendar', label: 'Calendar', icon: '\u{1F4C5}' },
@@ -12,15 +14,47 @@ const NAV_ITEMS: Array<{ view: DashboardView; label: string; icon: string }> = [
   { view: 'settings', label: 'Settings', icon: '\u2699' },
 ];
 
+function getBridge(): DashboardBridge | undefined {
+  return window.__socialBrowserDashboard;
+}
+
 export function App() {
   const [activeView, setActiveView] = useState<DashboardView>('calendar');
   const [tabs] = useState<PlatformTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  // Check first-launch privacy acknowledgment
+  useEffect(() => {
+    const bridge = getBridge();
+    if (!bridge) return;
+
+    bridge.getSettings().then((settings) => {
+      const settingsMap = settings as Record<string, string>;
+      if (settingsMap.privacy_acknowledged !== 'true') {
+        setShowPrivacyModal(true);
+      }
+    }).catch((err) => {
+      console.error('[App] Failed to check privacy settings:', err);
+      // On error, show modal to be safe
+      setShowPrivacyModal(true);
+    });
+  }, []);
+
+  const handlePrivacyAcknowledge = useCallback(() => {
+    const bridge = getBridge();
+    if (bridge) {
+      bridge.updateSettings({ privacy_acknowledged: 'true' }).catch((err) => {
+        console.error('[App] Failed to save privacy acknowledgment:', err);
+      });
+    }
+    setShowPrivacyModal(false);
+  }, []);
 
   // Notify main process on platform tab navigation requests
   const handleNavigateToPlatform = useCallback(
     (platform: string, accountId: string) => {
-      const bridge = window.__socialBrowserDashboard;
+      const bridge = getBridge();
       if (bridge) {
         bridge.navigateTo({ platform, accountId });
       }
@@ -76,6 +110,9 @@ export function App() {
       <main id="content-area">
         {renderContent()}
       </main>
+      {showPrivacyModal ? (
+        <PrivacyModal onAcknowledge={handlePrivacyAcknowledge} />
+      ) : null}
     </div>
   );
 }
