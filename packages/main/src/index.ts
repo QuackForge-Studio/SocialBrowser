@@ -1,4 +1,4 @@
-﻿import { app, ipcMain, clipboard } from 'electron';
+import { app, ipcMain, clipboard } from 'electron';
 import { Worker } from 'worker_threads';
 import path from 'path';
 import {
@@ -6,11 +6,10 @@ import {
   removeIpcGateHandlers,
 } from './ipc-gate';
 import { platformViewRegistry } from './platform-view-registry';
-import { KeyVault, getKeyVault } from './key-vault';
+import { getKeyVault } from './key-vault';
 import { sanitizeLog } from './log-sanitizer';
 import {
   getPublishAssistManager,
-  resetPublishAssistManager,
 } from './publish-assist-manager';
 import { BaseWindow } from './base-window';
 import { ShellView } from './shell-view';
@@ -42,10 +41,10 @@ function startWorker(): void {
   try {
     worker = new Worker(workerPath);
 
-    worker.on('message', (msg: any) => {
+    worker.on('message', (msg: { type?: string; id?: string; success?: boolean; data?: unknown; error?: string; payload?: { provider?: string } }) => {
       // Handle API key requests from worker
       if (msg.type === 'get-api-key') {
-        const provider = msg.payload?.provider as string;
+        const provider = msg.payload?.provider; if (!provider) return;
         const vault = getKeyVault();
         const apiKey = vault.getApiKey(provider);
         if (apiKey) {
@@ -57,9 +56,9 @@ function startWorker(): void {
       }
 
       // Resolve pending IPC requests
-      const pending = pendingWorkerRequests.get(msg.id);
+      const pending = pendingWorkerRequests.get(msg.id ?? '');
       if (pending) {
-        pendingWorkerRequests.delete(msg.id);
+        pendingWorkerRequests.delete(msg.id ?? '');
         if (msg.success) {
           pending.resolve(msg.data);
         } else {
@@ -78,13 +77,13 @@ function startWorker(): void {
 
     worker.on('error', (err: Error) => {
       console.warn(sanitizeLog('[Main] Worker error (non-fatal):'), err.message);
-      try { worker?.terminate(); } catch {}
+      try { worker?.terminate(); } catch { /* noop */ }
     });
 
     worker.on('exit', (code: number) => {
       console.log(sanitizeLog('[Main] Worker exited with code'), code);
       worker = null;
-      if (code !== 0 && !(app as any).isQuitting && workerRestartCount < MAX_WORKER_RESTARTS) {
+      if (code !== 0 && !(app as unknown as { isQuitting?: boolean }).isQuitting && workerRestartCount < MAX_WORKER_RESTARTS) {
         workerRestartCount++;
         console.log(sanitizeLog('[Main] Restarting worker (attempt ' + workerRestartCount + ')'));
         startWorker();
@@ -173,7 +172,7 @@ function setupDashboardIpc(): void {
     if (settings.apiKey && typeof settings.apiKey === 'string') {
       const provider = (settings.aiProvider as string) || process.env.AI_PROVIDER || 'openai';
       vault.setApiKey(provider, settings.apiKey);
-      const { apiKey: _, ...restSettings } = settings;
+      const { apiKey: _apiKey, ...restSettings } = settings;
       if (worker && Object.keys(restSettings).length > 0) {
         worker.postMessage({ type: 'update_settings', payload: restSettings, id: 'settings-' + Date.now() });
       }
@@ -309,19 +308,29 @@ app.whenReady().then(() => {
   console.log('[Main] Social Browser ready');
 });
 
-app.on('will-quit', () => {
-  // Clean up workspace controller
-  if (workspaceController) {
-    workspaceController.dispose();
-    workspaceController = null;
+// One-shot shutdown guard
+let shuttingDown = false;
+app.on('before-quit', async (event) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  (app as unknown as { isQuitting?: boolean }).isQuitting = true;
+  event.preventDefault();
+  try {
+    if (sessionManager) { await sessionManager.flushAllCookies(); }
+    if (worker) {
+      const shutdownId = 'shutdown-' + Date.now();
+      worker.postMessage({ type: 'shutdown', id: shutdownId });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      try { worker.terminate(); } catch { /* noop */ }
+      worker = null;
+    }
+    if (workspaceController) { workspaceController.dispose(); workspaceController = null; }
+    removeIpcGateHandlers();
+    platformViewRegistry.clear();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[Main] Shutdown error:', msg);
+  } finally {
+    app.quit();
   }
-
-  // Shut down worker
-  if (worker) {
-    worker.postMessage({ type: 'shutdown', id: 'shutdown-' + Date.now() });
-  }
-
-  // Clean up IPC gate and registries
-  removeIpcGateHandlers();
-  platformViewRegistry.clear();
 });

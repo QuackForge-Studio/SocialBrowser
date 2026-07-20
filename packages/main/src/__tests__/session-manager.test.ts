@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Use vi.hoisted() so mock variables are available when the factory runs
 const {
@@ -38,6 +38,7 @@ vi.mock('electron', () => ({
 }));
 
 // Import after mocking
+import { session as electronSession } from 'electron';
 import { SessionManager, PLATFORM_DOMAINS } from '../session-manager';
 import type { Platform } from '../session-manager';
 
@@ -81,7 +82,7 @@ describe('SessionManager', () => {
 
   describe('getOrCreateSession', () => {
     it('should create a session and return it (VAL-FOUND-061)', () => {
-      const { session: mockSessionForImport } = require('electron');
+      const mockSessionForImport = electronSession;
       const accountSession = manager.getOrCreateSession('x', 'uuid-1');
 
       expect(accountSession.platform).toBe('x');
@@ -98,7 +99,7 @@ describe('SessionManager', () => {
 
       expect(accountSession1).toBe(accountSession2);
       // fromPartition should only be called once
-      const { session: mockSessionForImport } = require('electron');
+      const mockSessionForImport = electronSession;
       expect(mockSessionForImport.fromPartition).toHaveBeenCalledTimes(1);
     });
 

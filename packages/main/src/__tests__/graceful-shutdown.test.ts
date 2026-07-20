@@ -1,24 +1,16 @@
-﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
   mockFlushStore,
-  mockSetPermissionRequestHandler,
-  mockSessionOn,
   mockSession,
 } = vi.hoisted(() => {
   const mockFlushStore = vi.fn().mockResolvedValue(undefined);
-  const mockSetPermissionRequestHandler = vi.fn();
-  const mockSessionOn = vi.fn();
   const mockSession = {
-    cookies: { flushStore: mockFlushStore },
-    setPermissionRequestHandler: mockSetPermissionRequestHandler,
-    on: mockSessionOn,
+    cookies: { flushStore: mockFlushStore }, setPermissionRequestHandler: vi.fn(), on: vi.fn(),
   };
 
   return {
     mockFlushStore,
-    mockSetPermissionRequestHandler,
-    mockSessionOn,
     mockSession,
   };
 });

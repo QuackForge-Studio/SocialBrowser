@@ -1,4 +1,5 @@
-﻿import { session, WebContents, Session } from 'electron';
+import { session, WebContents, Session } from 'electron';
+import { randomUUID } from 'node:crypto';
 
 export type Platform = 'x' | 'threads' | 'instagram' | 'tiktok' | 'facebook';
 
@@ -37,7 +38,6 @@ export class SessionManager {
   }
 
   generateAccountId(): string {
-    const { randomUUID } = require('crypto') as { randomUUID: () => string };
     return randomUUID();
   }
 
