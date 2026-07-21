@@ -1,0 +1,19 @@
+﻿{
+    "name": "@social-browser/e2e",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "lint": "echo placeholder e2e lint"
+    },
+    "devDependencies": {
+        "@types/better-sqlite3": "^7.6.8",
+        "typescript": "5.8.3",
+        "vitest": "^4.1.10"
+    },
+    "dependencies": {
+        "@social-browser/shared": "workspace:^",
+        "better-sqlite3": "12.11.1"
+    }
+}
