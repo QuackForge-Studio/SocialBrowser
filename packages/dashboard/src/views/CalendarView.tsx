@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Post, Draft, GeneratedDraft, ContextPost } from '../types';
+import type { Post, Draft, GeneratedDraft, ContextPost, Account } from '../types';
 import type { DashboardBridge } from '../types';
+import { PublishAssistPanel } from './PublishAssistPanel';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -129,9 +130,10 @@ function DraftCreateModal({ onClose, onCreated }: { onClose: () => void; onCreat
 }
 
 // ===== Draft Review Modal =====
-function DraftReviewModal({ draft, onClose }: { draft: Draft; onClose: () => void }) {
+function DraftReviewModal({ draft, accounts, onClose }: { draft: Draft; accounts: Account[]; onClose: () => void }) {
   const [scheduledDate, setScheduledDate] = useState(draft.scheduledDate?.split('T')[0] || '');
   const [updating, setUpdating] = useState(false);
+  const [showPublishPanel, setShowPublishPanel] = useState(false);
 
   const handleSchedule = useCallback(async () => {
     if (!scheduledDate) return;
@@ -152,6 +154,27 @@ function DraftReviewModal({ draft, onClose }: { draft: Draft; onClose: () => voi
     if (!ids) return [];
     return ids.split(',').filter(Boolean);
   };
+
+  // Find the account for this draft to determine platform
+  const draftAccount = accounts.find((a) => a.id === draft.accountId);
+  const platform = draftAccount?.platform || 'x';
+
+  // If publish panel is shown, render it as an overlay
+  if (showPublishPanel) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 560, background: 'transparent', border: 'none', boxShadow: 'none' }}>
+          <PublishAssistPanel
+            draftId={draft.id}
+            text={draft.generatedText || ''}
+            platform={platform}
+            accountId={draft.accountId}
+            onClose={() => setShowPublishPanel(false)}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -230,6 +253,9 @@ function DraftReviewModal({ draft, onClose }: { draft: Draft; onClose: () => voi
           </div>
 
           <div className="modal-actions">
+            <button className="btn btn-primary" onClick={() => setShowPublishPanel(true)} disabled={!draft.generatedText}>
+              Publish
+            </button>
             <button className="btn btn-secondary" onClick={onClose}>Close</button>
           </div>
         </div>
@@ -466,6 +492,7 @@ export function CalendarView() {
       {reviewDraft ? (
         <DraftReviewModal
           draft={reviewDraft}
+          accounts={accounts}
           onClose={() => setReviewDraft(null)}
         />
       ) : null}

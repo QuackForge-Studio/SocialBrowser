@@ -7,6 +7,7 @@ import type {
   Account,
   DashboardBridge,
 } from "../types";
+import { ToSAcknowledgment } from "./ToSAcknowledgment";
 
 // ── helpers ──
 
@@ -148,17 +149,29 @@ export function WorkspaceManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // ── ToS Acknowledgment modal state ──
+  const [ackModalAccountId, setAckModalAccountId] = useState<string | null>(null);
+
   // ── load ──
 
   const loadData = useCallback(async () => {
     if (!bridge) return;
     try {
-      const [ws, accts] = await Promise.all([
+      const [ws, accts, wsState] = await Promise.all([
         bridge.getWorkspaces(),
         bridge.getAccounts(),
+        bridge.getWorkspaceState(),
       ]);
       setWorkspaces(ws);
       setAllAccounts(accts);
+
+      // Restore previously selected workspace/group from persisted state
+      if (wsState.activeWorkspaceId && ws.some((w: Workspace) => w.id === wsState.activeWorkspaceId)) {
+        setSelWsId(wsState.activeWorkspaceId);
+        if (wsState.activeGroupId) {
+          setSelGrpId(wsState.activeGroupId);
+        }
+      }
     } catch (e: any) {
       setError(e?.message ?? "Failed to load data");
     } finally {
@@ -169,6 +182,23 @@ export function WorkspaceManager() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // ── ack modal handlers ──
+
+  const handleAckOpen = useCallback((accountId: string) => {
+    setAckModalAccountId(accountId);
+  }, []);
+
+  const handleAckClose = useCallback(() => {
+    setAckModalAccountId(null);
+  }, []);
+
+  const handleAckConfirmed = useCallback(() => {
+    if (!ackModalAccountId) return;
+    // Refresh ack state for this account
+    setAckMap((prev) => ({ ...prev, [ackModalAccountId]: true }));
+    setAckModalAccountId(null);
+  }, [ackModalAccountId]);
 
   // ── load groups when workspace changes ──
 
@@ -666,12 +696,19 @@ export function WorkspaceManager() {
                         borderRadius: "50%",
                         background: ackMap[ga.accountId] ? C.success : C.warning,
                         flexShrink: 0,
+                        cursor: ackMap[ga.accountId] ? "default" : "pointer",
                       }}
                       title={
                         ackMap[ga.accountId]
                           ? "Acknowledged"
-                          : "Acknowledgment required"
+                          : "Click to acknowledge"
                       }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!ackMap[ga.accountId]) {
+                          handleAckOpen(ga.accountId);
+                        }
+                      }}
                     />
                     <span style={{ flex: 1 }}>
                       {ga.displayName || ga.handle || ga.accountId}
@@ -681,7 +718,14 @@ export function WorkspaceManager() {
                         </span>
                       )}
                       {!ackMap[ga.accountId] && (
-                        <span style={{ color: C.warning, marginLeft: 6, fontSize: 10 }}>
+                        <span
+                          style={{ color: C.warning, marginLeft: 6, fontSize: 10, cursor: "pointer" }}
+                          title="Click to acknowledge"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAckOpen(ga.accountId);
+                          }}
+                        >
                           (!)
                         </span>
                       )}
@@ -847,6 +891,22 @@ export function WorkspaceManager() {
           )}
         </div>
       </div>
+
+      {/* ── ToS Acknowledgment Modal ── */}
+      {ackModalAccountId && (
+        <ToSAcknowledgment
+          accountId={ackModalAccountId}
+          accountLabel={
+            groupAccounts.find((ga) => ga.accountId === ackModalAccountId)
+              ?.displayName ||
+            groupAccounts.find((ga) => ga.accountId === ackModalAccountId)
+              ?.handle ||
+            ackModalAccountId
+          }
+          onAcknowledged={handleAckConfirmed}
+          onCancel={handleAckClose}
+        />
+      )}
     </div>
   );
 }
