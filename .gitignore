@@ -87,3 +87,10 @@ packages/*/src/__tests__/*.test.d.ts.map
 # Database
 packages/main/social-browser.sqlite*
 
+
+# Root vitest integration config
+vitest.integration.config.d.ts
+vitest.integration.config.d.ts.map
+vitest.integration.config.js
+vitest.integration.config.js.map
+
