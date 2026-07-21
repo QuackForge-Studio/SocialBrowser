@@ -28,11 +28,17 @@ import {
   type WorkerDispatchFn,
 } from "../ipc-gate";
 
+interface MockSender {
+  id: number;
+  getURL: ReturnType<typeof vi.fn>;
+  session: Record<string, never>;
+}
+
 function createMockSender(overrides: Partial<{
   id: number;
   url: string;
   sessionName: string;
-}> = {}): any {
+}> = {}): MockSender {
   const config = { id: 1001, url: "https://x.com/home", sessionName: "persist:social-browser:x:test", ...overrides };
   return {
     id: config.id,
@@ -48,7 +54,7 @@ describe("IPC Validation Gate", () => {
   const TEST_ACCOUNT_ID = "550e8400-e29b-41d4-a716-446655440000";
   const TEST_PARTITION = "persist:social-browser:x:550e8400-e29b-41d4-a716-446655440000";
 
-  let mockSender: any;
+  let mockSender: MockSender;
   let workerDispatch: WorkerDispatchFn;
   let workerDispatchMock: ReturnType<typeof vi.fn>;
 

@@ -144,13 +144,13 @@ export interface AuditEvent {
 export interface DashboardBridge {
   getAccounts: () => Promise<Account[]>;
   getPosts: (params?: { accountId?: string; date?: string; limit?: number; offset?: number }) => Promise<Post[]>;
-  getAnalytics: (params?: { accountId?: string }) => Promise<any>;
-  getHeatmap: (params?: { accountId?: string }) => Promise<any>;
+  getAnalytics: (params?: { accountId?: string }) => Promise<AnalyticsData>;
+  getHeatmap: (params?: { accountId?: string }) => Promise<HeatmapCellData[]>;
   createDraft: (params: { accountId: string; sourcePrompt?: string; scheduledDate?: string }) => Promise<Draft>;
   generateDraft: (params: { accountId: string; prompt: string; brief?: string }) => Promise<GeneratedDraft>;
   getDrafts: (params?: { accountId?: string; date?: string; status?: string }) => Promise<Draft[]>;
   updateDraft: (params: { id: string; generatedText?: string; sourcePrompt?: string; scheduledDate?: string; status?: string; predictedScore?: number | null }) => Promise<Draft>;
-  deleteDraft: (params: { id: string }) => Promise<any>;
+  deleteDraft: (params: { id: string }) => Promise<{ deleted: boolean }>;
   getSettings: () => Promise<Record<string, string>>;
   updateSettings: (settings: Record<string, unknown>) => Promise<void>;
   getKeyStatus: () => Promise<{ provider: string; configured: boolean }>;
@@ -184,7 +184,7 @@ export interface DashboardBridge {
   openTab: (params: { platform: string; accountId: string }) => Promise<{ success: boolean; error?: string; tabId?: string }>;
   closeTab: (params: { tabId: string }) => Promise<{ success: boolean; error?: string }>;
   showDashboard: () => Promise<{ success: boolean }>;
-  getWorkspaceTabs: () => Promise<any[]>;
+  getWorkspaceTabs: () => Promise<unknown[]>;
   handleMembershipRemoved: (params: { groupId: string; accountId: string }) => Promise<{ success: boolean; error?: string }>;
   handleGroupDeleted: (params: { groupId: string }) => Promise<{ success: boolean; error?: string }>;
   handleWorkspaceDeleted: (params: { workspaceId: string }) => Promise<{ success: boolean; error?: string }>;

@@ -2,7 +2,7 @@ import { parentPort as _parentPort } from 'worker_threads';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseManager } from './database/database';
-import { IngestionPipeline, createIngestionPipeline, PAYLOAD_SCHEMA_VERSION } from './ingestion/ingestion';
+import { IngestionPipeline, createIngestionPipeline, PAYLOAD_SCHEMA_VERSION, type NormalizedPostPayload, type SnapshotPayload, type CommentPayload, type AdapterReadyPayload } from './ingestion/ingestion';
 import { setActiveProvider, getActiveProviderName, getProvider } from './ai/provider-registry';
 import { AiRunTracker } from './ai/ai-run-tracker';
 import { BatchProcessor } from './ai/batch-processor';
@@ -164,7 +164,7 @@ function processCaptureEvent(channel: string, data: Record<string, unknown>): un
 
   switch (channel) {
     case 'capture:post': {
-      const np = (data as any).normalizedPost;
+      const np = (data as unknown as { normalizedPost: NormalizedPostPayload }).normalizedPost;
       return pipeline.ingestPost({
         platformPostId: np.platformPostId,
         contentText: np.contentText,
@@ -174,9 +174,9 @@ function processCaptureEvent(channel: string, data: Record<string, unknown>): un
       }, meta);
     }
     case 'capture:snapshot': {
-      const snap = (data as any).snapshot;
+      const snap = (data as unknown as { snapshot: SnapshotPayload }).snapshot;
       const dbo = dbManager.getDb();
-      const row = dbo.prepare('SELECT id FROM posts WHERE account_id = ? AND platform_post_id = ?').get(accountId, data.postId) as any;
+      const row = dbo.prepare('SELECT id FROM posts WHERE account_id = ? AND platform_post_id = ?').get(accountId, data.postId) as { id: string } | undefined;
       if (row) {
         return pipeline.ingestSnapshot(row.id, {
           views: snap.views, likes: snap.likes,
@@ -187,9 +187,9 @@ function processCaptureEvent(channel: string, data: Record<string, unknown>): un
       return { status: 'rejected', reason: 'Post not found for snapshot' };
     }
     case 'capture:comment': {
-      const cmt = (data as any).comment;
+      const cmt = (data as unknown as { comment: CommentPayload }).comment;
       const dbo = dbManager.getDb();
-      const row = dbo.prepare('SELECT id FROM posts WHERE account_id = ? AND platform_post_id = ?').get(accountId, data.postId) as any;
+      const row = dbo.prepare('SELECT id FROM posts WHERE account_id = ? AND platform_post_id = ?').get(accountId, data.postId) as { id: string } | undefined;
       if (row) {
         return pipeline.ingestComment(row.id, {
           platformCommentId: cmt.platformCommentId,
@@ -198,29 +198,40 @@ function processCaptureEvent(channel: string, data: Record<string, unknown>): un
       }
       return { status: 'rejected', reason: 'Post not found for comment' };
     }
-    case 'capture:adapter-ready':
-      return pipeline.handleAdapterReady(data as any);
-    case 'capture:error':
-      pipeline.handleError(data as any, batchId);
-      return { status: 'logged', error: data.error };
+    case 'capture:adapter-ready': {
+      const adapterData: AdapterReadyPayload = {
+        platform: data.platform as string,
+        accountId: data.accountId as string,
+        adapterVersion: data.adapterVersion as number,
+      };
+      return pipeline.handleAdapterReady(adapterData);
+    }
+    case 'capture:error': {
+      pipeline.handleError({
+        platform: data.platform as string,
+        accountId: data.accountId as string,
+        error: data.error as string,
+      }, batchId);
+      return { status: 'logged', error: data.error as string };
+    }
     default:
       return null;
   }
 }
 
-function handleComputeScores(payload: any, msgId: string): void {
+function handleComputeScores(payload: Record<string, unknown> | undefined, msgId: string): void {
   try {
     if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); return; }
     const db = dbManager.getDb();
     if (payload?.postId) {
-      const scoreId = computeAndStoreScore(db, payload.postId);
+      const scoreId = computeAndStoreScore(db, payload.postId as string);
       send({ id: msgId, success: true, data: { scoreId, formulaVersion: CURRENT_FORMULA_VERSION } });
     } else if (payload?.accountId) {
-      const posts = db.prepare('SELECT id FROM posts WHERE account_id = ?').all(payload.accountId) as any[];
+      const posts = db.prepare('SELECT id FROM posts WHERE account_id = ?').all(payload.accountId as string) as Array<{ id: string }>;
       const results = posts.map(p => ({ postId: p.id, scoreId: computeAndStoreScore(db, p.id) }));
       send({ id: msgId, success: true, data: { results, formulaVersion: CURRENT_FORMULA_VERSION } });
     } else {
-      const posts = db.prepare('SELECT id FROM posts').all() as any[];
+      const posts = db.prepare('SELECT id FROM posts').all() as Array<{ id: string }>;
       let count = 0;
       for (const post of posts) { if (computeAndStoreScore(db, post.id)) count++; }
       send({ id: msgId, success: true, data: { postsProcessed: count, formulaVersion: CURRENT_FORMULA_VERSION } });
@@ -232,7 +243,7 @@ function handleComputeScores(payload: any, msgId: string): void {
   }
 }
 
-async function handleGenerateDraft(payload: any, msgId: string): Promise<void> {
+async function handleGenerateDraft(payload: Record<string, unknown>, msgId: string): Promise<void> {
   try {
     if (!dbManager || !ragPipeline) {
       send({ id: msgId, success: false, error: 'Pipeline not initialized' });
@@ -240,13 +251,13 @@ async function handleGenerateDraft(payload: any, msgId: string): Promise<void> {
     }
     await ensureProvider();
     const provider = getProvider();
-    const brief = payload.brief || payload.prompt;
+    const brief = (payload.brief || payload.prompt) as string;
 
-    const ragResult = await ragPipeline.generateWithRAG(payload.prompt, brief, provider);
+    const ragResult = await ragPipeline.generateWithRAG(payload.prompt as string, brief, provider);
     const draftId = ragPipeline.createDraft({
-      accountId: payload.accountId,
+      accountId: payload.accountId as string,
       generatedText: ragResult.generateResult.text,
-      sourcePrompt: payload.prompt,
+      sourcePrompt: payload.prompt as string,
       ragContextIds: ragResult.ragContextIds,
       status: 'draft',
     });
@@ -254,8 +265,8 @@ async function handleGenerateDraft(payload: any, msgId: string): Promise<void> {
     let predictedScore: number | undefined;
     if (ragResult.contextPosts.length > 0) {
       const scores = ragResult.contextPosts
-        .map((p: any) => p.compositeScore)
-        .filter((s: any) => s !== undefined && s !== null);
+        .map((p: { compositeScore?: number }) => p.compositeScore)
+        .filter((s: number | undefined): s is number => s !== undefined && s !== null);
       if (scores.length > 0) {
         predictedScore = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
         dbManager.getDb().prepare('UPDATE content_drafts SET predicted_score = ? WHERE id = ?').run(predictedScore, draftId);
@@ -263,11 +274,11 @@ async function handleGenerateDraft(payload: any, msgId: string): Promise<void> {
     }
 
     send({ id: msgId, success: true, data: {
-      draftId, id: draftId, accountId: payload.accountId,
-      generatedText: ragResult.generateResult.text, sourcePrompt: payload.prompt,
+      draftId, id: draftId, accountId: payload.accountId as string,
+      generatedText: ragResult.generateResult.text, sourcePrompt: payload.prompt as string,
       ragContextIds: ragResult.ragContextIds, predictedScore, status: 'draft',
       ragUsed: ragResult.ragUsed,
-      contextPosts: ragResult.contextPosts.map((p: any) => ({
+      contextPosts: ragResult.contextPosts.map((p: { postId: string; contentText?: string; engagementScore?: number; compositeScore?: number; distance: number }) => ({
         postId: p.postId, contentText: p.contentText,
         engagementScore: p.engagementScore, compositeScore: p.compositeScore,
         similarity: p.distance !== undefined ? 1 - p.distance : undefined,
@@ -281,12 +292,12 @@ async function handleGenerateDraft(payload: any, msgId: string): Promise<void> {
   }
 }
 
-async function handleBatchSentiment(payload: any, msgId: string): Promise<void> {
+async function handleBatchSentiment(payload: Record<string, unknown>, msgId: string): Promise<void> {
   try {
     const provider = getProvider();
     const runId = runTracker?.createRun({ runType: 'batch_sentiment', provider: provider.provider, model: provider.model });
     const start = Date.now();
-    const result = await batchProcessor!.execute(async () => provider.classifySentiment(payload.texts));
+    const result = await batchProcessor!.execute(async () => provider.classifySentiment(payload.texts as string[]));
     const latencyMs = Date.now() - start;
     if (runId) runTracker?.completeRun({ runId, latencyMs, tokenCount: 0, costEstimate: 0 });
     send({ id: msgId, success: true, data: result });
@@ -320,19 +331,19 @@ if (port) {
 
     // Handle API key responses
     if (type === 'get-api-key-response') {
-      const p = payload as any;
+      const p = payload as Record<string, unknown>;
       const pending = pendingKeyRequests.get(msgId);
       if (pending) {
         pendingKeyRequests.delete(msgId);
-        if (p.apiKey) pending.resolve(p.apiKey);
-        else pending.reject(new Error(p.error || 'API key request failed'));
+        if (p.apiKey) pending.resolve(p.apiKey as string);
+        else pending.reject(new Error((p.error as string) || 'API key request failed'));
       }
       return;
     }
 
-    const dbFn = (fn: (db: any, send: any, id: string, payload?: any) => void) => {
+    const dbFn = (fn: (db: import('better-sqlite3').Database, send: (msg: WorkerResponse) => void, id: string, payload: Record<string, unknown>) => void) => {
       if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); return; }
-      fn(dbManager.getDb(), send, msgId, payload);
+      fn(dbManager.getDb(), send, msgId, (payload as Record<string, unknown>) || {});
     };
 
     switch (type) {
@@ -349,13 +360,13 @@ if (port) {
         }
         break;
       case 'compute_scores':
-        handleComputeScores(payload, msgId);
+        handleComputeScores(payload as Record<string, unknown> | undefined, msgId);
         break;
       case 'generate_draft':
-        await handleGenerateDraft(payload, msgId);
+        await handleGenerateDraft(payload as Record<string, unknown>, msgId);
         break;
       case 'batch_sentiment':
-        await handleBatchSentiment(payload, msgId);
+        await handleBatchSentiment(payload as Record<string, unknown>, msgId);
         break;
       case 'get_accounts':
         dbFn(getAccounts);
@@ -447,55 +458,55 @@ if (port) {
       case 'acknowledge_account':
         {
           if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
-          const p = payload as any;
-          acknowledgeAccount(dbManager.getDb(), p.accountId);
+          const p = payload as Record<string, unknown>;
+          acknowledgeAccount(dbManager.getDb(), p.accountId as string);
           send({ id: msgId, success: true, data: { acknowledged: true } });
           break;
         }
       case 'check_acknowledged':
         {
           if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
-          const p = payload as any;
-          const acknowledged = isAccountAcknowledged(dbManager.getDb(), p.accountId);
+          const p = payload as Record<string, unknown>;
+          const acknowledged = isAccountAcknowledged(dbManager.getDb(), p.accountId as string);
           send({ id: msgId, success: true, data: { acknowledged } });
           break;
         }
       case 'check_capture_rate_limit':
         {
           if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
-          const p = payload as any;
-          const allowed = checkAndConsumeRateLimit(dbManager.getDb(), p.accountId, p.platform, 'capture', p.config);
+          const p = payload as Record<string, unknown>;
+          const allowed = checkAndConsumeRateLimit(dbManager.getDb(), p.accountId as string, p.platform as string, 'capture', p.config as Record<string, unknown>);
           send({ id: msgId, success: true, data: { allowed } });
           break;
         }
       case 'check_ai_rate_limit':
         {
           if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
-          const p = payload as any;
-          const allowed = checkAndConsumeRateLimit(dbManager.getDb(), p.accountId, p.platform, 'ai', p.config);
+          const p = payload as Record<string, unknown>;
+          const allowed = checkAndConsumeRateLimit(dbManager.getDb(), p.accountId as string, p.platform as string, 'ai', p.config as Record<string, unknown>);
           send({ id: msgId, success: true, data: { allowed } });
           break;
         }
       case 'record_capture_audit':
         {
           if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
-          const p = payload as any;
-          recordCaptureResult(dbManager.getDb(), p.outcome, p.accountId, p.platform, p.reason);
+          const p = payload as Record<string, unknown>;
+          recordCaptureResult(dbManager.getDb(), p.outcome as 'allowed' | 'rejected' | 'throttled', p.accountId as string, p.platform as string, p.reason as string);
           send({ id: msgId, success: true, data: { recorded: true } });
           break;
         }
       case 'record_ai_audit':
         {
           if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
-          const p = payload as any;
-          recordAiResult(dbManager.getDb(), p.outcome, p.accountId, p.platform, p.reason);
+          const p = payload as Record<string, unknown>;
+          recordAiResult(dbManager.getDb(), p.outcome as 'allowed' | 'rate_limited', p.accountId as string, p.platform as string, p.reason as string);
           send({ id: msgId, success: true, data: { recorded: true } });
           break;
         }
       case 'get_audit_events':
         {
           if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
-          const p = payload as any;
+          const p = payload as Record<string, unknown>;
           const events = getAuditEvents(dbManager.getDb(), p);
           send({ id: msgId, success: true, data: events });
           break;
@@ -503,8 +514,8 @@ if (port) {
       case 'get_group_account_ids':
         {
           if (!dbManager) { send({ id: msgId, success: false, error: 'DB not initialized' }); break; }
-          const p = payload as any;
-          const accountIds = getGroupAccountIds(dbManager.getDb(), p.groupId);
+          const p = payload as Record<string, unknown>;
+          const accountIds = getGroupAccountIds(dbManager.getDb(), p.groupId as string);
           send({ id: msgId, success: true, data: accountIds });
           break;
         }

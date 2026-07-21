@@ -637,7 +637,7 @@ describe('VAL-WORKSPACE-010: Capture remains read-only owned-content observation
     ).run('post-1', 'acc-a', 'pid-1', 'Owned content', 1);
 
     // Verify: only content created is an owned post record
-    const posts = db.prepare('SELECT * FROM posts').all() as any[];
+    const posts = db.prepare('SELECT * FROM posts').all() as Array<{ account_id: string; content_text: string }>;
     expect(posts.length).toBe(1);
     expect(posts[0].account_id).toBe('acc-a');
     expect(posts[0].content_text).toBe('Owned content');

@@ -28,10 +28,10 @@ export function getWorkspacesHandler(db: Database.Database, send: SendFn, msgId:
   }
 }
 
-export function createWorkspaceHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function createWorkspaceHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    const id = payload?.id || ("workspace-" + uuidv4());
-    const name = payload?.name || "New Workspace";
+    const id = (payload?.id as string) || ("workspace-" + uuidv4());
+    const name = (payload?.name as string) || "New Workspace";
     const now = new Date().toISOString();
     const maxOrder = db.prepare(
       "SELECT COALESCE(MAX(sort_order), -1) + 1 as next FROM workspaces"
@@ -51,10 +51,10 @@ export function createWorkspaceHandler(db: Database.Database, send: SendFn, msgI
   }
 }
 
-export function renameWorkspaceHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function renameWorkspaceHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
     const now = new Date().toISOString();
-    db.prepare("UPDATE workspaces SET name = ?, updated_at = ? WHERE id = ?").run(payload.name, now, payload.id);
+    db.prepare("UPDATE workspaces SET name = ?, updated_at = ? WHERE id = ?").run(payload.name as string, now, payload.id as string);
     send({ id: msgId, success: true, data: { updated: true } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -63,10 +63,10 @@ export function renameWorkspaceHandler(db: Database.Database, send: SendFn, msgI
   }
 }
 
-export function deleteWorkspaceHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function deleteWorkspaceHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    db.prepare("DELETE FROM tab_groups WHERE workspace_id = ?").run(payload.id);
-    db.prepare("DELETE FROM workspaces WHERE id = ?").run(payload.id);
+    db.prepare("DELETE FROM tab_groups WHERE workspace_id = ?").run(payload.id as string);
+    db.prepare("DELETE FROM workspaces WHERE id = ?").run(payload.id as string);
     send({ id: msgId, success: true, data: { deleted: true } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -75,9 +75,9 @@ export function deleteWorkspaceHandler(db: Database.Database, send: SendFn, msgI
   }
 }
 
-export function reorderWorkspacesHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function reorderWorkspacesHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    const ids: string[] = payload?.ids || [];
+    const ids: string[] = (payload?.ids as string[]) || [];
     const stmt = db.prepare("UPDATE workspaces SET sort_order = ?, updated_at = ? WHERE id = ?");
     const now = new Date().toISOString();
     const runAll = db.transaction(() => {
@@ -94,14 +94,14 @@ export function reorderWorkspacesHandler(db: Database.Database, send: SendFn, ms
 
 // ===== Tab Group Handlers =====
 
-export function getTabGroupsHandler(db: Database.Database, send: SendFn, msgId: string, payload?: any): void {
+export function getTabGroupsHandler(db: Database.Database, send: SendFn, msgId: string, payload?: Record<string, unknown>): void {
   try {
     let sql = "SELECT id, workspace_id as workspaceId, name, sort_order as sortOrder, " +
       "created_at as createdAt, updated_at as updatedAt FROM tab_groups";
     const params: unknown[] = [];
     if (payload?.workspaceId) {
       sql += " WHERE workspace_id = ?";
-      params.push(payload.workspaceId);
+      params.push(payload.workspaceId as string);
     }
     sql += " ORDER BY sort_order ASC, created_at ASC";
     send({ id: msgId, success: true, data: db.prepare(sql).all(...params) });
@@ -112,11 +112,11 @@ export function getTabGroupsHandler(db: Database.Database, send: SendFn, msgId: 
   }
 }
 
-export function createTabGroupHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function createTabGroupHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    const id = payload?.id || ("group-" + uuidv4());
-    const workspaceId = payload?.workspaceId;
-    const name = payload?.name || "New Group";
+    const id = (payload?.id as string) || ("group-" + uuidv4());
+    const workspaceId = payload?.workspaceId as string | undefined;
+    const name = (payload?.name as string) || "New Group";
     const now = new Date().toISOString();
     if (!workspaceId) {
       send({ id: msgId, success: false, error: "workspaceId is required" });
@@ -140,10 +140,10 @@ export function createTabGroupHandler(db: Database.Database, send: SendFn, msgId
   }
 }
 
-export function renameTabGroupHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function renameTabGroupHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
     const now = new Date().toISOString();
-    db.prepare("UPDATE tab_groups SET name = ?, updated_at = ? WHERE id = ?").run(payload.name, now, payload.id);
+    db.prepare("UPDATE tab_groups SET name = ?, updated_at = ? WHERE id = ?").run(payload.name as string, now, payload.id as string);
     send({ id: msgId, success: true, data: { updated: true } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -152,9 +152,9 @@ export function renameTabGroupHandler(db: Database.Database, send: SendFn, msgId
   }
 }
 
-export function deleteTabGroupHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function deleteTabGroupHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    db.prepare("DELETE FROM tab_groups WHERE id = ?").run(payload.id);
+    db.prepare("DELETE FROM tab_groups WHERE id = ?").run(payload.id as string);
     send({ id: msgId, success: true, data: { deleted: true } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -163,9 +163,9 @@ export function deleteTabGroupHandler(db: Database.Database, send: SendFn, msgId
   }
 }
 
-export function reorderTabGroupsHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function reorderTabGroupsHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    const ids: string[] = payload?.ids || [];
+    const ids: string[] = (payload?.ids as string[]) || [];
     const stmt = db.prepare("UPDATE tab_groups SET sort_order = ?, updated_at = ? WHERE id = ?");
     const now = new Date().toISOString();
     const runAll = db.transaction(() => {
@@ -182,7 +182,7 @@ export function reorderTabGroupsHandler(db: Database.Database, send: SendFn, msg
 
 // ===== Group-Account Membership Handlers =====
 
-export function getGroupAccountsHandler(db: Database.Database, send: SendFn, msgId: string, payload?: any): void {
+export function getGroupAccountsHandler(db: Database.Database, send: SendFn, msgId: string, payload?: Record<string, unknown>): void {
   try {
     let sql = "SELECT ga.id, ga.group_id as groupId, ga.account_id as accountId, " +
       "ga.sort_order as sortOrder, ga.created_at as createdAt, " +
@@ -191,7 +191,7 @@ export function getGroupAccountsHandler(db: Database.Database, send: SendFn, msg
     const params: unknown[] = [];
     if (payload?.groupId) {
       sql += " WHERE ga.group_id = ?";
-      params.push(payload.groupId);
+      params.push(payload.groupId as string);
     }
     sql += " ORDER BY ga.sort_order ASC, ga.created_at ASC";
     send({ id: msgId, success: true, data: db.prepare(sql).all(...params) });
@@ -202,17 +202,17 @@ export function getGroupAccountsHandler(db: Database.Database, send: SendFn, msg
   }
 }
 
-export function addAccountToGroupHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function addAccountToGroupHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    const groupId = payload?.groupId;
-    const accountId = payload?.accountId;
+    const groupId = payload?.groupId as string;
+    const accountId = payload?.accountId as string;
     if (!groupId || !accountId) {
       send({ id: msgId, success: false, error: "groupId and accountId are required" });
       return;
     }
     const existing = db.prepare(
       "SELECT id FROM group_accounts WHERE group_id = ? AND account_id = ?"
-    ).get(groupId, accountId) as any;
+    ).get(groupId, accountId) as { id: string } | undefined;
     if (existing) {
       send({ id: msgId, success: true, data: { id: existing.id, alreadyMember: true } });
       return;
@@ -233,10 +233,10 @@ export function addAccountToGroupHandler(db: Database.Database, send: SendFn, ms
   }
 }
 
-export function removeAccountFromGroupHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function removeAccountFromGroupHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    db.prepare("DELETE FROM group_accounts WHERE group_id = ? AND account_id = ?").run(payload.groupId, payload.accountId);
-    db.prepare("DELETE FROM group_tabs WHERE group_id = ? AND account_id = ?").run(payload.groupId, payload.accountId);
+    db.prepare("DELETE FROM group_accounts WHERE group_id = ? AND account_id = ?").run(payload.groupId as string, payload.accountId as string);
+    db.prepare("DELETE FROM group_tabs WHERE group_id = ? AND account_id = ?").run(payload.groupId as string, payload.accountId as string);
     send({ id: msgId, success: true, data: { removed: true } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -245,10 +245,10 @@ export function removeAccountFromGroupHandler(db: Database.Database, send: SendF
   }
 }
 
-export function reorderGroupAccountsHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function reorderGroupAccountsHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    const groupId = payload?.groupId;
-    const accountIds: string[] = payload?.accountIds || [];
+    const groupId = payload?.groupId as string;
+    const accountIds: string[] = (payload?.accountIds as string[]) || [];
     const stmt = db.prepare("UPDATE group_accounts SET sort_order = ? WHERE group_id = ? AND account_id = ?");
     const runAll = db.transaction(() => {
       for (let i = 0; i < accountIds.length; i++) { stmt.run(i, groupId, accountIds[i]); }
@@ -264,7 +264,7 @@ export function reorderGroupAccountsHandler(db: Database.Database, send: SendFn,
 
 // ===== Group Tab Handlers =====
 
-export function getGroupTabsHandler(db: Database.Database, send: SendFn, msgId: string, payload?: any): void {
+export function getGroupTabsHandler(db: Database.Database, send: SendFn, msgId: string, payload?: Record<string, unknown>): void {
   try {
     let sql = "SELECT id, group_id as groupId, platform, account_id as accountId, url, " +
       "sort_order as sortOrder, created_at as createdAt, updated_at as updatedAt " +
@@ -272,7 +272,7 @@ export function getGroupTabsHandler(db: Database.Database, send: SendFn, msgId: 
     const params: unknown[] = [];
     if (payload?.groupId) {
       sql += " WHERE group_id = ?";
-      params.push(payload.groupId);
+      params.push(payload.groupId as string);
     }
     sql += " ORDER BY sort_order ASC, created_at ASC";
     send({ id: msgId, success: true, data: db.prepare(sql).all(...params) });
@@ -283,11 +283,11 @@ export function getGroupTabsHandler(db: Database.Database, send: SendFn, msgId: 
   }
 }
 
-export function addGroupTabHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function addGroupTabHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    const groupId = payload?.groupId;
-    const platform = payload?.platform;
-    const accountId = payload?.accountId;
+    const groupId = payload?.groupId as string;
+    const platform = payload?.platform as string;
+    const accountId = payload?.accountId as string;
     if (!groupId || !platform || !accountId) {
       send({ id: msgId, success: false, error: "groupId, platform, and accountId are required" });
       return;
@@ -299,7 +299,7 @@ export function addGroupTabHandler(db: Database.Database, send: SendFn, msgId: s
     ).get(groupId) as { next: number };
     db.prepare(
       "INSERT INTO group_tabs (id, group_id, platform, account_id, url, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    ).run(id, groupId, platform, accountId, (payload?.url || null), maxOrder.next, now, now);
+    ).run(id, groupId, platform, accountId, (payload?.url as string | null) || null, maxOrder.next, now, now);
     const tab = db.prepare(
       "SELECT id, group_id as groupId, platform, account_id as accountId, url, " +
       "sort_order as sortOrder, created_at as createdAt, updated_at as updatedAt FROM group_tabs WHERE id = ?"
@@ -312,9 +312,9 @@ export function addGroupTabHandler(db: Database.Database, send: SendFn, msgId: s
   }
 }
 
-export function removeGroupTabHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function removeGroupTabHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    db.prepare("DELETE FROM group_tabs WHERE id = ?").run(payload.id);
+    db.prepare("DELETE FROM group_tabs WHERE id = ?").run(payload.id as string);
     send({ id: msgId, success: true, data: { removed: true } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -323,10 +323,10 @@ export function removeGroupTabHandler(db: Database.Database, send: SendFn, msgId
   }
 }
 
-export function reorderGroupTabsHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function reorderGroupTabsHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    const groupId = payload?.groupId;
-    const tabIds: string[] = payload?.tabIds || [];
+    const groupId = payload?.groupId as string;
+    const tabIds: string[] = (payload?.tabIds as string[]) || [];
     const stmt = db.prepare("UPDATE group_tabs SET sort_order = ?, updated_at = ? WHERE group_id = ? AND id = ?");
     const now = new Date().toISOString();
     const runAll = db.transaction(() => {

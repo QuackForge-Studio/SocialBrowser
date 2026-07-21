@@ -106,13 +106,13 @@ export function getLocalHourAndDay(
 
 // ===== Timezone Settings =====
 
-export function getAccountTimezone(db: any, accountId: string): string {
+export function getAccountTimezone(db: Database.Database, accountId: string): string {
   const row = db.prepare("SELECT value FROM settings WHERE key = ?").get("timezone:" + accountId) as { value: string } | undefined;
   if (!row) return DEFAULT_TIMEZONE;
   return isValidTimezone(row.value) ? row.value : DEFAULT_TIMEZONE;
 }
 
-export function setAccountTimezone(db: any, accountId: string, timezone: string): void {
+export function setAccountTimezone(db: Database.Database, accountId: string, timezone: string): void {
   if (!isValidTimezone(timezone)) {
     throw new Error("Invalid IANA timezone: " + timezone);
   }
@@ -123,17 +123,17 @@ export function setAccountTimezone(db: any, accountId: string, timezone: string)
 
 // ===== Private Helpers =====
 
-function getAccountIdForPost(db: any, postId: string): string | null {
+function getAccountIdForPost(db: Database.Database, postId: string): string | null {
   const row = db.prepare("SELECT account_id FROM posts WHERE id = ?").get(postId) as { account_id: string } | undefined;
   return row?.account_id ?? null;
 }
 
-function getContentTypeForPost(db: any, postId: string): string | null {
+function getContentTypeForPost(db: Database.Database, postId: string): string | null {
   const row = db.prepare("SELECT COALESCE(content_type, 'text') as content_type FROM posts WHERE id = ?").get(postId) as { content_type: string } | undefined;
   return row?.content_type ?? null;
 }
 
-function getPublishedAtForPost(db: any, postId: string): string | null {
+function getPublishedAtForPost(db: Database.Database, postId: string): string | null {
   const row = db.prepare("SELECT published_at FROM posts WHERE id = ?").get(postId) as { published_at: string } | undefined;
   return row?.published_at ?? null;
 }
@@ -150,7 +150,7 @@ interface PostScoreEntry {
   engagementScore: number | null;
 }
 
-function getScoredPostsForAccount(db: any, accountId: string, contentType?: string): PostScoreEntry[] {
+function getScoredPostsForAccount(db: Database.Database, accountId: string, contentType?: string): PostScoreEntry[] {
   let query = "SELECT p.id as postId, p.account_id as accountId, COALESCE(p.content_type, 'text') as contentType, p.published_at as publishedAt, s.engagement_raw as engagementRaw, s.engagement_percentile as engagementPercentile, s.engagement_score as engagementScore FROM posts p JOIN scores s ON s.post_id = p.id WHERE p.account_id = ?";
   const params: unknown[] = [accountId];
   if (contentType) {
@@ -158,7 +158,7 @@ function getScoredPostsForAccount(db: any, accountId: string, contentType?: stri
     params.push(contentType);
   }
   query += " ORDER BY p.published_at ASC";
-  return db.prepare(query).all(...params);
+  return db.prepare(query).all(...params) as PostScoreEntry[];
 }
 
 export function computeHeatmapCells(
@@ -183,7 +183,7 @@ export function computeHeatmapCells(
 }
 
 export function storeHeatmapCells(
-  db: any,
+  db: Database.Database,
   accountId: string,
   contentType: string,
   cells: Map<string, { hour: number; day: number; scores: number[] }>,
@@ -204,17 +204,17 @@ export function storeHeatmapCells(
   tx();
 }
 
-export function getAccountContentTypes(db: any, accountId: string): string[] {
+export function getAccountContentTypes(db: Database.Database, accountId: string): string[] {
   const rows = db.prepare("SELECT DISTINCT COALESCE(content_type, 'text') as content_type FROM posts WHERE account_id = ?").all(accountId) as { content_type: string }[];
   return rows.map(r => r.content_type);
 }
 
-export function getAllScoredAccountIds(db: any): string[] {
+export function getAllScoredAccountIds(db: Database.Database): string[] {
   const rows = db.prepare("SELECT DISTINCT p.account_id as accountId FROM posts p JOIN scores s ON s.post_id = p.id").all() as { accountId: string }[];
   return rows.map(r => r.accountId);
 }
 
-export function computeHeatmapForAccount(db: any, accountId: string): void {
+export function computeHeatmapForAccount(db: Database.Database, accountId: string): void {
   const timezone = getAccountTimezone(db, accountId);
   const contentTypes = getAccountContentTypes(db, accountId);
   for (const contentType of contentTypes) {
@@ -224,14 +224,14 @@ export function computeHeatmapForAccount(db: any, accountId: string): void {
   }
 }
 
-export function computeAllHeatmaps(db: any): void {
+export function computeAllHeatmaps(db: Database.Database): void {
   const accountIds = getAllScoredAccountIds(db);
   for (const accountId of accountIds) {
     computeHeatmapForAccount(db, accountId);
   }
 }
 
-export function recomputeHeatmapForPost(db: any, postId: string): void {
+export function recomputeHeatmapForPost(db: Database.Database, postId: string): void {
   const accountId = getAccountIdForPost(db, postId);
   if (!accountId) return;
   const contentType = getContentTypeForPost(db, postId);
@@ -258,11 +258,11 @@ export function recomputeHeatmapForPost(db: any, postId: string): void {
   }
 }
 
-export function recomputeHeatmapForTimezoneChange(db: any, accountId: string): void {
+export function recomputeHeatmapForTimezoneChange(db: Database.Database, accountId: string): void {
   computeHeatmapForAccount(db, accountId);
 }
 
-export function getHeatmapForAccount(db: any, accountId: string, contentType?: string): HeatmapCell[] {
+export function getHeatmapForAccount(db: Database.Database, accountId: string, contentType?: string): HeatmapCell[] {
   let query = "SELECT * FROM heatmap_cells WHERE account_id = ?";
   const params: unknown[] = [accountId];
   if (contentType) {
@@ -282,7 +282,7 @@ export function getHeatmapForAccount(db: any, accountId: string, contentType?: s
   }));
 }
 
-export function getHeatmapGrid(db: any, accountId: string, contentType?: string): {
+export function getHeatmapGrid(db: Database.Database, accountId: string, contentType?: string): {
   grid: { hour: number; day: number; avgScore: number | null; sampleSize: number; confidence: number; excluded: boolean }[][];
   contentTypes: string[];
   timezone: string;

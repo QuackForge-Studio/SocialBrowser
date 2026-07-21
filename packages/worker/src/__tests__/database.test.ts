@@ -264,7 +264,7 @@ describe('DatabaseManager (in-memory)', () => {
         'VALUES (?, ?, ?, ?, ?, ?)'
       ].join(' ')).run('acc-1', 'x', '@testuser', 'Test User', 'persist:social-browser:x:uuid-1', 1);
 
-      const row = db.prepare('SELECT * FROM accounts WHERE id = ?').get('acc-1') as any;
+      const row = db.prepare('SELECT * FROM accounts WHERE id = ?').get('acc-1') as { platform: string; handle: string; display_name: string; session_partition: string };
       expect(row).toBeDefined();
       expect(row.platform).toBe('x');
       expect(row.handle).toBe('@testuser');
@@ -331,7 +331,7 @@ describe('DatabaseManager (in-memory)', () => {
       const db = manager.getDb();
       db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('theme', 'dark');
 
-      const row = db.prepare('SELECT * FROM settings WHERE key = ?').get('theme') as any;
+      const row = db.prepare('SELECT * FROM settings WHERE key = ?').get('theme') as { value: string };
       expect(row).toBeDefined();
       expect(row.value).toBe('dark');
     });
@@ -344,7 +344,7 @@ describe('DatabaseManager (in-memory)', () => {
         "VALUES (?, ?, datetime('now'))"
       ].join(' ')).run('theme', 'light');
 
-      const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('theme') as any;
+      const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('theme') as { value: string };
       expect(row.value).toBe('light');
     });
   });
@@ -548,8 +548,8 @@ describe('Migration system (standalone)', () => {
     runMigrations(db);
 
     // Verify accounts table has expected columns
-    const accountsCols = db.prepare('PRAGMA table_info(accounts)').all() as any[];
-    const accountsNames = accountsCols.map((c: any) => c.name);
+    const accountsCols = db.prepare('PRAGMA table_info(accounts)').all() as Array<{ name: string }>;
+    const accountsNames = accountsCols.map((c: { name: string }) => c.name);
     expect(accountsNames).toContain('id');
     expect(accountsNames).toContain('platform');
     expect(accountsNames).toContain('handle');
@@ -558,15 +558,15 @@ describe('Migration system (standalone)', () => {
     expect(accountsNames).toContain('updated_at');
 
     // Verify posts table has expected columns
-    const postsCols = db.prepare('PRAGMA table_info(posts)').all() as any[];
-    const postsNames = postsCols.map((c: any) => c.name);
+    const postsCols = db.prepare('PRAGMA table_info(posts)').all() as Array<{ name: string }>;
+    const postsNames = postsCols.map((c: { name: string }) => c.name);
     expect(postsNames).toContain('account_id');
     expect(postsNames).toContain('platform_post_id');
     expect(postsNames).toContain('content_text');
     expect(postsNames).toContain('adapter_version');
 
     // Verify UNIQUE constraint on posts
-    const postsIndexes = db.prepare('PRAGMA index_list(posts)').all() as any[];
+    const postsIndexes = db.prepare('PRAGMA index_list(posts)').all() as Array<{ name: string }>;
     expect(postsIndexes.length).toBeGreaterThan(0);
   });
 });

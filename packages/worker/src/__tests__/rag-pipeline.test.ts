@@ -102,7 +102,7 @@ describe('VAL-RAG-001: Draft triggers embedding of brief', () => {
     expect(result.status).toBe('completed');
     expect(result.recordId).toBeDefined();
 
-    const row = db.prepare('SELECT * FROM embedding_records WHERE id = ?').get(result.recordId) as any;
+    const row = db.prepare('SELECT * FROM embedding_records WHERE id = ?').get(result.recordId) as { content_type: string; status: string; provider: string; model: string };
     expect(row).toBeDefined();
     expect(row.content_type).toBe('draft_brief');
     expect(row.status).toBe('completed');
@@ -123,7 +123,7 @@ describe('VAL-RAG-001: Draft triggers embedding of brief', () => {
     expect(result.status).toBe('completed');
     expect(result.recordId).toBeDefined();
 
-    const row = db.prepare('SELECT * FROM embedding_records WHERE id = ?').get(result.recordId) as any;
+    const row = db.prepare('SELECT * FROM embedding_records WHERE id = ?').get(result.recordId) as { status: string };
     expect(row.status).toBe('completed');
   });
 });
@@ -280,19 +280,19 @@ describe('VAL-RAG-005-007: Embedding records store provider, model, and dimensio
 
   it('should store provider in embedding_records.provider', async () => {
     const result = await embeddingPipeline.embedContent('post', 'p1', 'Test text', { provider });
-    const row = db.prepare('SELECT provider FROM embedding_records WHERE id = ?').get(result.recordId) as any;
+    const row = db.prepare('SELECT provider FROM embedding_records WHERE id = ?').get(result.recordId) as { provider: string };
     expect(row.provider).toBe('fake');
   });
 
   it('should store model in embedding_records.model', async () => {
     const result = await embeddingPipeline.embedContent('post', 'p1', 'Test text', { provider });
-    const row = db.prepare('SELECT model FROM embedding_records WHERE id = ?').get(result.recordId) as any;
+    const row = db.prepare('SELECT model FROM embedding_records WHERE id = ?').get(result.recordId) as { model: string };
     expect(row.model).toBe('fake-model-v1');
   });
 
   it('should store dimensions in embedding_records.dimensions', async () => {
     const result = await embeddingPipeline.embedContent('post', 'p1', 'Test text', { provider });
-    const row = db.prepare('SELECT dimensions FROM embedding_records WHERE id = ?').get(result.recordId) as any;
+    const row = db.prepare('SELECT dimensions FROM embedding_records WHERE id = ?').get(result.recordId) as { dimensions: number };
     expect(row.dimensions).toBe(384);
   });
 });
@@ -305,7 +305,7 @@ describe('VAL-RAG-008: Embedding records store content_hash', () => {
     const provider = new FakeAIProvider();
 
     const result = await embeddingPipeline.embedContent('post', 'p1', 'Hello world', { provider });
-    const row = db.prepare('SELECT content_hash FROM embedding_records WHERE id = ?').get(result.recordId) as any;
+    const row = db.prepare('SELECT content_hash FROM embedding_records WHERE id = ?').get(result.recordId) as { content_hash: string };
 
     expect(row.content_hash).toBeDefined();
     expect(typeof row.content_hash).toBe('string');
@@ -332,7 +332,7 @@ describe('VAL-RAG-009: Embedding records store status', () => {
     const provider = new FakeAIProvider();
 
     const result = await embeddingPipeline.embedContent('post', 'p1', 'Test', { provider });
-    const row = db.prepare('SELECT status FROM embedding_records WHERE id = ?').get(result.recordId) as any;
+    const row = db.prepare('SELECT status FROM embedding_records WHERE id = ?').get(result.recordId) as { status: string };
     expect(row.status).toBe('completed');
 
     db.close();
@@ -346,7 +346,7 @@ describe('VAL-RAG-009: Embedding records store status', () => {
     expect(result.status).toBe('error');
     expect(result.errorMessage).toBe('No AI provider available');
 
-    const row = db.prepare('SELECT status FROM embedding_records WHERE id = ?').get(result.recordId) as any;
+    const row = db.prepare('SELECT status FROM embedding_records WHERE id = ?').get(result.recordId) as { status: string };
     expect(row.status).toBe('error');
 
     db.close();
@@ -472,7 +472,7 @@ describe('VAL-RAG-014: New post auto-embedded', () => {
 
     const record = db.prepare(
       "SELECT * FROM embedding_records WHERE content_type = 'post' AND content_id = 'new-post'"
-    ).get() as any;
+    ).get() as { content_type: string; status: string };
 
     expect(record).toBeDefined();
     expect(record.status).toBe('completed');
@@ -501,7 +501,7 @@ describe('VAL-RAG-015: New comment auto-embedded', () => {
 
     const record = db.prepare(
       "SELECT * FROM embedding_records WHERE content_type = 'comment' AND content_id = 'comment-1'"
-    ).get() as any;
+    ).get() as { content_type: string; status: string };
 
     expect(record).toBeDefined();
     expect(record.status).toBe('completed');
@@ -597,7 +597,7 @@ describe('VAL-RAG-018: rag_context_ids in content_drafts populated', () => {
       ragContextIds: ['post-1', 'post-2', 'post-3'],
     });
 
-    const draft = db.prepare('SELECT * FROM content_drafts WHERE id = ?').get(draftId) as any;
+    const draft = db.prepare('SELECT * FROM content_drafts WHERE id = ?').get(draftId) as { rag_context_ids: string };
     expect(draft).toBeDefined();
     expect(draft.rag_context_ids).toBe('post-1,post-2,post-3');
 
@@ -719,7 +719,7 @@ describe('VAL-RAG-024: content_drafts links to rag_context_ids', () => {
       ragContextIds: ['post-ref-1', 'post-ref-2'],
     });
 
-    const draft = db.prepare('SELECT * FROM content_drafts WHERE id = ?').get(draftId) as any;
+    const draft = db.prepare('SELECT * FROM content_drafts WHERE id = ?').get(draftId) as { rag_context_ids: string };
     expect(draft).toBeDefined();
     expect(draft.rag_context_ids).toBeDefined();
     expect(draft.rag_context_ids).toBe('post-ref-1,post-ref-2');
@@ -740,7 +740,7 @@ describe('VAL-RAG-024: content_drafts links to rag_context_ids', () => {
       ragContextIds: [],
     });
 
-    const draft = db.prepare('SELECT * FROM content_drafts WHERE id = ?').get(draftId) as any;
+    const draft = db.prepare('SELECT * FROM content_drafts WHERE id = ?').get(draftId) as { rag_context_ids: string | null };
     expect(draft.rag_context_ids).toBeNull();
 
     db.close();

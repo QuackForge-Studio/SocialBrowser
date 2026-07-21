@@ -26,7 +26,7 @@ export function getAccounts(db: Database.Database, send: SendFn, msgId: string):
   }
 }
 
-export function getPosts(db: Database.Database, send: SendFn, msgId: string, payload?: any): void {
+export function getPosts(db: Database.Database, send: SendFn, msgId: string, payload?: Record<string, unknown>): void {
   try {
     let sql = 'SELECT p.id, p.account_id as accountId, p.platform_post_id as platformPostId, ' +
       'p.content_text as contentText, p.media_refs as mediaRefs, ' +
@@ -41,11 +41,11 @@ export function getPosts(db: Database.Database, send: SendFn, msgId: string, pay
 
     if (payload?.accountId) {
       conditions.push('p.account_id = ?');
-      params.push(payload.accountId);
+      params.push(payload.accountId as string);
     }
     if (payload?.date) {
       conditions.push('date(p.published_at) = date(?)');
-      params.push(payload.date);
+      params.push(payload.date as string);
     }
 
     if (conditions.length > 0) {
@@ -53,8 +53,8 @@ export function getPosts(db: Database.Database, send: SendFn, msgId: string, pay
     }
     sql += ' ORDER BY p.published_at DESC';
 
-    const limit = payload?.limit || 200;
-    const offset = payload?.offset || 0;
+    const limit = (payload?.limit as number) || 200;
+    const offset = (payload?.offset as number) || 0;
     sql += ' LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
@@ -67,13 +67,13 @@ export function getPosts(db: Database.Database, send: SendFn, msgId: string, pay
   }
 }
 
-export function createDraftHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function createDraftHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
     const draftId = uuidv4();
     const now = new Date().toISOString();
     db.prepare(
       `INSERT INTO content_drafts (id, account_id, source_prompt, scheduled_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'draft', ?, ?)`
-    ).run(draftId, payload.accountId, payload.sourcePrompt || null, payload.scheduledDate || null, now, now);
+    ).run(draftId, payload.accountId as string, (payload.sourcePrompt as string) || null, (payload.scheduledDate as string) || null, now, now);
     const draft = db.prepare(
       'SELECT id, account_id as accountId, generated_text as generatedText, source_prompt as sourcePrompt, ' +
       'rag_context_ids as ragContextIds, predicted_score as predictedScore, scheduled_date as scheduledDate, ' +
@@ -87,7 +87,7 @@ export function createDraftHandler(db: Database.Database, send: SendFn, msgId: s
   }
 }
 
-export function getDrafts(db: Database.Database, send: SendFn, msgId: string, payload?: any): void {
+export function getDrafts(db: Database.Database, send: SendFn, msgId: string, payload?: Record<string, unknown>): void {
   try {
     let sql = 'SELECT id, account_id as accountId, generated_text as generatedText, source_prompt as sourcePrompt, ' +
       'rag_context_ids as ragContextIds, predicted_score as predictedScore, scheduled_date as scheduledDate, ' +
@@ -97,15 +97,15 @@ export function getDrafts(db: Database.Database, send: SendFn, msgId: string, pa
 
     if (payload?.accountId) {
       conditions.push('account_id = ?');
-      params.push(payload.accountId);
+      params.push(payload.accountId as string);
     }
     if (payload?.date) {
       conditions.push('date(scheduled_date) = date(?)');
-      params.push(payload.date);
+      params.push(payload.date as string);
     }
     if (payload?.status) {
       conditions.push('status = ?');
-      params.push(payload.status);
+      params.push(payload.status as string);
     }
 
     if (conditions.length > 0) {
@@ -122,25 +122,25 @@ export function getDrafts(db: Database.Database, send: SendFn, msgId: string, pa
   }
 }
 
-export function updateDraftHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function updateDraftHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
     const now = new Date().toISOString();
     const setClauses: string[] = ['updated_at = ?'];
     const params: unknown[] = [now];
 
-    if (payload.generatedText !== undefined) { setClauses.push('generated_text = ?'); params.push(payload.generatedText); }
-    if (payload.sourcePrompt !== undefined) { setClauses.push('source_prompt = ?'); params.push(payload.sourcePrompt); }
-    if (payload.scheduledDate !== undefined) { setClauses.push('scheduled_date = ?'); params.push(payload.scheduledDate); }
-    if (payload.status !== undefined) { setClauses.push('status = ?'); params.push(payload.status); }
-    if (payload.predictedScore !== undefined) { setClauses.push('predicted_score = ?'); params.push(payload.predictedScore); }
+    if (payload.generatedText !== undefined) { setClauses.push('generated_text = ?'); params.push(payload.generatedText as string); }
+    if (payload.sourcePrompt !== undefined) { setClauses.push('source_prompt = ?'); params.push(payload.sourcePrompt as string); }
+    if (payload.scheduledDate !== undefined) { setClauses.push('scheduled_date = ?'); params.push(payload.scheduledDate as string); }
+    if (payload.status !== undefined) { setClauses.push('status = ?'); params.push(payload.status as string); }
+    if (payload.predictedScore !== undefined) { setClauses.push('predicted_score = ?'); params.push(payload.predictedScore as number); }
 
-    params.push(payload.id);
+    params.push(payload.id as string);
     db.prepare('UPDATE content_drafts SET ' + setClauses.join(', ') + ' WHERE id = ?').run(...params);
     const draft = db.prepare(
       'SELECT id, account_id as accountId, generated_text as generatedText, source_prompt as sourcePrompt, ' +
       'rag_context_ids as ragContextIds, predicted_score as predictedScore, scheduled_date as scheduledDate, ' +
       'published_at as publishedAt, status, created_at as createdAt, updated_at as updatedAt FROM content_drafts WHERE id = ?'
-    ).get(payload.id);
+    ).get(payload.id as string);
     send({ id: msgId, success: true, data: draft });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -149,9 +149,9 @@ export function updateDraftHandler(db: Database.Database, send: SendFn, msgId: s
   }
 }
 
-export function deleteDraftHandler(db: Database.Database, send: SendFn, msgId: string, payload: any): void {
+export function deleteDraftHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
-    db.prepare('DELETE FROM content_drafts WHERE id = ?').run(payload.id);
+    db.prepare('DELETE FROM content_drafts WHERE id = ?').run(payload.id as string);
     send({ id: msgId, success: true, data: { deleted: true } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -162,7 +162,7 @@ export function deleteDraftHandler(db: Database.Database, send: SendFn, msgId: s
 
 export function getSettingsHandler(db: Database.Database, send: SendFn, msgId: string): void {
   try {
-    const rows = db.prepare('SELECT key, value, updated_at as updatedAt FROM settings').all() as any[];
+    const rows = db.prepare('SELECT key, value, updated_at as updatedAt FROM settings').all() as Array<{ key: string; value: string; updatedAt: string }>;
     const settingsMap: Record<string, string> = {};
     for (const row of rows) {
       settingsMap[row.key] = row.value;
@@ -175,7 +175,7 @@ export function getSettingsHandler(db: Database.Database, send: SendFn, msgId: s
   }
 }
 
-export function updateSettingsHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, string>): void {
+export function updateSettingsHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
   try {
     const now = new Date().toISOString();
     const upsert = db.prepare(
@@ -192,16 +192,16 @@ export function updateSettingsHandler(db: Database.Database, send: SendFn, msgId
   }
 }
 
-export function getAnalyticsHandler(db: Database.Database, send: SendFn, msgId: string, payload?: any): void {
+export function getAnalyticsHandler(db: Database.Database, send: SendFn, msgId: string, payload?: Record<string, unknown>): void {
   try {
     const params: unknown[] = [];
     let whereClause = '';
     if (payload?.accountId) {
       whereClause = ' WHERE p.account_id = ?';
-      params.push(payload.accountId);
+      params.push(payload.accountId as string);
     }
 
-    const totalPosts = db.prepare('SELECT COUNT(*) as count FROM posts p' + whereClause).get(...params) as any;
+    const totalPosts = db.prepare('SELECT COUNT(*) as count FROM posts p' + whereClause).get(...params) as { count: number };
 
     const trendData = db.prepare(
       'SELECT date(p.published_at) as date, AVG(s.composite_score) as avgScore, ' +
@@ -243,7 +243,7 @@ export function getAnalyticsHandler(db: Database.Database, send: SendFn, msgId: 
   }
 }
 
-export function getHeatmapHandler(db: Database.Database, send: SendFn, msgId: string, payload?: any): void {
+export function getHeatmapHandler(db: Database.Database, send: SendFn, msgId: string, payload?: Record<string, unknown>): void {
   try {
     let sql = 'SELECT id, account_id as accountId, content_type as contentType, hour_of_day as hourOfDay, ' +
       'day_of_week as dayOfWeek, avg_engagement_score as avgEngagementScore, sample_size as sampleSize, ' +
@@ -251,7 +251,7 @@ export function getHeatmapHandler(db: Database.Database, send: SendFn, msgId: st
     const params: unknown[] = [];
     if (payload?.accountId) {
       sql += ' WHERE account_id = ?';
-      params.push(payload.accountId);
+      params.push(payload.accountId as string);
     }
     sql += ' ORDER BY day_of_week, hour_of_day';
     const rows = db.prepare(sql).all(...params);

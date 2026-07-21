@@ -53,8 +53,8 @@ export const MIGRATION_003: Migration = {
   description: 'Add content_type to posts, create heatmap_cells table',
   up: (db: Database.Database) => {
     // Add content_type column to posts if it doesn't exist
-    const tableInfo = db.prepare("PRAGMA table_info('posts')").all() as { name: string }[];
-    const hasContentType = tableInfo.some((col: any) => col.name === 'content_type');
+    const tableInfo = db.prepare("PRAGMA table_info('posts')").all() as Array<{ name: string }>;
+    const hasContentType = tableInfo.some((col) => col.name === 'content_type');
     if (!hasContentType) {
       db.exec("ALTER TABLE posts ADD COLUMN content_type TEXT DEFAULT 'text'");
     }
@@ -88,8 +88,8 @@ export const MIGRATION_004: Migration = {
   version: 4,
   description: 'Add engagement_raw column to scores table',
   up: (db) => {
-    const tableInfo = db.prepare("PRAGMA table_info('scores')").all();
-    const hasEngagementRaw = tableInfo.some((col: any) => col.name === 'engagement_raw');
+    const tableInfo = db.prepare("PRAGMA table_info('scores')").all() as Array<{ name: string }>;
+    const hasEngagementRaw = tableInfo.some((col) => col.name === 'engagement_raw');
     if (!hasEngagementRaw) {
       db.exec("ALTER TABLE scores ADD COLUMN engagement_raw REAL");
     }

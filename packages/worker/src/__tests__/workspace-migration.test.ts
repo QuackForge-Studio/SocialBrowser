@@ -73,8 +73,8 @@ describe('Workspace Data Migration (VAL-WORKSPACE-023)', () => {
     });
 
     it('should have correct columns in workspaces table', () => {
-      const cols = db.prepare('PRAGMA table_info(workspaces)').all() as any[];
-      const names = cols.map((c: any) => c.name);
+      const cols = db.prepare('PRAGMA table_info(workspaces)').all() as { name: string }[];
+      const names = cols.map((c: { name: string }) => c.name);
       expect(names).toContain('id');
       expect(names).toContain('name');
       expect(names).toContain('sort_order');
@@ -83,8 +83,8 @@ describe('Workspace Data Migration (VAL-WORKSPACE-023)', () => {
     });
 
     it('should have correct columns in tab_groups table', () => {
-      const cols = db.prepare('PRAGMA table_info(tab_groups)').all() as any[];
-      const names = cols.map((c: any) => c.name);
+      const cols = db.prepare('PRAGMA table_info(tab_groups)').all() as { name: string }[];
+      const names = cols.map((c: { name: string }) => c.name);
       expect(names).toContain('id');
       expect(names).toContain('workspace_id');
       expect(names).toContain('name');
@@ -92,8 +92,8 @@ describe('Workspace Data Migration (VAL-WORKSPACE-023)', () => {
     });
 
     it('should have correct columns in group_accounts table', () => {
-      const cols = db.prepare('PRAGMA table_info(group_accounts)').all() as any[];
-      const names = cols.map((c: any) => c.name);
+      const cols = db.prepare('PRAGMA table_info(group_accounts)').all() as { name: string }[];
+      const names = cols.map((c: { name: string }) => c.name);
       expect(names).toContain('id');
       expect(names).toContain('group_id');
       expect(names).toContain('account_id');
@@ -243,7 +243,7 @@ describe('Workspace Data Migration (VAL-WORKSPACE-023)', () => {
       // Verify accounts preserved exactly as they were
       const accA = db.prepare(
         'SELECT id, session_partition, platform, handle FROM accounts WHERE id = ?'
-      ).get('legacy-a') as any;
+      ).get('legacy-a') as { id: string; session_partition: string; platform: string; handle: string };
       expect(accA).toBeDefined();
       expect(accA.id).toBe('legacy-a');
       expect(accA.session_partition).toBe('persist:social-browser:x:legacy-a');
@@ -252,7 +252,7 @@ describe('Workspace Data Migration (VAL-WORKSPACE-023)', () => {
 
       const accB = db.prepare(
         'SELECT id, session_partition FROM accounts WHERE id = ?'
-      ).get('legacy-b') as any;
+      ).get('legacy-b') as { id: string; session_partition: string };
       expect(accB).toBeDefined();
       expect(accB.id).toBe('legacy-b');
       expect(accB.session_partition).toBe('persist:social-browser:x:legacy-b');
@@ -287,19 +287,19 @@ describe('Workspace Data Migration (VAL-WORKSPACE-023)', () => {
       migrateLegacyAccounts(db);
 
       // Verify all content preserved
-      const post = db.prepare('SELECT content_text FROM posts WHERE id = ?').get('post-old') as any;
+      const post = db.prepare('SELECT content_text FROM posts WHERE id = ?').get('post-old') as { content_text: string };
       expect(post.content_text).toBe('Legacy post content');
 
-      const snap = db.prepare('SELECT likes FROM engagement_snapshots WHERE id = ?').get('snap-1') as any;
+      const snap = db.prepare('SELECT likes FROM engagement_snapshots WHERE id = ?').get('snap-1') as { likes: number };
       expect(snap.likes).toBe(42);
 
-      const cmt = db.prepare('SELECT text FROM comments WHERE id = ?').get('cmt-1') as any;
+      const cmt = db.prepare('SELECT text FROM comments WHERE id = ?').get('cmt-1') as { text: string };
       expect(cmt.text).toBe('Great post!');
 
-      const score = db.prepare('SELECT composite_score FROM scores WHERE id = ?').get('score-1') as any;
+      const score = db.prepare('SELECT composite_score FROM scores WHERE id = ?').get('score-1') as { composite_score: number };
       expect(score.composite_score).toBe(0.85);
 
-      const draft = db.prepare('SELECT status FROM content_drafts WHERE id = ?').get('draft-1') as any;
+      const draft = db.prepare('SELECT status FROM content_drafts WHERE id = ?').get('draft-1') as { status: string };
       expect(draft.status).toBe('draft');
     });
 

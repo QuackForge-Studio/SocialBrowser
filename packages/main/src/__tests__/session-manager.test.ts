@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { WebContents } from 'electron';
 
 // Use vi.hoisted() so mock variables are available when the factory runs
 const {
@@ -171,9 +172,9 @@ describe('SessionManager', () => {
       const mockWc = {
         on: mockWcOn,
         setWindowOpenHandler: mockSetWindowOpenHandler,
-      } as any;
+      };
 
-      manager.configureWebContents('x', mockWc);
+      manager.configureWebContents('x', mockWc as unknown as WebContents);
 
       expect(mockWcOn).toHaveBeenCalledWith('will-navigate', expect.any(Function));
       expect(mockSetWindowOpenHandler).toHaveBeenCalled();
@@ -192,9 +193,9 @@ describe('SessionManager', () => {
       const mockWc = {
         on: mockWcOn,
         setWindowOpenHandler: mockSetWindowOpenHandler,
-      } as any;
+      };
 
-      manager.configureWebContents('x', mockWc);
+      manager.configureWebContents('x', mockWc as unknown as WebContents);
 
       const navigateHandler = mockWcOn.mock.calls[0][1];
       const preventDefault = vi.fn();
@@ -209,9 +210,9 @@ describe('SessionManager', () => {
       const mockWc = {
         on: mockWcOn,
         setWindowOpenHandler: mockSetWindowOpenHandler,
-      } as any;
+      };
 
-      manager.configureWebContents('x', mockWc);
+      manager.configureWebContents('x', mockWc as unknown as WebContents);
 
       const navigateHandler = mockWcOn.mock.calls[0][1];
       const preventDefault = vi.fn();
@@ -226,9 +227,9 @@ describe('SessionManager', () => {
       const mockWc = {
         on: mockWcOn,
         setWindowOpenHandler: mockSetWindowOpenHandler,
-      } as any;
+      };
 
-      manager.configureWebContents('x', mockWc);
+      manager.configureWebContents('x', mockWc as unknown as WebContents);
 
       const popupHandler = mockSetWindowOpenHandler.mock.calls[0][0];
       const result = popupHandler({ url: 'https://evil.com' });
@@ -244,7 +245,7 @@ describe('SessionManager', () => {
       const permissionHandler = mockSetPermissionRequestHandler.mock.calls[0][0];
       const callback = vi.fn();
 
-      permissionHandler({} as any, 'camera', callback);
+      permissionHandler(null as unknown as WebContents, 'camera', callback);
       expect(callback).toHaveBeenCalledWith(false);
     });
 
@@ -255,7 +256,7 @@ describe('SessionManager', () => {
       const permissionHandler = mockSetPermissionRequestHandler.mock.calls[0][0];
       const callback = vi.fn();
 
-      permissionHandler({} as any, 'clipboard-read', callback);
+      permissionHandler(null as unknown as WebContents, 'clipboard-read', callback);
       expect(callback).toHaveBeenCalledWith(true);
     });
 
@@ -266,7 +267,7 @@ describe('SessionManager', () => {
       const permissionHandler = mockSetPermissionRequestHandler.mock.calls[0][0];
       const callback = vi.fn();
 
-      permissionHandler({} as any, 'geolocation', callback);
+      permissionHandler(null as unknown as WebContents, 'geolocation', callback);
       expect(callback).toHaveBeenCalledWith(false);
     });
   });
@@ -276,7 +277,7 @@ describe('SessionManager', () => {
       manager.getOrCreateSession('x', 'uuid-1');
 
       const downloadHandler = mockSessionOn.mock.calls.find(
-        (call: any) => call[0] === 'will-download'
+        (call) => call[0] === 'will-download'
       );
       expect(downloadHandler).toBeDefined();
 

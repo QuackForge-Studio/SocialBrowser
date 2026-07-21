@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ===== Mocks — use vi.hoisted to avoid hoisting issues with vi.mock =====
 
@@ -22,7 +22,26 @@ const mockRegistryClear = vi.hoisted(() => vi.fn());
 const mockRegistryGetAll = vi.hoisted(() => vi.fn().mockReturnValue([]));
 
 // Track created PlatformView instances for assertions
-const mockPlatformViewInstances: any[] = [];
+interface MockPlatformViewInstance {
+  view: {
+    setBounds: ReturnType<typeof vi.fn>;
+    setVisible: ReturnType<typeof vi.fn>;
+    webContents: {
+      id: number;
+      close: ReturnType<typeof vi.fn>;
+      isDestroyed: ReturnType<typeof vi.fn>;
+      on: ReturnType<typeof vi.fn>;
+      setWindowOpenHandler: ReturnType<typeof vi.fn>;
+      loadURL: ReturnType<typeof vi.fn>;
+    };
+  };
+  getView: ReturnType<typeof vi.fn>;
+  getPlatform: ReturnType<typeof vi.fn>;
+  getAccountId: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
+  config: Record<string, unknown>;
+}
+const mockPlatformViewInstances: MockPlatformViewInstance[] = [];
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -76,7 +95,7 @@ vi.mock('../session-manager', () => ({
 }));
 
 vi.mock('../platform-view', () => ({
-  PlatformView: vi.fn().mockImplementation(function (config: any) {
+  PlatformView: vi.fn().mockImplementation(function (config: { platform: string; accountId: string }) {
     const instance = {
       view: {
         setBounds: vi.fn(),
@@ -115,11 +134,24 @@ vi.mock('../platform-view-registry', () => ({
 // ===== Import after mocks =====
 import { WorkspaceTabController } from '../workspace-tab-controller';
 
+interface MockLayoutManager {
+  activateTab: ReturnType<typeof vi.fn>;
+  activateDashboard: ReturnType<typeof vi.fn>;
+  addTab: ReturnType<typeof vi.fn>;
+  closeTab: ReturnType<typeof vi.fn>;
+  getTabs: ReturnType<typeof vi.fn>;
+}
+
+interface MockSessionManager {
+  getOrCreateSession: ReturnType<typeof vi.fn>;
+  hasSession: ReturnType<typeof vi.fn>;
+}
+
 describe('WorkspaceTabController', () => {
   let controller: WorkspaceTabController;
   let mockWorkerRequest: ReturnType<typeof vi.fn>;
-  let mockLayoutManager: any;
-  let mockSessionManager: any;
+  let mockLayoutManager: MockLayoutManager;
+  let mockSessionManager: MockSessionManager;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -141,9 +173,9 @@ describe('WorkspaceTabController', () => {
     mockWorkerRequest = vi.fn();
 
     controller = new WorkspaceTabController(
-      mockLayoutManager as any,
-      mockSessionManager as any,
-      mockWorkerRequest as any,
+      mockLayoutManager,
+      mockSessionManager,
+      mockWorkerRequest,
     );
   });
 
@@ -159,7 +191,7 @@ describe('WorkspaceTabController', () => {
     it('should register all IPC handlers on construction', () => {
       expect(mockIpcMainHandle).toHaveBeenCalledTimes(9);
 
-      const channels = mockIpcMainHandle.mock.calls.map((c: any[]) => c[0]).sort();
+      const channels = mockIpcMainHandle.mock.calls.map((c) => c[0]).sort();
       expect(channels).toEqual([
         'dash:workspace:close-tab',
         'dash:workspace:get-state',
@@ -513,24 +545,24 @@ describe('WorkspaceTabController', () => {
   describe('trusted native navigation (VAL-CROSS-017)', () => {
     it('should register IPC handlers that do not depend on ShellView', () => {
       const getStateHandler = mockIpcMainHandle.mock.calls.find(
-        (c: any[]) => c[0] === 'dash:workspace:get-state'
+        (c) => c[0] === 'dash:workspace:get-state'
       );
       expect(getStateHandler).toBeDefined();
 
       const openTabHandler = mockIpcMainHandle.mock.calls.find(
-        (c: any[]) => c[0] === 'dash:workspace:open-tab'
+        (c) => c[0] === 'dash:workspace:open-tab'
       );
       expect(openTabHandler).toBeDefined();
 
       const navigateDashboardHandler = mockIpcMainHandle.mock.calls.find(
-        (c: any[]) => c[0] === 'dash:workspace:show-dashboard'
+        (c) => c[0] === 'dash:workspace:show-dashboard'
       );
       expect(navigateDashboardHandler).toBeDefined();
     });
 
     it('get-state IPC handler returns current navigation state', async () => {
       const handlerCall = mockIpcMainHandle.mock.calls.find(
-        (c: any[]) => c[0] === 'dash:workspace:get-state'
+        (c) => c[0] === 'dash:workspace:get-state'
       );
       expect(handlerCall).toBeDefined();
 
@@ -554,7 +586,7 @@ describe('WorkspaceTabController', () => {
       await controller.openTab('x', 'acct-1');
 
       const registerCall = mockRegistryRegister.mock.calls.find(
-        (c: any[]) => c[0].accountId === 'acct-1'
+        (c) => c[0].accountId === 'acct-1'
       );
       expect(registerCall).toBeDefined();
       const partition = registerCall[0].partition;

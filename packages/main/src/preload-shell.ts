@@ -67,7 +67,7 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
     ipcRenderer.invoke('dash:workspace:show-dashboard'),
 
   /** Get the list of currently shown runtime tabs. */
-  getWorkspaceTabs: (): Promise<any[]> =>
+  getWorkspaceTabs: (): Promise<unknown[]> =>
     ipcRenderer.invoke('dash:workspace:get-tabs'),
 
   /** Handle membership removal for an account in a group. */

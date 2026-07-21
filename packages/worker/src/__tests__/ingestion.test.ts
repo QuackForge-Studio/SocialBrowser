@@ -35,7 +35,7 @@ describe('IngestionPipeline', () => {
     it('should insert first occurrence of a post', () => {
       const result = pipeline.ingestPost({ platformPostId: 'pid-1', contentText: 'Hello' }, makeMeta('acc-1', 1, batchId));
       expect(result.status).toBe('ingested');
-      const row = db.prepare('SELECT * FROM posts WHERE account_id = ? AND platform_post_id = ?').get('acc-1', 'pid-1') as any;
+      const row = db.prepare('SELECT * FROM posts WHERE account_id = ? AND platform_post_id = ?').get('acc-1', 'pid-1') as { content_text: string; adapter_version: number; payload_schema_version: number };
       expect(row).toBeDefined();
       expect(row.content_text).toBe('Hello');
       expect(row.adapter_version).toBe(1);
@@ -61,7 +61,7 @@ describe('IngestionPipeline', () => {
       const batch2 = pipeline.startBatch('acc-2');
       pipeline.ingestPost({ platformPostId: 'pid-1', contentText: 'From acc1' }, makeMeta('acc-1', 1, batchId));
       pipeline.ingestPost({ platformPostId: 'pid-1', contentText: 'From acc2' }, makeMeta('acc-2', 1, batch2));
-      const rows = db.prepare('SELECT account_id, content_text FROM posts WHERE platform_post_id = ? ORDER BY account_id').all('pid-1') as any[];
+      const rows = db.prepare('SELECT account_id, content_text FROM posts WHERE platform_post_id = ? ORDER BY account_id').all('pid-1') as Array<{ account_id: string; content_text: string }>;
       expect(rows).toHaveLength(2);
       expect(rows[0].account_id).toBe('acc-1');
       expect(rows[1].account_id).toBe('acc-2');
@@ -101,7 +101,7 @@ describe('IngestionPipeline', () => {
       pipeline.ingestPost({ platformPostId: 'pid-1' }, makeMeta('acc-1', 1, batchId));
       const post = db.prepare('SELECT id FROM posts WHERE account_id = ? AND platform_post_id = ?').get('acc-1', 'pid-1') as { id: string };
       pipeline.ingestSnapshot(post.id, { likes: 5 }, makeMeta('acc-1', 1, batchId));
-      const events = db.prepare('SELECT * FROM capture_events WHERE batch_id = ?').all(batchId) as any[];
+      const events = db.prepare('SELECT * FROM capture_events WHERE batch_id = ?').all(batchId) as Array<{ event_type: string; batch_id: string }>;
       const snapshotEvents = events.filter(e => e.event_type === 'snapshot');
       expect(snapshotEvents.length).toBeGreaterThanOrEqual(1);
       expect(snapshotEvents[0].batch_id).toBe(batchId);
@@ -112,7 +112,7 @@ describe('IngestionPipeline', () => {
   describe('VAL-CAPTURE-043: Capture batch created at session start', () => {
     it('should create a batch with status in-progress', () => {
       const b = pipeline.startBatch('acc-1');
-      const row = db.prepare('SELECT * FROM capture_batches WHERE id = ?').get(b) as any;
+      const row = db.prepare('SELECT * FROM capture_batches WHERE id = ?').get(b) as { status: string; account_id: string };
       expect(row).toBeDefined();
       expect(row.status).toBe('in-progress');
       expect(row.account_id).toBe('acc-1');
@@ -154,9 +154,10 @@ describe('IngestionPipeline', () => {
   describe('VAL-CAPTURE-046: capture_events audit fields', () => {
     it('should have all required audit columns', () => {
       pipeline.ingestPost({ platformPostId: 'pid-1' }, makeMeta('acc-1', 1, batchId));
-      const events = db.prepare('SELECT * FROM capture_events WHERE batch_id = ?').all(batchId) as any[];
-      const e = events.find((ev: any) => ev.event_type === 'post' && ev.status === 'ingested');
+      const events = db.prepare('SELECT * FROM capture_events WHERE batch_id = ?').all(batchId) as Array<{ id: string; batch_id: string; event_type: string; status: string; payload_schema_version: number; adapter_version: number; platform: string; account_id: string }>;
+      const e = events.find((ev: { event_type: string; status: string }) => ev.event_type === 'post' && ev.status === 'ingested');
       expect(e).toBeDefined();
+      if (!e) return;
       expect(e.id).toBeDefined();
       expect(e.batch_id).toBe(batchId);
       expect(e.event_type).toBe('post');
@@ -252,10 +253,10 @@ describe('IngestionPipeline', () => {
       const result = pipeline.ingestPost({ platformPostId: 'pid-ingest', contentText: 'Worker test', authorHandle: '@test' }, makeMeta('acc-1', 1, batchId));
       expect(result.status).toBe('ingested');
       expect(result.eventId).toBeDefined();
-      const post = db.prepare('SELECT * FROM posts WHERE platform_post_id = ?').get('pid-ingest') as any;
+      const post = db.prepare('SELECT * FROM posts WHERE platform_post_id = ?').get('pid-ingest') as { content_text: string };
       expect(post).toBeDefined();
       expect(post.content_text).toBe('Worker test');
-      const event = db.prepare('SELECT * FROM capture_events WHERE id = ?').get(result.eventId) as any;
+      const event = db.prepare('SELECT * FROM capture_events WHERE id = ?').get(result.eventId) as { event_type: string; status: string; platform: string; account_id: string };
       expect(event).toBeDefined();
       expect(event.event_type).toBe('post');
       expect(event.status).toBe('ingested');
@@ -272,7 +273,7 @@ describe('IngestionPipeline', () => {
     it('should record adapter-ready events', () => {
       const result = pipeline.handleAdapterReady({ platform: 'x', accountId: 'acc-1', adapterVersion: 1 });
       expect(result.batchId).toBeDefined();
-      const events = db.prepare("SELECT * FROM capture_events WHERE event_type = 'adapter-ready'").all() as any[];
+      const events = db.prepare("SELECT * FROM capture_events WHERE event_type = 'adapter-ready'").all() as Array<{ status: string; adapter_version: number }>;
       expect(events.length).toBeGreaterThanOrEqual(1);
       const readyEvent = events[events.length - 1];
       expect(readyEvent.status).toBe('completed');
@@ -301,7 +302,7 @@ describe('IngestionPipeline', () => {
       const newBatchId = pipeline.startBatch('acc-1');
       const result = pipeline.ingestPost({ platformPostId: 'pid-nav-test' }, makeMeta('acc-1', 1, newBatchId));
       expect(result.status).toBe('ingested');
-      const event = db.prepare('SELECT * FROM capture_events WHERE id = ?').get(result.eventId!) as any;
+      const event = db.prepare('SELECT * FROM capture_events WHERE id = ?').get(result.eventId!) as { batch_id: string };
       expect(event.batch_id).toBe(newBatchId);
       expect(event.batch_id).not.toBe(batchId);
     });

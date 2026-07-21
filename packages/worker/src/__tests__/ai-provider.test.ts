@@ -15,6 +15,7 @@ import {
 } from '../ai/provider-registry';
 import { AiRunTracker } from '../ai/ai-run-tracker';
 import type { AIProvider } from '../ai/provider';
+import type { GenerateResult, EmbedResult, SentimentResult } from '@social-browser/shared';
 
 function setupDb(): Database.Database {
   const db = new Database(':memory:');
@@ -407,7 +408,7 @@ describe('AiRunTracker — AI run tracking', () => {
       promptTemplateVersion: 1,
     });
 
-    const row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as { status: string; run_type: string; provider: string; model: string; prompt_template_version: number };
     expect(row).toBeDefined();
     expect(row.status).toBe('pending');
     expect(row.run_type).toBe('generate');
@@ -425,7 +426,7 @@ describe('AiRunTracker — AI run tracking', () => {
 
     tracker.completeRun({ runId, latencyMs: 150, tokenCount: 50, costEstimate: 0.002 });
 
-    const row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as { status: string; latency_ms: number; token_count: number; cost_estimate: number };
     expect(row.status).toBe('success');
     expect(row.latency_ms).toBe(150);
     expect(row.token_count).toBe(50);
@@ -441,7 +442,7 @@ describe('AiRunTracker — AI run tracking', () => {
 
     tracker.failRun({ runId, errorMessage: 'API key not configured' });
 
-    const row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as { status: string; error_message: string };
     expect(row.status).toBe('error');
     expect(row.error_message).toBe('API key not configured');
   });
@@ -455,7 +456,7 @@ describe('AiRunTracker — AI run tracking', () => {
 
     tracker.failRun({ runId, errorMessage: 'Rate limited by API', isRateLimited: true });
 
-    const row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as { status: string; error_message: string };
     expect(row.status).toBe('rate_limited');
     expect(row.error_message).toBe('Rate limited by API');
   });
@@ -468,7 +469,7 @@ describe('AiRunTracker — AI run tracking', () => {
       sourcePostIds: ['post-1', 'post-2', 'post-3'],
     });
 
-    const row = db.prepare('SELECT source_post_ids FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT source_post_ids FROM ai_runs WHERE id = ?').get(runId) as { source_post_ids: string };
     expect(row.source_post_ids).toBe('post-1,post-2,post-3');
   });
 
@@ -501,7 +502,7 @@ describe('VAL-AI-025: prompt_template_version defaults to 1', () => {
       model: 'fake-model-v1',
     });
 
-    const row = db.prepare('SELECT prompt_template_version FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT prompt_template_version FROM ai_runs WHERE id = ?').get(runId) as { prompt_template_version: number };
     expect(row.prompt_template_version).toBe(1);
   });
 
@@ -513,7 +514,7 @@ describe('VAL-AI-025: prompt_template_version defaults to 1', () => {
       promptTemplateVersion: 3,
     });
 
-    const row = db.prepare('SELECT prompt_template_version FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT prompt_template_version FROM ai_runs WHERE id = ?').get(runId) as { prompt_template_version: number };
     expect(row.prompt_template_version).toBe(3);
   });
 
@@ -525,7 +526,7 @@ describe('VAL-AI-025: prompt_template_version defaults to 1', () => {
       promptTemplateVersion: 0,
     });
 
-    const row = db.prepare('SELECT prompt_template_version FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT prompt_template_version FROM ai_runs WHERE id = ?').get(runId) as { prompt_template_version: number };
     expect(row.prompt_template_version).toBe(0);
   });
 });
@@ -558,7 +559,7 @@ describe('VAL-AI-027: latency_ms reflects actual wall-clock time', () => {
 
     tracker.completeRun({ runId, latencyMs: elapsed, tokenCount: 10, costEstimate: 0 });
 
-    const row = db.prepare('SELECT latency_ms FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT latency_ms FROM ai_runs WHERE id = ?').get(runId) as { latency_ms: number };
     expect(typeof row.latency_ms).toBe('number');
     expect(row.latency_ms).toBeGreaterThanOrEqual(0);
     // Should match the elapsed time we measured
@@ -574,7 +575,7 @@ describe('VAL-AI-027: latency_ms reflects actual wall-clock time', () => {
     const runId = tracker.createRun({ runType: 'generate', provider: 'fake', model: 'fake-model-v1' });
     tracker.completeRun({ runId, latencyMs: elapsed, tokenCount: result.tokenCount, costEstimate: 0 });
 
-    const row = db.prepare('SELECT latency_ms FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT latency_ms FROM ai_runs WHERE id = ?').get(runId) as { latency_ms: number };
     expect(row.latency_ms).toBeGreaterThanOrEqual(0);
   });
 
@@ -582,7 +583,7 @@ describe('VAL-AI-027: latency_ms reflects actual wall-clock time', () => {
     const runId = tracker.createRun({ runType: 'embed', provider: 'fake', model: 'fake-model-v1' });
     tracker.completeRun({ runId, latencyMs: 0, tokenCount: 1, costEstimate: 0 });
 
-    const row = db.prepare('SELECT latency_ms FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT latency_ms FROM ai_runs WHERE id = ?').get(runId) as { latency_ms: number };
     expect(row.latency_ms).toBe(0);
   });
 });
@@ -605,7 +606,7 @@ describe('VAL-AI-044: cost_estimate tracking per run', () => {
     const runId = tracker.createRun({ runType: 'generate', provider: 'fake', model: 'fake-model-v1' });
     tracker.completeRun({ runId, latencyMs: 100, tokenCount: 10 });
 
-    const row = db.prepare('SELECT cost_estimate FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT cost_estimate FROM ai_runs WHERE id = ?').get(runId) as { cost_estimate: number };
     expect(row.cost_estimate).toBe(0);
   });
 
@@ -613,7 +614,7 @@ describe('VAL-AI-044: cost_estimate tracking per run', () => {
     const runId = tracker.createRun({ runType: 'generate', provider: 'openai', model: 'gpt-4o' });
     tracker.completeRun({ runId, latencyMs: 500, tokenCount: 150, costEstimate: 0.003 });
 
-    const row = db.prepare('SELECT cost_estimate FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT cost_estimate FROM ai_runs WHERE id = ?').get(runId) as { cost_estimate: number };
     expect(row.cost_estimate).toBe(0.003);
   });
 
@@ -624,7 +625,7 @@ describe('VAL-AI-044: cost_estimate tracking per run', () => {
     const runId = tracker.createRun({ runType: 'generate', provider: 'fake', model: 'fake-model-v1' });
     tracker.completeRun({ runId, latencyMs: result.latencyMs, tokenCount: result.tokenCount, costEstimate: 0 });
 
-    const row = db.prepare('SELECT cost_estimate FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT cost_estimate FROM ai_runs WHERE id = ?').get(runId) as { cost_estimate: number };
     expect(row.cost_estimate).toBe(0);
   });
 
@@ -636,7 +637,7 @@ describe('VAL-AI-044: cost_estimate tracking per run', () => {
     const r2 = tracker.createRun({ runType: 'embed', provider: 'fake', model: 'v1' });
     tracker.completeRun({ runId: r2, latencyMs: 20, tokenCount: 3 });
 
-    const rows = db.prepare('SELECT id, cost_estimate FROM ai_runs').all() as any[];
+    const rows = db.prepare('SELECT id, cost_estimate FROM ai_runs').all() as Array<{ id: string; cost_estimate: number }>;
     for (const row of rows) {
       expect(row.cost_estimate).not.toBeNull();
       expect(typeof row.cost_estimate).toBe('number');
@@ -665,7 +666,7 @@ describe('VAL-AI-045: token_count reflects consumption', () => {
     const runId = tracker.createRun({ runType: 'generate', provider: 'fake', model: 'fake-model-v1' });
     tracker.completeRun({ runId, latencyMs: result.latencyMs, tokenCount: result.tokenCount });
 
-    const row = db.prepare('SELECT token_count FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT token_count FROM ai_runs WHERE id = ?').get(runId) as { token_count: number };
     expect(row.token_count).toBeGreaterThan(0);
     expect(row.token_count).toBe(result.tokenCount);
   });
@@ -682,8 +683,8 @@ describe('VAL-AI-045: token_count reflects consumption', () => {
     const r2 = tracker.createRun({ runType: 'generate', provider: 'fake', model: 'v1' });
     tracker.completeRun({ runId: r2, latencyMs: 50, tokenCount: 20 });
 
-    const row1 = db.prepare('SELECT token_count FROM ai_runs WHERE id = ?').get(r1) as any;
-    const row2 = db.prepare('SELECT token_count FROM ai_runs WHERE id = ?').get(r2) as any;
+    const row1 = db.prepare('SELECT token_count FROM ai_runs WHERE id = ?').get(r1) as { token_count: number };
+    const row2 = db.prepare('SELECT token_count FROM ai_runs WHERE id = ?').get(r2) as { token_count: number };
 
     // Both should have > 0 tokens
     expect(row1.token_count).toBeGreaterThan(0);
@@ -716,7 +717,7 @@ describe('AiRunTracker — Full lifecycle integration (pending -> generate -> su
     });
 
     // Verify pending state
-    let row = db.prepare('SELECT status, provider, model, prompt_template_version, source_post_ids FROM ai_runs WHERE id = ?').get(runId) as any;
+    let row = db.prepare('SELECT status, provider, model, prompt_template_version, source_post_ids FROM ai_runs WHERE id = ?').get(runId) as { status: string; provider: string; model: string; prompt_template_version: number; source_post_ids: string };
     expect(row.status).toBe('pending');
     expect(row.provider).toBe('fake');
     expect(row.model).toBe('fake-model-v1');
@@ -738,7 +739,7 @@ describe('AiRunTracker — Full lifecycle integration (pending -> generate -> su
     });
 
     // Step 4: Verify final state
-    row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as any;
+    row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as { status: string; provider: string; model: string; prompt_template_version: number; source_post_ids: string; latency_ms: number; token_count: number; cost_estimate: number; error_message: string | null; run_type: string };
     expect(row.status).toBe('success');
     expect(row.provider).toBe('fake');
     expect(row.model).toBe('fake-model-v1');
@@ -763,14 +764,14 @@ describe('AiRunTracker — Full lifecycle integration (pending -> generate -> su
     });
 
     // Verify pending state
-    let row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as any;
+    let row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as { status: string };
     expect(row.status).toBe('pending');
 
     // Step 2: Fail with error
     tracker.failRun({ runId, errorMessage: 'API key not configured' });
 
     // Step 3: Verify error state
-    row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as any;
+    row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as { status: string; error_message: string; latency_ms: null; token_count: null };
     expect(row.status).toBe('error');
     expect(row.error_message).toBe('API key not configured');
     expect(row.latency_ms).toBeNull();
@@ -790,7 +791,7 @@ describe('AiRunTracker — Full lifecycle integration (pending -> generate -> su
     tracker.failRun({ runId, errorMessage: 'Rate limited by API: 429 Too Many Requests', isRateLimited: true });
 
     // Step 3: Verify rate_limited state
-    const row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as any;
+    const row = db.prepare('SELECT * FROM ai_runs WHERE id = ?').get(runId) as { status: string; error_message: string };
     expect(row.status).toBe('rate_limited');
     expect(row.error_message).toContain('429');
     expect(row.error_message).toContain('Rate limited');
@@ -820,15 +821,15 @@ describe('Provider Registry', () => {
       readonly provider = 'custom';
       readonly model = 'custom-v1';
 
-      async generate(prompt: string, _context?: string[]): Promise<any> {
+      async generate(prompt: string, _context?: string[]): Promise<GenerateResult> {
         return { text: 'custom: ' + prompt, provider: this.provider, model: this.model, latencyMs: 0, tokenCount: 1 };
       }
 
-      async embed(_text: string): Promise<any> {
+      async embed(_text: string): Promise<EmbedResult> {
         return { vector: new Float32Array(2), provider: this.provider, model: this.model, dimensions: 2 };
       }
 
-      async classifySentiment(texts: string[]): Promise<any> {
+      async classifySentiment(texts: string[]): Promise<SentimentResult[]> {
         return texts.map(() => ({ label: 'neutral' as const, score: 0 }));
       }
     }

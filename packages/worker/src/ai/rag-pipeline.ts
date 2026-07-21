@@ -80,7 +80,7 @@ export class RAGPipeline {
               const knnResults = this.embeddingPipeline.queryTopK(tableName, briefVector, topK + 1);
 
               if (knnResults.length > 0) {
-                const postIds = this.mapRowIdsToPostIds(knnResults.map((r: any) => r.rowid));
+                const postIds = this.mapRowIdsToPostIds(knnResults.map(r => r.rowid));
                 const distanceMap = new Map<number, number>();
                 for (const r of knnResults) {
                   distanceMap.set(r.rowid, r.distance);
@@ -98,7 +98,7 @@ export class RAGPipeline {
                 const limited = mappedResults.slice(0, topK);
 
                 contextPosts = this.embeddingPipeline.loadSimilarityResults(limited);
-                ragContextIds = contextPosts.map((p: any) => p.postId);
+                ragContextIds = contextPosts.map(p => p.postId);
                 ragUsed = ragContextIds.length > 0;
               }
             }
