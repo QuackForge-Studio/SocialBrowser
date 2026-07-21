@@ -149,6 +149,15 @@ function processCaptureEvent(channel: string, data: Record<string, unknown>): un
   }
   const platform = data.platform as string;
   const accountId = data.accountId as string;
+
+  // VAL-WORKSPACE-009: Check account acknowledgement before processing capture
+  const db = dbManager.getDb();
+  if (!isAccountAcknowledged(db, accountId)) {
+    recordCaptureResult(db, 'rejected', accountId, platform, 'Account not acknowledged: must accept ToS/account-risk notice before capture');
+    return { status: 'rejected', reason: 'Account not acknowledged. Capture is read-only owned-content observation. Session isolation is not anti-detection.' };
+  }
+
+  // Only start batch for acknowledged accounts
   const batchId = pipeline.ensureActiveBatch(accountId);
   const adapterVersion = (data.adapterVersion as number) || 1;
   const meta = { platform, accountId, adapterVersion, payloadSchemaVersion: PAYLOAD_SCHEMA_VERSION, batchId };

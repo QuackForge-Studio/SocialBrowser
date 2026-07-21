@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ===== Mocks — use vi.hoisted to avoid hoisting issues with vi.mock =====
 
@@ -430,6 +430,82 @@ describe('WorkspaceTabController', () => {
     });
   });
 
+
+  // ==================================================================
+  // VAL-WORKSPACE-008: ToS/account-risk acknowledgement gates navigation
+  // ==================================================================
+
+  describe('acknowledgement gates navigation (VAL-WORKSPACE-008)', () => {
+    it('should reject navigation when account is not acknowledged', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      // First call: check_acknowledged returns not acknowledged
+      // Second call: get_group_account_ids returns membership list
+      mockWorkerRequest.mockImplementation(async (type: string) => {
+        if (type === 'check_acknowledged') return { acknowledged: false };
+        if (type === 'get_group_account_ids') return ['acct-1'];
+        return [];
+      });
+
+      const result = await controller.openTab('x', 'acct-1');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('has not acknowledged');
+      expect(result.error).toContain('not anti-detection');
+      expect(result.error).toContain('read-only');
+    });
+
+    it('should allow navigation when account is acknowledged', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockImplementation(async (type: string) => {
+        if (type === 'check_acknowledged') return { acknowledged: true };
+        if (type === 'get_group_account_ids') return ['acct-1'];
+        return [];
+      });
+
+      const result = await controller.openTab('x', 'acct-1');
+      expect(result.success).toBe(true);
+    });
+
+    it('should allow acknowledged account while different unacknowledged account remains blocked', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockImplementation(async (type: string) => {
+        if (type === 'check_acknowledged') {
+          const payload = mockWorkerRequest.mock.calls[mockWorkerRequest.mock.calls.length - 1]?.[1];
+          return { acknowledged: true };
+        }
+        if (type === 'get_group_account_ids') return ['acct-1', 'acct-2'];
+        return [];
+      });
+
+      const result1 = await controller.openTab('x', 'acct-1');
+      expect(result1.success).toBe(true);
+
+      // Now check for acct-2 which is not acknowledged
+      mockWorkerRequest.mockImplementation(async (type: string) => {
+        if (type === 'check_acknowledged') return { acknowledged: false };
+        if (type === 'get_group_account_ids') return ['acct-1', 'acct-2'];
+        return [];
+      });
+
+      const result2 = await controller.openTab('x', 'acct-2');
+      expect(result2.success).toBe(false);
+      expect(result2.error).toContain('has not acknowledged');
+    });
+
+    it('should include explicit notice text about isolation not being anti-detection', async () => {
+      await controller.setActiveGroup('ws-1', 'group-a');
+      mockWorkerRequest.mockImplementation(async (type: string) => {
+        if (type === 'check_acknowledged') return { acknowledged: false };
+        if (type === 'get_group_account_ids') return ['acct-1'];
+        return [];
+      });
+
+      const result = await controller.openTab('x', 'acct-1');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Session isolation is not anti-detection');
+      expect(result.error).toContain('does not evade platform enforcement');
+      expect(result.error).toContain('Capture is read-only observation of owned content only');
+    });
+  });
   // ==================================================================
   // Trusted Native Navigation — VAL-CROSS-017
   // ==================================================================

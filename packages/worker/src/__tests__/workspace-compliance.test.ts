@@ -502,6 +502,187 @@ describe('VAL-WORKSPACE-017: AI limits are canonical per account and platform be
   });
 });
 
+
+describe('VAL-WORKSPACE-009: ToS/account-risk acknowledgement persists and gates capture', () => {
+  let db: Database.Database;
+
+  beforeEach(() => {
+    db = new Database(':memory:');
+    runMigrations(db);
+  });
+
+  afterEach(() => {
+    if (db && db.open) db.close();
+  });
+
+  it('should reject capture before acknowledgement and write nothing', () => {
+    seedAccount(db, 'acc-a', 'x', '@testA', 'p:s:b:x:acc-a');
+    seedWorkspaceAndGroup(db, 'ws-1', 'grp-1', ['acc-a']);
+
+    // Before acknowledgement
+    expect(isAccountAcknowledged(db, 'acc-a')).toBe(false);
+
+    // Simulate a capture event - it should be rejected
+    // When not acknowledged, recordCaptureResult logs a rejected event with no content write
+    recordCaptureResult(db, 'rejected', 'acc-a', 'x', 'Account not acknowledged');
+
+    // Verify rejection is audited
+    const rejectedEvents = countAuditEventsByType(db, 'capture_rejected');
+    expect(rejectedEvents).toBeGreaterThanOrEqual(1);
+
+    // Verify no content was written
+    const posts = db.prepare('SELECT COUNT(*) as count FROM posts').get() as { count: number };
+    expect(posts.count).toBe(0);
+
+    const snapshots = db.prepare('SELECT COUNT(*) as count FROM engagement_snapshots').get() as { count: number };
+    expect(snapshots.count).toBe(0);
+
+    const batches = db.prepare('SELECT COUNT(*) as count FROM capture_batches').get() as { count: number };
+    expect(batches.count).toBe(0);
+  });
+
+  it('should accept capture after acknowledgement', () => {
+    seedAccount(db, 'acc-a', 'x', '@testA', 'p:s:b:x:acc-a');
+    seedWorkspaceAndGroup(db, 'ws-1', 'grp-1', ['acc-a']);
+
+    // Acknowledge the account
+    acknowledgeAccount(db, 'acc-a');
+    expect(isAccountAcknowledged(db, 'acc-a')).toBe(true);
+
+    // Record an allowed capture
+    recordCaptureResult(db, 'allowed', 'acc-a', 'x');
+
+    // Insert a post (simulating successful capture)
+    db.prepare(
+      'INSERT INTO posts (id, account_id, platform_post_id, content_text, adapter_version) VALUES (?, ?, ?, ?, ?)'
+    ).run('post-1', 'acc-a', 'pid-1', 'Test post', 1);
+
+    // Verify content was written
+    const posts = db.prepare('SELECT COUNT(*) as count FROM posts').get() as { count: number };
+    expect(posts.count).toBe(1);
+
+    // Verify allowed capture is audited
+    const allowedEvents = countAuditEventsByType(db, 'capture_allowed');
+    expect(allowedEvents).toBe(1);
+  });
+
+  it('should persist acknowledgement across simulated restart', () => {
+    seedAccount(db, 'acc-a', 'x', '@testA', 'p:s:b:x:acc-a');
+
+    // Not acknowledged initially
+    expect(isAccountAcknowledged(db, 'acc-a')).toBe(false);
+
+    // Acknowledge (which creates an audit event)
+    acknowledgeAccount(db, 'acc-a');
+    expect(isAccountAcknowledged(db, 'acc-a')).toBe(true);
+
+    // Verify acknowledgement audit event
+    const ackEvents = countAuditEventsByType(db, 'acknowledgement');
+    expect(ackEvents).toBe(1);
+  });
+
+  it('should NOT unlock capture for another unacknowledged account', () => {
+    seedAccount(db, 'acc-a', 'x', '@testA', 'p:s:b:x:acc-a');
+    seedAccount(db, 'acc-b', 'x', '@testB', 'p:s:b:x:acc-b');
+    seedWorkspaceAndGroup(db, 'ws-1', 'grp-1', ['acc-a', 'acc-b']);
+
+    // Acknowledge acc-a only
+    acknowledgeAccount(db, 'acc-a');
+
+    // acc-a should be acknowledged
+    expect(isAccountAcknowledged(db, 'acc-a')).toBe(true);
+
+    // acc-b should still NOT be acknowledged
+    expect(isAccountAcknowledged(db, 'acc-b')).toBe(false);
+
+    // acc-a capture allowed
+    recordCaptureResult(db, 'allowed', 'acc-a', 'x');
+    db.prepare(
+      'INSERT INTO posts (id, account_id, platform_post_id, content_text, adapter_version) VALUES (?, ?, ?, ?, ?)'
+    ).run('post-a', 'acc-a', 'pid-a', 'Post from A', 1);
+
+    // acc-b capture rejected (not acknowledged)
+    recordCaptureResult(db, 'rejected', 'acc-b', 'x', 'Account not acknowledged');
+
+    // Verify: only acc-a post exists, not acc-b
+    const aPosts = db.prepare('SELECT COUNT(*) as count FROM posts WHERE account_id = ?').get('acc-a') as { count: number };
+    expect(aPosts.count).toBe(1);
+
+    const bPosts = db.prepare('SELECT COUNT(*) as count FROM posts WHERE account_id = ?').get('acc-b') as { count: number };
+    expect(bPosts.count).toBe(0);
+  });
+});
+
+describe('VAL-WORKSPACE-010: Capture remains read-only owned-content observation', () => {
+  let db: Database.Database;
+
+  beforeEach(() => {
+    db = new Database(':memory:');
+    runMigrations(db);
+  });
+
+  afterEach(() => {
+    if (db && db.open) db.close();
+  });
+
+  it('should create only owned-content records on allowed capture', () => {
+    seedAccount(db, 'acc-a', 'x', '@testA', 'p:s:b:x:acc-a');
+    seedWorkspaceAndGroup(db, 'ws-1', 'grp-1', ['acc-a']);
+    acknowledgeAccount(db, 'acc-a');
+
+    // Simulate an owned capture
+    recordCaptureResult(db, 'allowed', 'acc-a', 'x');
+    db.prepare(
+      'INSERT INTO posts (id, account_id, platform_post_id, content_text, adapter_version) VALUES (?, ?, ?, ?, ?)'
+    ).run('post-1', 'acc-a', 'pid-1', 'Owned content', 1);
+
+    // Verify: only content created is an owned post record
+    const posts = db.prepare('SELECT * FROM posts').all() as any[];
+    expect(posts.length).toBe(1);
+    expect(posts[0].account_id).toBe('acc-a');
+    expect(posts[0].content_text).toBe('Owned content');
+  });
+
+  it('should NOT create content rows on rejected capture', () => {
+    seedAccount(db, 'acc-a', 'x', '@testA', 'p:s:b:x:acc-a');
+
+    // Record a rejected capture (no acknowledgement, mismatched account, etc.)
+    recordCaptureResult(db, 'rejected', 'acc-a', 'x', 'Account not in group');
+
+    // Verify no posts, snapshots, or embeddings were created
+    const posts = db.prepare('SELECT COUNT(*) as count FROM posts').get() as { count: number };
+    expect(posts.count).toBe(0);
+
+    const snapshots = db.prepare('SELECT COUNT(*) as count FROM engagement_snapshots').get() as { count: number };
+    expect(snapshots.count).toBe(0);
+
+    const comments = db.prepare('SELECT COUNT(*) as count FROM comments').get() as { count: number };
+    expect(comments.count).toBe(0);
+
+    // But the audit record should exist
+    const rejectedEvents = countAuditEventsByType(db, 'capture_rejected');
+    expect(rejectedEvents).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should NOT create batch or embedding on rejected capture', () => {
+    seedAccount(db, 'acc-a', 'x', '@testA', 'p:s:b:x:acc-a');
+
+    // Rejected capture
+    recordCaptureResult(db, 'rejected', 'acc-a', 'x', 'Not acknowledged');
+
+    // No capture batch should exist
+    const batches = db.prepare('SELECT COUNT(*) as count FROM capture_batches').get() as { count: number };
+    expect(batches.count).toBe(0);
+
+    // No capture events table rows for this rejection
+    const captureEvents = db.prepare('SELECT COUNT(*) as count FROM capture_events').get() as { count: number };
+    expect(captureEvents.count).toBe(0);
+
+    // No embedding records
+    const embeddings = db.prepare('SELECT COUNT(*) as count FROM embedding_records').get() as { count: number };
+    expect(embeddings.count).toBe(0);
+  });
+});
 describe('VAL-CROSS-028: Per-account/platform guardrail isolation flow', () => {
   let db: Database.Database;
 

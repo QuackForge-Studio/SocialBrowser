@@ -118,6 +118,20 @@ function validatePlatform(body: { platform: string }, entry: PlatformViewEntry):
   return { valid: true, data: null };
 }
 
+
+function validateAccountId(body: { accountId?: string }, entry: PlatformViewEntry): ValidationResult {
+  if (!body.accountId) {
+    return { valid: false, data: null, reason: "Account ID missing from payload" };
+  }
+  if (body.accountId !== entry.accountId) {
+    return {
+      valid: false,
+      data: null,
+      reason: "Account ID mismatch: payload=" + body.accountId + ", registered=" + entry.accountId,
+    };
+  }
+  return { valid: true, data: null };
+}
 function validateOrigin(sender: WebContents, entry: PlatformViewEntry): ValidationResult {
   try {
     const url = sender.getURL();
@@ -178,6 +192,12 @@ export function validateAndDispatch(
     return false;
   }
 
+
+  const accountIdResult = validateAccountId(parsedBody as { accountId?: string }, entry);
+  if (!accountIdResult.valid) {
+    console.warn("[IPC-Gate] " + accountIdResult.reason);
+    return false;
+  }
   const originResult = validateOrigin(sender, entry);
   if (!originResult.valid) {
     console.warn("[IPC-Gate] " + originResult.reason);

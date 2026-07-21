@@ -260,7 +260,112 @@ describe("IPC Validation Gate", () => {
   });
 
   // ============================================================
-  // All capture channels validated
+  
+  // ============================================================
+  // VAL-WORKSPACE-007: Capture account ID must match registered view
+  // ============================================================
+  it("should reject capture when payload account ID differs from registered PlatformView account ID (VAL-WORKSPACE-007)", () => {
+    const mismatchedAccountPost = {
+      platform: "x",
+      accountId: "a-different-account-id",
+      normalizedPost: {
+        platformPostId: "post-12345",
+        contentText: "This is from a different account",
+      },
+    };
+
+    const result = validateAndDispatch("capture:post", mockSender as unknown as WebContents, mismatchedAccountPost);
+
+    expect(result).toBe(false);
+    expect(workerDispatchMock).not.toHaveBeenCalled();
+    expect(mockConsoleWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Account ID mismatch")
+    );
+  });
+
+  it("should reject capture:snapshot when payload account ID differs from registered view", () => {
+    const mismatchedSnapshot = {
+      platform: "x",
+      accountId: "a-different-account-id",
+      postId: "post-123",
+      snapshot: { likes: 5 },
+    };
+
+    const result = validateAndDispatch("capture:snapshot", mockSender as unknown as WebContents, mismatchedSnapshot);
+
+    expect(result).toBe(false);
+    expect(workerDispatchMock).not.toHaveBeenCalled();
+    expect(mockConsoleWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Account ID mismatch")
+    );
+  });
+
+  it("should reject capture:comment when payload account ID differs from registered view", () => {
+    const mismatchedComment = {
+      platform: "x",
+      accountId: "a-different-account-id",
+      postId: "post-123",
+      comment: { text: "Nice!" },
+    };
+
+    const result = validateAndDispatch("capture:comment", mockSender as unknown as WebContents, mismatchedComment);
+
+    expect(result).toBe(false);
+    expect(workerDispatchMock).not.toHaveBeenCalled();
+    expect(mockConsoleWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Account ID mismatch")
+    );
+  });
+
+  it("should reject capture:adapter-ready when payload account ID differs from registered view", () => {
+    const mismatchedAdapterReady = {
+      platform: "x",
+      accountId: "a-different-account-id",
+      adapterVersion: 1,
+    };
+
+    const result = validateAndDispatch("capture:adapter-ready", mockSender as unknown as WebContents, mismatchedAdapterReady);
+
+    expect(result).toBe(false);
+    expect(workerDispatchMock).not.toHaveBeenCalled();
+    expect(mockConsoleWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Account ID mismatch")
+    );
+  });
+
+  it("should reject capture:error when payload account ID differs from registered view", () => {
+    const mismatchedError = {
+      platform: "x",
+      accountId: "a-different-account-id",
+      error: "Something went wrong",
+    };
+
+    const result = validateAndDispatch("capture:error", mockSender as unknown as WebContents, mismatchedError);
+
+    expect(result).toBe(false);
+    expect(workerDispatchMock).not.toHaveBeenCalled();
+    expect(mockConsoleWarn).toHaveBeenCalledWith(
+      expect.stringContaining("Account ID mismatch")
+    );
+  });
+
+  it("should accept capture:post when payload account ID matches registered view account ID", () => {
+    const matchingPost = {
+      platform: "x",
+      accountId: TEST_ACCOUNT_ID,
+      normalizedPost: {
+        platformPostId: "post-12345",
+        contentText: "Test from my own account",
+      },
+    };
+
+    const result = validateAndDispatch("capture:post", mockSender as unknown as WebContents, matchingPost);
+
+    expect(result).toBe(true);
+    expect(workerDispatchMock).toHaveBeenCalledTimes(1);
+    expect(workerDispatchMock).toHaveBeenCalledWith("capture:post", matchingPost);
+  });
+// All capture channels validated
   // ============================================================
   it("should validate all capture:* channels with their own schemas", () => {
     // Valid snapshot
