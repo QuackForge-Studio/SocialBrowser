@@ -1,78 +1,81 @@
 @import "tailwindcss";
 
-/* === Design tokens: DARK mode is the default theme === */
+/* === Social Browser — Identity tokens === */
 @theme {
-  /* Brand accent: burnt amber (locked for whole app, both modes) */
-  --color-accent: #d97706;
-  --color-accent-hover: #f59e0b;
-  --color-accent-soft: rgb(217 119 6 / 0.12);
-  --color-accent-foreground: #fff7ed;
+  /* Accent: deep indigo-violet — unique, not amber like everyone else */
+  --color-accent: #7c3aed;
+  --color-accent-hover: #a78bfa;
+  --color-accent-soft: rgb(124 58 237 / 0.12);
+  --color-accent-foreground: #ede9fe;
 
-  /* Warm neutrals: dark */
-  --color-bg: #0e0d0b;
-  --color-bg-elevated: #161411;
-  --color-surface: #1a1713;
-  --color-surface-hover: #221e19;
-  --color-border: #2a251f;
-  --color-border-strong: #3a332a;
+  /* Backgrounds: charcoal-slate base with cool undertones */
+  --color-bg: #0b0e11;
+  --color-bg-elevated: #111419;
+  --color-surface: #161a1f;
+  --color-surface-hover: #1c2026;
+  --color-border: #1e2328;
+  --color-border-strong: #2a3038;
 
-  --color-text: #f5f2ec;
-  --color-text-dim: #a8a29a;
-  --color-text-faint: #78716a;
+  /* Text: cool white-grey scale */
+  --color-text: #e8edf2;
+  --color-text-dim: #8896a6;
+  --color-text-faint: #5c6670;
 
-  /* Semantic */
-  --color-success: #4ade80;
-  --color-success-soft: rgb(74 222 128 / 0.12);
+  /* Semantic colors */
+  --color-success: #34d399;
+  --color-success-soft: rgb(52 211 153 / 0.12);
   --color-warning: #fbbf24;
   --color-warning-soft: rgb(251 191 36 / 0.12);
+  --color-warning-hover: #f59e0b;
   --color-error: #f87171;
   --color-error-soft: rgb(248 113 113 / 0.12);
 
-  /* Shape: ONE radius scale for the app */
+  /* Radius */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
+  --radius-xl: 18px;
   --radius-pill: 999px;
 
   /* Typography */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Elevation (warm-tinted, no pure-black drop shadows) */
-  --shadow-sm: 0 1px 2px rgb(20 16 10 / 0.3);
-  --shadow-md: 0 4px 12px rgb(20 16 10 / 0.35);
-  --shadow-lg: 0 12px 32px rgb(20 16 10 / 0.45);
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgb(8 8 12 / 0.4);
+  --shadow-md: 0 4px 14px rgb(8 8 12 / 0.5);
+  --shadow-lg: 0 12px 36px rgb(8 8 12 / 0.6);
 }
 
-/* === LIGHT mode: same token names, flipped values, deepened accent for contrast === */
+/* Light mode — cool airy slate */
 @media (prefers-color-scheme: light) {
   :root {
-    --color-accent: #b45309;
-    --color-accent-hover: #d97706;
-    --color-accent-soft: rgb(180 83 9 / 0.1);
-    --color-accent-foreground: #fff7ed;
+    --color-accent: #6d28d9;
+    --color-accent-hover: #7c3aed;
+    --color-accent-soft: rgb(109 40 217 / 0.1);
+    --color-accent-foreground: #ffffff;
 
-    --color-bg: #faf9f6;
+    --color-bg: #f5f7fa;
     --color-bg-elevated: #ffffff;
     --color-surface: #ffffff;
-    --color-surface-hover: #f5f3ee;
-    --color-border: #e7e2d8;
-    --color-border-strong: #d6cfc0;
+    --color-surface-hover: #edf1f5;
+    --color-border: #dce3e8;
+    --color-border-strong: #c4cdd4;
 
-    --color-text: #1c1917;
-    --color-text-dim: #57534a;
-    --color-text-faint: #a8a29a;
+    --color-text: #11161c;
+    --color-text-dim: #4a5568;
+    --color-text-faint: #8896a6;
 
-    --color-success: #16a34a;
-    --color-success-soft: rgb(22 163 74 / 0.1);
+    --color-success: #059669;
+    --color-success-soft: rgb(5 150 105 / 0.1);
     --color-warning: #b45309;
     --color-warning-soft: rgb(180 83 9 / 0.1);
     --color-error: #dc2626;
     --color-error-soft: rgb(220 38 38 / 0.08);
 
-    --shadow-sm: 0 1px 2px rgb(60 45 20 / 0.06);
-    --shadow-md: 0 4px 12px rgb(60 45 20 / 0.08);
-    --shadow-lg: 0 12px 32px rgb(60 45 20 / 0.12);
+    --shadow-sm: 0 1px 2px rgb(60 72 88 / 0.06);
+    --shadow-md: 0 4px 12px rgb(60 72 88 / 0.08);
+    --shadow-lg: 0 12px 32px rgb(60 72 88 / 0.12);
   }
 }
 
@@ -85,10 +88,8 @@ html, body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
-
 #root { height: 100%; }
 
-/* Reduced motion: subtle-only mode anyway, but collapse what little there is */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -98,7 +99,6 @@ html, body {
   }
 }
 
-/* Scrollbar: warm, quiet */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
@@ -108,18 +108,13 @@ html, body {
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-faint); }
 
-/* Focus ring: amber, visible on both themes */
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
 
-/* Form elements inherit tokens by default */
-input, select, textarea, button {
-  font: inherit;
-  color: inherit;
-}
+input, select, textarea, button { font: inherit; color: inherit; }
 
 select, input[type="text"], input[type="search"], textarea {
   background: var(--color-surface);
@@ -129,9 +124,7 @@ select, input[type="text"], input[type="search"], textarea {
   font-size: 13px;
   transition: border-color 150ms ease, background 150ms ease;
 }
-select:hover, input[type="text"]:hover, textarea:hover {
-  border-color: var(--color-border-strong);
-}
+select:hover, input[type="text"]:hover, textarea:hover { border-color: var(--color-border-strong); }
 select:focus, input[type="text"]:focus, textarea:focus {
   outline: none;
   border-color: var(--color-accent);
