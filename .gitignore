@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 dist-ts/
 *.db
@@ -66,6 +66,14 @@ packages/worker/vitest.config.d.ts
 packages/worker/vitest.config.d.ts.map
 packages/worker/vitest.config.js
 packages/worker/vitest.config.js.map
+packages/dashboard/vitest.config.d.ts
+packages/dashboard/vitest.config.d.ts.map
+packages/dashboard/vitest.config.js
+packages/dashboard/vitest.config.js.map
+packages/e2e/vitest.config.d.ts
+packages/e2e/vitest.config.d.ts.map
+packages/e2e/vitest.config.js
+packages/e2e/vitest.config.js.map
 
 # Extra
 tsconfig.tsbuildinfo
