@@ -70,3 +70,9 @@ packages/worker/vitest.config.js.map
 # Extra
 tsconfig.tsbuildinfo
 
+
+# Generated test output artifacts (TypeScript declarations, JavaScript, source maps)
+packages/*/src/__tests__/*.test.js
+packages/*/src/__tests__/*.test.js.map
+packages/*/src/__tests__/*.test.d.ts
+packages/*/src/__tests__/*.test.d.ts.map
