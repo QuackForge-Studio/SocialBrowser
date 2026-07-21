@@ -1,64 +1,64 @@
 {
-    "name": "@social-browser/main",
-    "version": "0.1.0",
-    "private": true,
-    "main": "dist/index.js",
-    "scripts": {
-        "typecheck": "tsc --noEmit",
-        "lint": "eslint src/",
-        "build": "tsc && node ../../scripts/copy-assets.js",
-        "dev": "tsc && node ../../scripts/copy-assets.js && electron .",
-        "package": "electron-builder --win --x64",
-        "rebuild": "@electron/rebuild -f -w better-sqlite3 -w sqlite-vec",
-        "verify-addons": "node ../../scripts/verify-addons.js"
-    },
-    "dependencies": {
-        "better-sqlite3": "12.11.1",
-        "sqlite-vec": "0.1.9",
-        "sqlite-vec-windows-x64": "0.1.9",
-        "zod": "^4.4.3"
-    },
-    "devDependencies": {
-        "@electron/rebuild": "4.2.0",
-        "@types/jsdom": "^28.0.3",
-        "electron": "43.1.1",
-        "electron-builder": "26.15.3",
-        "jsdom": "^29.1.1",
-        "typescript": "5.8.3",
-        "vitest": "^4.1.10"
-    },
-    "build": {
-        "appId": "com.social-browser.app",
-        "productName": "Social Browser",
-        "directories": {
-            "output": "../../dist"
-        },
-        "files": [
-            "dist/**/*",
-            "src/**/*.html",
-            "node_modules/**/*",
-            "!node_modules/.cache"
-        ],
-        "win": {
-            "target": [
-                {
-                    "target": "nsis",
-                    "arch": [
-                        "x64"
-                    ]
-                }
-            ]
-        },
-        "nsis": {
-            "oneClick": false,
-            "allowToChangeInstallationDirectory": true
-        },
-        "asar": true,
-        "asarUnpack": [
-            "node_modules/better-sqlite3/**",
-            "node_modules/sqlite-vec/**",
-            "node_modules/sqlite-vec-windows-x64/**",
-            "dist/worker/**"
-        ]
-    }
+    "name":  "@social-browser/main",
+    "version":  "0.1.0",
+    "private":  true,
+    "main":  "dist/index.js",
+    "scripts":  {
+                    "typecheck":  "tsc --noEmit",
+                    "lint":  "eslint src/",
+                    "build":  "tsc \u0026\u0026 node ../../scripts/copy-assets.js",
+                    "dev":  "tsc \u0026\u0026 node ../../scripts/copy-assets.js \u0026\u0026 electron .",
+                    "package":  "electron-builder --win --x64",
+                    "rebuild":  "@electron/rebuild -f -w better-sqlite3 -w sqlite-vec",
+                    "verify-addons":  "node ../../scripts/verify-addons.js"
+                },
+    "dependencies":  {
+                         "better-sqlite3":  "12.11.1",
+                         "sqlite-vec":  "0.1.9",
+                         "sqlite-vec-windows-x64":  "0.1.9",
+                         "zod":  "^4.4.3"
+                     },
+    "devDependencies":  {
+                            "@electron/rebuild":  "4.2.0",
+                            "@types/jsdom":  "^28.0.3",
+                            "electron":  "43.1.1",
+                            "electron-builder":  "26.15.3",
+                            "jsdom":  "^29.1.1",
+                            "typescript":  "5.8.3",
+                            "vitest":  "^4.1.10"
+                        },
+    "build":  {
+                  "appId":  "com.social-browser.app",
+                  "productName":  "Social Browser",
+                  "directories":  {
+                                      "output":  "../../dist"
+                                  },
+                  "files":  [
+                                "dist/**/*",
+                                "src/**/*.html",
+                                "node_modules/**/*",
+                                "!node_modules/.cache"
+                            ],
+                  "win":  {
+                              "target":  [
+                                             {
+                                                 "target":  "nsis",
+                                                 "arch":  [
+                                                              "x64"
+                                                          ]
+                                             }
+                                         ]
+                          },
+                  "nsis":  {
+                               "oneClick":  false,
+                               "allowToChangeInstallationDirectory":  true
+                           },
+                  "asar":  true,
+                  "asarUnpack":  [
+                                     "node_modules/better-sqlite3/**",
+                                     "node_modules/sqlite-vec/**",
+                                     "node_modules/sqlite-vec-windows-x64/**",
+                                     "dist/worker/**"
+                                 ]
+              }
 }

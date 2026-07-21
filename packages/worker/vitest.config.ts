@@ -1,9 +1,8 @@
-﻿import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
+export default {
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['packages/worker/src/**/*.test.ts'],
+    exclude: ['packages/worker/src/**/*.test.js', 'packages/worker/src/**/*.test.d.ts', 'packages/worker/src/**/*.test.js.map', 'packages/worker/src/**/*.test.d.ts.map'],
   },
-});
+};

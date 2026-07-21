@@ -1,10 +1,9 @@
-import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
+export default {
   test: {
     globals: true,
     environment: 'jsdom',
-    include: ['src/**/*.test.tsx', 'src/**/*.test.ts'],
+    include: ['packages/dashboard/src/**/*.test.tsx', 'packages/dashboard/src/**/*.test.ts'],
+    exclude: ['packages/dashboard/src/**/*.test.js', 'packages/dashboard/src/**/*.test.js.map', 'packages/dashboard/src/**/*.test.d.ts', 'packages/dashboard/src/**/*.test.d.ts.map'],
     setupFiles: [],
   },
-});
+};
