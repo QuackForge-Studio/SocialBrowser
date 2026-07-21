@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { DashboardView, PlatformTab } from './types';
 import type { DashboardBridge } from './types';
 import { Sidebar, DEFAULT_NAV_ITEMS } from './Sidebar';
@@ -98,7 +98,7 @@ export function App() {
         onNavigate={setActiveView}
         onNavigateToPlatform={handleNavigateToPlatform}
       />
-      <main className="absolute bottom-0 left-60 right-0 top-11 overflow-y-auto">
+      <main className="absolute bottom-0 left-[200px] right-0 top-[44px] overflow-y-auto">
         {renderContent()}
       </main>
       {showPrivacyModal ? (

@@ -9,7 +9,7 @@ export interface TabEntry {
   onClose?: () => void;
 }
 
-export const SIDEBAR_WIDTH = 240;
+export const SIDEBAR_WIDTH = 200;
 export const TAB_BAR_HEIGHT = 40;
 
 export class ViewLayoutManager {

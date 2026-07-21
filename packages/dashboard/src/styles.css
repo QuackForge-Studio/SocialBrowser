@@ -1,27 +1,31 @@
 @import "tailwindcss";
 
-/* === Social Browser — Identity tokens === */
+/* === Social Browser â€” Taste-Skill Design Tokens === */
 @theme {
-  /* Accent: deep indigo-violet — unique, not amber like everyone else */
-  --color-accent: #7c3aed;
-  --color-accent-hover: #a78bfa;
-  --color-accent-soft: rgb(124 58 237 / 0.12);
-  --color-accent-foreground: #ede9fe;
+  /* Core palette */
+  --color-bg-base: #0f1117;
+  --color-bg-elevated: #1a1d27;
+  --color-bg-hover: #1f2235;
+  --color-accent: #f97316;
+  --color-accent-hover: #ea6c0a;
+  --color-accent-glow: #f9731630;
+  --color-border: #ffffff0f;
+  --color-border-strong: #ffffff14;
+  --color-text-primary: #f1f5f9;
+  --color-text-muted: #64748b;
+  --color-badge-bg: #ffffff0a;
 
-  /* Backgrounds: charcoal-slate base with cool undertones */
-  --color-bg: #0b0e11;
-  --color-bg-elevated: #111419;
-  --color-surface: #161a1f;
-  --color-surface-hover: #1c2026;
-  --color-border: #1e2328;
-  --color-border-strong: #2a3038;
+  /* Compat aliases for existing class names */
+  --color-bg: var(--color-bg-base);
+  --color-surface: var(--color-bg-elevated);
+  --color-surface-hover: var(--color-bg-hover);
+  --color-text: var(--color-text-primary);
+  --color-text-dim: var(--color-text-muted);
+  --color-text-faint: #4a5565;
+  --color-accent-soft: rgba(249, 115, 22, 0.12);
+  --color-accent-foreground: #fff7ed;
 
-  /* Text: cool white-grey scale */
-  --color-text: #e8edf2;
-  --color-text-dim: #8896a6;
-  --color-text-faint: #5c6670;
-
-  /* Semantic colors */
+  /* Semantic */
   --color-success: #34d399;
   --color-success-soft: rgb(52 211 153 / 0.12);
   --color-warning: #fbbf24;
@@ -32,63 +36,78 @@
 
   /* Radius */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-pill: 999px;
 
   /* Typography */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgb(8 8 12 / 0.4);
-  --shadow-md: 0 4px 14px rgb(8 8 12 / 0.5);
-  --shadow-lg: 0 12px 36px rgb(8 8 12 / 0.6);
-}
-
-/* Light mode — cool airy slate */
-@media (prefers-color-scheme: light) {
-  :root {
-    --color-accent: #6d28d9;
-    --color-accent-hover: #7c3aed;
-    --color-accent-soft: rgb(109 40 217 / 0.1);
-    --color-accent-foreground: #ffffff;
-
-    --color-bg: #f5f7fa;
-    --color-bg-elevated: #ffffff;
-    --color-surface: #ffffff;
-    --color-surface-hover: #edf1f5;
-    --color-border: #dce3e8;
-    --color-border-strong: #c4cdd4;
-
-    --color-text: #11161c;
-    --color-text-dim: #4a5568;
-    --color-text-faint: #8896a6;
-
-    --color-success: #059669;
-    --color-success-soft: rgb(5 150 105 / 0.1);
-    --color-warning: #b45309;
-    --color-warning-soft: rgb(180 83 9 / 0.1);
-    --color-error: #dc2626;
-    --color-error-soft: rgb(220 38 38 / 0.08);
-
-    --shadow-sm: 0 1px 2px rgb(60 72 88 / 0.06);
-    --shadow-md: 0 4px 12px rgb(60 72 88 / 0.08);
-    --shadow-lg: 0 12px 32px rgb(60 72 88 / 0.12);
-  }
+  /* Motion */
+  --motion-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-fast: 150ms;
+  --motion-medium: 200ms;
+  --motion-slow: 300ms;
+  --motion-float: 3s;
 }
 
 /* === Base === */
 html, body {
   height: 100%;
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 #root { height: 100%; }
+
+/* ===== MOTION â€” wraps in prefers-reduced-motion ===== */
+@media (prefers-reduced-motion: no-preference) {
+  /* Sidebar item mount */
+  @keyframes sidebarItemIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .animate-sidebar-item { animation: sidebarItemIn var(--motion-medium) var(--motion-spring) both; }
+
+  /* Panel fade-in */
+  @keyframes panelFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-panel-in { animation: panelFadeIn var(--motion-medium) var(--motion-spring) both; }
+
+  /* Workspace switch */
+  @keyframes wsFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-ws-in { animation: wsFadeIn 180ms var(--motion-spring) both; }
+
+  /* Empty state float */
+  @keyframes floatIcon {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+  }
+  .animate-float { animation: floatIcon var(--motion-float) ease-in-out infinite; }
+
+  /* Badge pulse */
+  @keyframes badgePulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  .animate-badge { animation: badgePulse 250ms var(--motion-spring); }
+
+  /* Dropdown appear */
+  @keyframes dropdownIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-dropdown { animation: dropdownIn var(--motion-fast) var(--motion-spring) both; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -99,34 +118,149 @@ html, body {
   }
 }
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
+/* === Scrollbar === */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--color-border-strong);
   border-radius: var(--radius-pill);
-  border: 2px solid var(--color-bg);
+  border: 2px solid var(--color-bg-base);
 }
-::-webkit-scrollbar-thumb:hover { background: var(--color-text-faint); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
 
+/* === Focus ring === */
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
 
+/* === Form elements === */
 input, select, textarea, button { font: inherit; color: inherit; }
 
-select, input[type="text"], input[type="search"], textarea {
-  background: var(--color-surface);
+input[type="text"], input[type="search"], textarea {
+  background: var(--color-bg-base);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  padding: 7px 10px;
   font-size: 13px;
-  transition: border-color 150ms ease, background 150ms ease;
+  color: var(--color-text-primary);
+  transition: border-color var(--motion-fast) var(--motion-spring);
 }
-select:hover, input[type="text"]:hover, textarea:hover { border-color: var(--color-border-strong); }
-select:focus, input[type="text"]:focus, textarea:focus {
+input[type="text"]:hover, textarea:hover { border-color: var(--color-border-strong); }
+input[type="text"]:focus, textarea:focus {
   outline: none;
   border-color: var(--color-accent);
-  background: var(--color-bg-elevated);
+  background: var(--color-bg-hover);
 }
+
+/* === Custom select (override native) === */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 7px 32px 7px 10px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--motion-spring);
+}
+select:hover { border-color: var(--color-border-strong); }
+select:focus { outline: none; border-color: var(--color-accent); background: var(--color-bg-hover); }
+select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+option {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  padding: 8px;
+}
+
+/* === Gradient buttons (Launch + New) === */
+.btn-accent-gradient {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: #fff7ed;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform 120ms var(--motion-spring), box-shadow var(--motion-fast) var(--motion-spring);
+}
+.btn-accent-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px var(--color-accent-glow);
+}
+.btn-accent-gradient:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px var(--color-accent-glow);
+}
+.btn-accent-gradient:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* === Sidebar item hover transitions === */
+.sidebar-nav-btn {
+  transition: background var(--motion-fast) var(--motion-spring), color var(--motion-fast) var(--motion-spring);
+}
+
+/* === Breadcrumb === */
+.breadcrumb-separator {
+  color: var(--color-text-muted);
+  margin: 0 4px;
+}
+.breadcrumb-parent { color: var(--color-text-muted); }
+.breadcrumb-current { color: var(--color-text-primary); font-weight: 500; }
+
+/* === Section header with separator === */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+.section-header::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* === Count badge pill === */
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--color-badge-bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+/* === Empty state === */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 12px;
+}
+.empty-state-icon { color: var(--color-text-muted); opacity: 0.4; }
+.empty-state-title { font-size: 13px; color: var(--color-text-muted); font-weight: 500; }
+.empty-state-sub { font-size: 12px; color: var(--color-text-faint); max-width: 260px; line-height: 1.5; }
