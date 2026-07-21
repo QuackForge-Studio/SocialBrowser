@@ -28,7 +28,7 @@ export function Sidebar({ navItems, activeView, onNavigate }: SidebarProps) {
         <div className="text-[15px] font-semibold tracking-tight text-text">
           Social Browser
         </div>
-        <div className="mt-0.5 text-[11px] text-text-faint">v0.1.0</div>
+        <div className="mt-0.5 text-[11px] text-text-faint">v0.2.0</div>
       </div>
 
       {/* Nav */}
