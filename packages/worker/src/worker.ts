@@ -292,7 +292,7 @@ function handleShutdown(msgId: string): void {
   try {
     batchProcessor?.requestShutdown();
     if (dbManager) {
-      try { dbManager.getDb().pragma('wal_checkpoint(TRUNCATE)'); } catch {}
+      try { dbManager.getDb().pragma('wal_checkpoint(TRUNCATE)'); } catch { /* WAL checkpoint may fail during shutdown, non-critical */ }
       dbManager.close();
       dbManager = null; pipeline = null; runTracker = null;
       batchProcessor = null; embeddingPipeline = null; ragPipeline = null;

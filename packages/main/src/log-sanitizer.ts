@@ -1,5 +1,5 @@
-﻿/**
- * Log sanitizer — prevents sensitive data from appearing in log output.
+/**
+ * Log sanitizer � prevents sensitive data from appearing in log output.
  *
  * API keys, tokens, and credentials must never appear in logs.
  * This utility provides a function to sanitize strings before logging.
@@ -13,10 +13,10 @@
 // - Long alphanumeric strings that resemble keys (>40 chars)
 const SENSITIVE_PATTERNS: RegExp[] = [
   /sk-[A-Za-z0-9]{20,}/g,                                          // OpenAI keys (sk-...)
-  /(api[_-]?key|apikey)[=:"]\s*[A-Za-z0-9_\-]{8,}/gi,             // api_key=<value>
-  /(Authorization|Bearer)\s*:\s*Bearer\s+[A-Za-z0-9\-._~+/]{20,}/gi,  // Bearer tokens
-  /(Bearer\s+|token\s*[:=]\s*)[A-Za-z0-9\-._~+/]{20,}/gi,         // Bearer <token>
-  /[A-Za-z0-9_\-@]{40,}/g,                                         // Any 40+ char alphanumeric string
+  /(api[_-]?key|apikey)[=:"]\s*[A-Za-z0-9_-]{8,}/gi,             // api_key=<value>
+  /(Authorization|Bearer)\s*:\s*Bearer\s+[A-Za-z0-9._~+/-]{20,}/gi,  // Bearer tokens
+  /(Bearer\s+|token\s*[:=]\s*)[A-Za-z0-9._~+/-]{20,}/gi,         // Bearer <token>
+  /[A-Za-z0-9_@-]{40,}/g,                                         // Any 40+ char alphanumeric string
 ];
 
 const REDACTED = '[REDACTED]';

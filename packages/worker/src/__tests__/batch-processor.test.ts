@@ -159,7 +159,7 @@ describe('VAL-AI-034: costLimitDaily', () => {
     const rid = tracker.createRun({ runType: 'generate', provider: 'openai', model: 'gpt-4o' });
     tracker.completeRun({ runId: rid, latencyMs: 100, tokenCount: 50, costEstimate: 0.001 });
     let executed = false;
-    try { await processor.execute(() => { executed = true; return Promise.resolve('x'); }); } catch (e) {}
+    try { await processor.execute(() => { executed = true; return Promise.resolve('x'); }); } catch (e) { /* empty catch expected */ }
     expect(executed).toBe(false);
   });
 

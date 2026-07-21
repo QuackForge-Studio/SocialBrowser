@@ -19,7 +19,7 @@ function setupDb(): Database.Database {
     if (vecPath) {
       db.loadExtension(vecPath);
     }
-  } catch {}
+  } catch { /* cleanup may fail, non-critical */ }
   runMigrations(db);
   return db;
 }
@@ -152,11 +152,11 @@ describe('VAL-RAG-002: Top-k similar posts retrieved', () => {
   });
 
   afterEach(() => {
-    try { manager.close(); } catch {}
+    try { manager.close(); } catch { /* cleanup may fail, non-critical */ }
     try {
       const tmpDir = path.dirname(manager['opts'].dbPath);
       fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
+    } catch { /* cleanup may fail, non-critical */ }
   });
 
   it('should return <= topK results sorted by similarity', async () => {
@@ -577,8 +577,8 @@ describe('VAL-RAG-017: RAG retrieval respects topK', () => {
     const results1 = embeddingPipeline.queryTopK(tableName, briefVector, 1);
     expect(results1.length).toBeLessThanOrEqual(1);
 
-    try { manager.close(); } catch {}
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try { manager.close(); } catch { /* cleanup may fail, non-critical */ }
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* cleanup may fail, non-critical */ }
   });
 });
 

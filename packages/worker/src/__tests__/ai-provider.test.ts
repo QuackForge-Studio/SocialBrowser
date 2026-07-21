@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import Database from 'better-sqlite3';
 import { runMigrations } from '../database';
 import { FakeAIProvider } from '../ai/fake-provider';
@@ -255,9 +257,7 @@ describe('VAL-AI-014: FakeAIProvider.classifySentiment() keyword-based', () => {
 // ===== VAL-AI-015: FakeAIProvider zero network calls =====
 describe('VAL-AI-015: FakeAIProvider zero network calls', () => {
   it('should not use any network modules in implementation', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const source = fs.readFileSync(path.resolve(__dirname, '../ai/fake-provider.ts'), 'utf-8');
+const source = fs.readFileSync(path.resolve(__dirname, '../ai/fake-provider.ts'), 'utf-8');
 
     expect(source).not.toContain("require('http')");
     expect(source).not.toContain("require('https')");

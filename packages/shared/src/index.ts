@@ -36,7 +36,7 @@ export interface GroupTab {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
-}}export type Platform = "x" | "threads" | "instagram" | "tiktok" | "facebook";
+}export type Platform = "x" | "threads" | "instagram" | "tiktok" | "facebook";
 
 // AI Provider Result Types
 export interface GenerateResult {

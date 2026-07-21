@@ -172,7 +172,7 @@ export function getPeerEngagementValues(
   contentType: ContentType,
   excludePostId?: string,
 ): number[] {
-  let query = 
+  let query = `
     SELECT s.engagement_raw
     FROM scores s
     JOIN posts p ON p.id = s.post_id
@@ -181,7 +181,7 @@ export function getPeerEngagementValues(
       AND a.platform = ?
       AND (p.content_type = ? OR p.content_type IS NULL)
       AND s.engagement_raw IS NOT NULL
-  ;
+  ;`
   const params: unknown[] = [accountId, platform, contentType];
 
   if (excludePostId) {
@@ -225,14 +225,14 @@ export function computeAccountRelativePercentile(
  * - Neutrals excluded from numerator but included in denominator
  */
 export function computeSentiment(db: Database.Database, postId: string): number | null {
-  const row = db.prepare(
+  const row = db.prepare(`
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN sentiment_label = 'positive' THEN 1 ELSE 0 END) as positive,
       SUM(CASE WHEN sentiment_label = 'negative' THEN 1 ELSE 0 END) as negative
     FROM comments
     WHERE post_id = ?
-  ).get(postId) as { total: number; positive: number; negative: number } | undefined;
+`  ).get(postId) as { total: number; positive: number; negative: number } | undefined;
 
   if (!row || row.total === 0) return null;
 
@@ -248,18 +248,18 @@ export function computeSentiment(db: Database.Database, postId: string): number 
  */
 export function computeTimingScore(db: Database.Database, postId: string): number | null {
   // Check if heatmap table exists and has data
-  const tableExists = db.prepare(
+  const tableExists = db.prepare(`
     SELECT name FROM sqlite_master WHERE type='table' AND name='heatmap_cells'
-  ).get() as { name: string } | undefined;
+`  ).get() as { name: string } | undefined;
 
   if (!tableExists) return null;
 
   const count = db.prepare('SELECT COUNT(*) as count FROM heatmap_cells').get() as { count: number };
   if (count.count === 0) return null;
 
-  const post = db.prepare(
+  const post = db.prepare(`
     SELECT published_at FROM posts WHERE id = ?
-  ).get(postId) as { published_at: string } | undefined;
+`  ).get(postId) as { published_at: string } | undefined;
 
   if (!post?.published_at) return null;
 
@@ -267,14 +267,14 @@ export function computeTimingScore(db: Database.Database, postId: string): numbe
   const hour = publishedDate.getUTCHours();
   const day = publishedDate.getUTCDay();
 
-  const cell = db.prepare(
+  const cell = db.prepare(`
     SELECT avg_engagement_score, sample_size, confidence
     FROM heatmap_cells
     WHERE account_id = (SELECT account_id FROM posts WHERE id = ?)
       AND content_type = (SELECT content_type FROM posts WHERE id = ?)
       AND hour_of_day = ?
       AND day_of_week = ?
-  ).get(postId, postId, hour, day) as {
+`  ).get(postId, postId, hour, day) as {
     avg_engagement_score: number;
     sample_size: number;
     confidence: number;
@@ -379,13 +379,13 @@ export function computeScoreForPost(
   db: Database.Database,
   postId: string,
 ): ScoreResult {
-  const post = db.prepare(
+  const post = db.prepare(`
     SELECT p.id, p.account_id, p.content_text, p.media_refs, p.content_type,
            a.platform
     FROM posts p
     JOIN accounts a ON a.id = p.account_id
     WHERE p.id = ?
-  ).get(postId) as {
+`  ).get(postId) as {
     id: string;
     account_id: string;
     content_text?: string;
@@ -407,13 +407,13 @@ export function computeScoreForPost(
     };
   }
 
-  const snapshot = db.prepare(
+  const snapshot = db.prepare(`
     SELECT likes, comments_count, shares, views
     FROM engagement_snapshots
     WHERE post_id = ?
     ORDER BY captured_at DESC
     LIMIT 1
-  ).get(postId) as {
+`  ).get(postId) as {
     likes?: number;
     comments_count?: number;
     shares?: number;
@@ -473,12 +473,12 @@ export function storeScore(
   const scoreId = uuidv4();
   const computedAt = new Date().toISOString();
 
-  db.prepare(
+  db.prepare(`
     INSERT INTO scores (id, post_id, formula_version, engagement_score,
       engagement_percentile, engagement_raw, sentiment_score, timing_score, composite_score,
       sample_confidence, computed_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  ).run(
+`  ).run(
     scoreId,
     postId,
     result.formulaVersion,

@@ -171,6 +171,7 @@ describe('VAL-AI-006: Worker message loop and ping/pong', () => {
 describe('VAL-AI-039: Main process never executes SQLite', () => {
   it('should have better-sqlite3 as a dependency only in worker package', () => {
     // Check that worker package depends on better-sqlite3
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const workerPkg = require(path.resolve(__dirname, '../../package.json'));
     expect(workerPkg.dependencies).toBeDefined();
     expect(workerPkg.dependencies['better-sqlite3']).toBeDefined();

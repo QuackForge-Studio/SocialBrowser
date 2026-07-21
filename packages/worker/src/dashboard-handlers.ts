@@ -72,7 +72,7 @@ export function createDraftHandler(db: Database.Database, send: SendFn, msgId: s
     const draftId = uuidv4();
     const now = new Date().toISOString();
     db.prepare(
-      'INSERT INTO content_drafts (id, account_id, source_prompt, scheduled_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, '"'"'draft'"'"', ?, ?)'
+      `INSERT INTO content_drafts (id, account_id, source_prompt, scheduled_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'draft', ?, ?)`
     ).run(draftId, payload.accountId, payload.sourcePrompt || null, payload.scheduledDate || null, now, now);
     const draft = db.prepare(
       'SELECT id, account_id as accountId, generated_text as generatedText, source_prompt as sourcePrompt, ' +
