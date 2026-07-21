@@ -11,6 +11,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "src/__tests__"
+    "**/__tests__/**"
   ]
 }

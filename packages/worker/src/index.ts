@@ -43,7 +43,8 @@ export type WorkerMessageType =
   | 'record_capture_audit'
   | 'record_ai_audit'
   | 'get_audit_events'
-  | 'get_group_account_ids';
+  | 'get_group_account_ids'
+  | 'get-api-key-response';
 
 export interface WorkerMessage {
   type: WorkerMessageType;
