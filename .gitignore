@@ -84,3 +84,6 @@ packages/*/src/__tests__/*.test.js
 packages/*/src/__tests__/*.test.js.map
 packages/*/src/__tests__/*.test.d.ts
 packages/*/src/__tests__/*.test.d.ts.map
+# Database
+packages/main/social-browser.sqlite*
+

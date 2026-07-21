@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+/* === Design tokens: DARK mode is the default theme === */
+@theme {
+  /* Brand accent: burnt amber (locked for whole app, both modes) */
+  --color-accent: #d97706;
+  --color-accent-hover: #f59e0b;
+  --color-accent-soft: rgb(217 119 6 / 0.12);
+  --color-accent-foreground: #fff7ed;
+
+  /* Warm neutrals: dark */
+  --color-bg: #0e0d0b;
+  --color-bg-elevated: #161411;
+  --color-surface: #1a1713;
+  --color-surface-hover: #221e19;
+  --color-border: #2a251f;
+  --color-border-strong: #3a332a;
+
+  --color-text: #f5f2ec;
+  --color-text-dim: #a8a29a;
+  --color-text-faint: #78716a;
+
+  /* Semantic */
+  --color-success: #4ade80;
+  --color-success-soft: rgb(74 222 128 / 0.12);
+  --color-warning: #fbbf24;
+  --color-warning-soft: rgb(251 191 36 / 0.12);
+  --color-error: #f87171;
+  --color-error-soft: rgb(248 113 113 / 0.12);
+
+  /* Shape: ONE radius scale for the app */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* Typography */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Elevation (warm-tinted, no pure-black drop shadows) */
+  --shadow-sm: 0 1px 2px rgb(20 16 10 / 0.3);
+  --shadow-md: 0 4px 12px rgb(20 16 10 / 0.35);
+  --shadow-lg: 0 12px 32px rgb(20 16 10 / 0.45);
+}
+
+/* === LIGHT mode: same token names, flipped values, deepened accent for contrast === */
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-accent: #b45309;
+    --color-accent-hover: #d97706;
+    --color-accent-soft: rgb(180 83 9 / 0.1);
+    --color-accent-foreground: #fff7ed;
+
+    --color-bg: #faf9f6;
+    --color-bg-elevated: #ffffff;
+    --color-surface: #ffffff;
+    --color-surface-hover: #f5f3ee;
+    --color-border: #e7e2d8;
+    --color-border-strong: #d6cfc0;
+
+    --color-text: #1c1917;
+    --color-text-dim: #57534a;
+    --color-text-faint: #a8a29a;
+
+    --color-success: #16a34a;
+    --color-success-soft: rgb(22 163 74 / 0.1);
+    --color-warning: #b45309;
+    --color-warning-soft: rgb(180 83 9 / 0.1);
+    --color-error: #dc2626;
+    --color-error-soft: rgb(220 38 38 / 0.08);
+
+    --shadow-sm: 0 1px 2px rgb(60 45 20 / 0.06);
+    --shadow-md: 0 4px 12px rgb(60 45 20 / 0.08);
+    --shadow-lg: 0 12px 32px rgb(60 45 20 / 0.12);
+  }
+}
+
+/* === Base === */
+html, body {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#root { height: 100%; }
+
+/* Reduced motion: subtle-only mode anyway, but collapse what little there is */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Scrollbar: warm, quiet */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-bg);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-faint); }
+
+/* Focus ring: amber, visible on both themes */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Form elements inherit tokens by default */
+input, select, textarea, button {
+  font: inherit;
+  color: inherit;
+}
+
+select, input[type="text"], input[type="search"], textarea {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 13px;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+select:hover, input[type="text"]:hover, textarea:hover {
+  border-color: var(--color-border-strong);
+}
+select:focus, input[type="text"]:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-bg-elevated);
+}

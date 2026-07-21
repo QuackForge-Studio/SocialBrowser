@@ -1,4 +1,4 @@
-﻿import type { WebContentsView } from 'electron';
+import type { WebContentsView } from 'electron';
 import type { BaseWindow } from './base-window';
 import type { ShellView } from './shell-view';
 
@@ -31,6 +31,16 @@ export class ViewLayoutManager {
     this.recalculateBounds();
   }
 
+  private getFullBounds(): { x: number; y: number; width: number; height: number } {
+    const { width, height } = this.baseWindow.getContentBounds();
+    return {
+      x: 0,
+      y: 0,
+      width,
+      height,
+    };
+  }
+
   private getContentBounds(): { x: number; y: number; width: number; height: number } {
     const { width, height } = this.baseWindow.getContentBounds();
     return {
@@ -42,8 +52,9 @@ export class ViewLayoutManager {
   }
 
   recalculateBounds(): void {
+    const fullBounds = this.getFullBounds();
     const contentBounds = this.getContentBounds();
-    this.shellView.setBounds(contentBounds);
+    this.shellView.setBounds(fullBounds);
 
     if (this.activeTabId) {
       const tab = this.tabs.get(this.activeTabId);
@@ -96,7 +107,7 @@ export class ViewLayoutManager {
       this.activeTabId = null;
     }
 
-    this.shellView.setBounds(this.getContentBounds());
+    this.shellView.setBounds(this.getFullBounds());
     this.shellView.setVisible(true);
   }
 

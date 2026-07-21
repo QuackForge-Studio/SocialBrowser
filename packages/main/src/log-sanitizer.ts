@@ -1,4 +1,23 @@
 /**
+ * Makes console.error, console.warn, and console.log safe against EPIPE errors.
+ * This prevents crashes when the main process tries to write to stdout/stderr
+ * after the parent process (terminal/shell) has closed the pipe.
+ */
+export function installConsoleGuard(): void {
+  const EPIPE_IGNORE = ["EPIPE", "ERR_STREAM_DESTROYED"];
+
+  const handlers: Array<"stdout" | "stderr"> = ["stdout", "stderr"];
+  for (const streamName of handlers) {
+    const stream = process[streamName];
+    if (!stream || !("on" in stream)) continue;
+    stream.on("error", (err: NodeJS.ErrnoException) => {
+      if (err?.code && EPIPE_IGNORE.includes(err.code)) return;
+      // For non-EPIPE errors, silently ignore since console may also be broken
+    });
+  }
+}
+
+/**
  * Log sanitizer — prevents sensitive data from appearing in log output.
  *
  * API keys, tokens, and credentials must never appear in logs.
@@ -19,7 +38,7 @@ const SENSITIVE_PATTERNS: RegExp[] = [
   /[A-Za-z0-9_@-]{40,}/g,                                         // Any 40+ char alphanumeric string
 ];
 
-const REDACTED = '[REDACTED]';
+const REDACTED = "[REDACTED]";
 
 /**
  * Sanitize a string by replacing all sensitive patterns with [REDACTED].
@@ -41,19 +60,19 @@ export function sanitizeLog(input: string): string {
  * Returns an object with sanitized log methods.
  */
 export function createSanitizedLogger(prefix?: string) {
-  const pfx = prefix ? `[${prefix}] ` : '';
+  const pfx = prefix ? `[${prefix}] ` : "";
   return {
     log: (...args: unknown[]) => {
       const sanitized = args.map((a) => sanitizeLog(String(a)));
-      console.log(pfx + sanitized.join(' '));
+      console.log(pfx + sanitized.join(" "));
     },
     warn: (...args: unknown[]) => {
       const sanitized = args.map((a) => sanitizeLog(String(a)));
-      console.warn(pfx + sanitized.join(' '));
+      console.warn(pfx + sanitized.join(" "));
     },
     error: (...args: unknown[]) => {
       const sanitized = args.map((a) => sanitizeLog(String(a)));
-      console.error(pfx + sanitized.join(' '));
+      console.error(pfx + sanitized.join(" "));
     },
   };
 }

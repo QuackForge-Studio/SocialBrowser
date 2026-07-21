@@ -7,7 +7,7 @@ import {
 } from './ipc-gate';
 import { platformViewRegistry } from './platform-view-registry';
 import { getKeyVault } from './key-vault';
-import { sanitizeLog } from './log-sanitizer';
+import { sanitizeLog, installConsoleGuard } from './log-sanitizer';
 import {
   getPublishAssistManager,
 } from './publish-assist-manager';
@@ -335,6 +335,9 @@ function setupClipboardHandler(): void {
 }
 
 app.whenReady().then(() => {
+  // Guard against EPIPE crashes when parent process closes pipe
+  installConsoleGuard();
+
   console.log('[Main] Social Browser starting...');
 
   // 1. Start worker thread

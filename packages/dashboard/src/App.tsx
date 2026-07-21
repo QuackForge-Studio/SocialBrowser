@@ -1,20 +1,13 @@
 ﻿import React, { useState, useCallback, useEffect } from 'react';
 import type { DashboardView, PlatformTab } from './types';
 import type { DashboardBridge } from './types';
-import { Sidebar } from './Sidebar';
+import { Sidebar, DEFAULT_NAV_ITEMS } from './Sidebar';
 import { TabBar } from './TabBar';
 import { CalendarView } from './views/CalendarView';
 import { AnalyticsView } from './views/AnalyticsView';
 import { SettingsView } from './views/SettingsView';
 import { WorkspaceManager } from './views/WorkspaceManager';
 import { PrivacyModal } from './PrivacyModal';
-
-const NAV_ITEMS: Array<{ view: DashboardView; label: string; icon: string }> = [
-  { view: 'workspaces', label: 'Workspaces', icon: '\u{1F5C2}' },
-  { view: 'calendar', label: 'Calendar', icon: '\u{1F4C5}' },
-  { view: 'analytics', label: 'Analytics', icon: '\u{1F4C8}' },
-  { view: 'settings', label: 'Settings', icon: '\u2699' },
-];
 
 function getBridge(): DashboardBridge | undefined {
   return window.__socialBrowserDashboard;
@@ -38,7 +31,6 @@ export function App() {
       }
     }).catch((err) => {
       console.error('[App] Failed to check privacy settings:', err);
-      // On error, show modal to be safe
       setShowPrivacyModal(true);
     });
   }, []);
@@ -53,7 +45,6 @@ export function App() {
     setShowPrivacyModal(false);
   }, []);
 
-  // Notify main process on platform tab navigation requests
   const handleNavigateToPlatform = useCallback(
     (platform: string, accountId: string) => {
       const bridge = getBridge();
@@ -65,17 +56,14 @@ export function App() {
     []
   );
 
-  // Handle add-tab requests (delegated to main process)
   const handleAddTab = useCallback(() => {
     console.log('[Dashboard] Add tab requested');
   }, []);
 
-  // Handle tab close
   const handleCloseTab = useCallback((_tabId: string) => {
     console.log('[Dashboard] Close tab requested:', _tabId);
   }, []);
 
-  // Render the active view content
   const renderContent = () => {
     switch (activeView) {
       case 'workspaces':
@@ -91,13 +79,12 @@ export function App() {
     }
   };
 
-  // Log successful mount
   useEffect(() => {
     console.log('[Dashboard] Shell loaded successfully');
   }, []);
 
   return (
-    <div className="app-shell">
+    <div className="h-full w-full bg-bg text-text">
       <TabBar
         tabs={tabs}
         activeTabId={activeTabId}
@@ -106,12 +93,12 @@ export function App() {
         onAddTab={handleAddTab}
       />
       <Sidebar
-        navItems={NAV_ITEMS}
+        navItems={DEFAULT_NAV_ITEMS}
         activeView={activeView}
         onNavigate={setActiveView}
         onNavigateToPlatform={handleNavigateToPlatform}
       />
-      <main id="content-area">
+      <main className="absolute bottom-0 left-60 right-0 top-11 overflow-y-auto">
         {renderContent()}
       </main>
       {showPrivacyModal ? (

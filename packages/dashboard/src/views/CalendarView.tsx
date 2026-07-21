@@ -9,6 +9,14 @@ const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function getBridge(): DashboardBridge | undefined {
   return window.__socialBrowserDashboard;
 }
+
+function scoreToColor(score: number | null | undefined): string {
+  if (score == null) return 'var(--color-text-faint)';
+  const clamped = Math.max(0, Math.min(100, score));
+  if (clamped >= 70) return 'var(--color-success)';
+  if (clamped >= 40) return 'var(--color-warning)';
+  return 'var(--color-error)';
+}
 // ===== Draft Create Modal =====
 function DraftCreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [prompt, setPrompt] = useState('');
@@ -393,11 +401,11 @@ export function CalendarView() {
 
   if (loading) {
     return (
-      <div>
-        <h2>Calendar</h2>
-        <div className="loading-state" style={{ marginTop: 40, textAlign: "center" }}>
-          <div className="spinner"></div>
-          <p>Loading calendar data...</p>
+      <div className="p-6 bg-bg min-h-full">
+        <h2 className="text-lg font-semibold tracking-tight text-text mb-5">Calendar</h2>
+        <div className="mt-10 flex flex-col items-center gap-3 text-text-dim">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" />
+          <p className="text-[13px]">Loading calendar data...</p>
         </div>
       </div>
     );
@@ -410,56 +418,100 @@ export function CalendarView() {
   while (calendarDays.length % 7 !== 0) calendarDays.push(null);
 
   return (
-    <div>
-      <div className="calendar-header-row">
-        <h2>Calendar</h2>
-        <div className="calendar-nav">
-          <button className="btn btn-secondary btn-sm" onClick={prevMonth}>&larr;</button>
-          <span className="calendar-month-label">{MONTHS[currentMonth]} {currentYear}</span>
-          <button className="btn btn-secondary btn-sm" onClick={nextMonth}>&rarr;</button>
-          <button className="btn btn-secondary btn-sm" onClick={goToToday}>Today</button>
+    <div className="p-6 bg-bg min-h-full">
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <h2 className="text-lg font-semibold tracking-tight text-text">Calendar</h2>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={prevMonth}
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-text-dim transition-colors hover:bg-surface-hover hover:text-text"
+            aria-label="Previous month"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15,18 9,12 15,6"/></svg>
+          </button>
+          <span className="min-w-[140px] text-center text-[13px] font-medium text-text">
+            {MONTHS[currentMonth]} {currentYear}
+          </span>
+          <button
+            type="button"
+            onClick={nextMonth}
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-text-dim transition-colors hover:bg-surface-hover hover:text-text"
+            aria-label="Next month"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9,6 15,12 9,18"/></svg>
+          </button>
+          <button
+            type="button"
+            onClick={goToToday}
+            className="ml-1 rounded-md border border-border px-3 py-1 text-[12px] text-text-dim transition-colors hover:bg-surface-hover hover:text-text"
+          >
+            Today
+          </button>
         </div>
       </div>
 
-      <div className="calendar-grid">
+      <div className="mb-5 grid grid-cols-7 gap-0.5">
         {DAYS.map(d => (
-          <div key={d} className="calendar-day-header">{d}</div>
+          <div key={d} className="py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-text-faint">{d}</div>
         ))}
         {calendarDays.map((day, idx) => {
-          if (day === null) return <div key={"empty-" + idx} className="calendar-day empty"></div>;
+          if (day === null) return <div key={"empty-" + idx} className="min-h-[88px] rounded-lg border border-dashed border-border/50" />;
           const dateStr = formatDate(currentYear, currentMonth, day);
           const dayPosts = getPostsForDate(dateStr);
           const dayDrafts = getDraftsForDate(dateStr);
           const isCurrentDay = isToday(currentYear, currentMonth, day);
           const isPastOrToday = !isFuture(currentYear, currentMonth, day);
+          const totalItems = dayPosts.length + dayDrafts.length;
           return (
             <div
               key={dateStr}
-              className={"calendar-day" + (isCurrentDay ? " today" : "") + (isPastOrToday ? "" : " future")}
+              className={[
+                "min-h-[88px] rounded-lg border p-2 transition-colors",
+                isCurrentDay
+                  ? "border-accent bg-accent-soft"
+                  : "border-border bg-surface hover:bg-surface-hover",
+                isPastOrToday ? "cursor-pointer" : "opacity-60",
+              ].join(" ")}
               onClick={() => isPastOrToday ? handleDateClick(dateStr) : undefined}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, dateStr)}
             >
-              <div className="calendar-day-number">{day}</div>
+              <div className={[
+                "mb-1 text-[12px] font-medium",
+                isCurrentDay ? "text-accent" : "text-text-dim",
+              ].join(" ")}>
+                {day}
+              </div>
               {dayPosts.slice(0, 3).map(p => (
-                <div key={p.id} className="calendar-post-badge" title={p.contentText?.slice(0, 100)}>
-                  <span className="badge-dot"></span>
-                  <span className="badge-score">{p.compositeScore?.toFixed(0) ?? "?"}</span>
+                <div
+                  key={p.id}
+                  className="mb-1 flex items-center gap-1 rounded bg-bg-elevated px-1 py-0.5 text-[10px]"
+                  title={p.contentText?.slice(0, 100)}
+                >
+                  <span
+                    className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                    style={{ background: scoreToColor(p.compositeScore as number | null | undefined) }}
+                  />
+                  <span className="truncate text-text-dim">
+                    {p.compositeScore?.toFixed(0) ?? "?"}
+                  </span>
                 </div>
               ))}
               {dayDrafts.slice(0, 2).map(d => (
                 <div
                   key={d.id}
-                  className="calendar-draft-badge"
+                  className="mb-1 flex items-center gap-1 rounded bg-accent-soft px-1 py-0.5 text-[10px] cursor-grab active:cursor-grabbing"
                   draggable
                   onDragStart={(e) => handleDragStart(e, d.id)}
                   onClick={(e) => { e.stopPropagation(); handleDraftReview(d); }}
                 >
-                  <span className="badge-draft-icon">{String.fromCharCode(9997)}</span>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0 text-accent"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                  <span className="truncate text-accent">Draft</span>
                 </div>
               ))}
-              {(dayPosts.length + dayDrafts.length) > 5 ? (
-                <div className="calendar-more">+{dayPosts.length + dayDrafts.length - 5} more</div>
+              {totalItems > 5 ? (
+                <div className="text-[10px] text-text-faint">+{totalItems - 5} more</div>
               ) : null}
             </div>
           );
@@ -467,19 +519,35 @@ export function CalendarView() {
       </div>
 
       {selectedDate && filteredPosts.length > 0 ? (
-        <div className="filtered-posts">
-          <h3>Posts for {selectedDate}</h3>
-          {filteredPosts.map(p => (
-            <div key={p.id} className="filtered-post-item">
-              <span className="badge-score">{p.compositeScore?.toFixed(1) ?? "N/A"}</span>
-              <span>{p.contentText?.slice(0, 100)}</span>
-            </div>
-          ))}
+        <div className="mt-6 rounded-lg border border-border bg-surface p-4">
+          <h3 className="mb-3 text-[13px] font-semibold text-text">
+            Posts for {selectedDate}
+          </h3>
+          <div className="space-y-1.5">
+            {filteredPosts.map(p => (
+              <div key={p.id} className="flex items-center gap-2.5 rounded-md bg-bg-elevated px-3 py-2 text-[12px]">
+                <span
+                  className="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                  style={{
+                    background: p.compositeScore != null ? "var(--color-accent-soft)" : "var(--color-surface-hover)",
+                    color: p.compositeScore != null ? "var(--color-accent)" : "var(--color-text-faint)",
+                  }}
+                >
+                  {p.compositeScore?.toFixed(1) ?? "N/A"}
+                </span>
+                <span className="truncate text-text-dim">{p.contentText?.slice(0, 100)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 
-      <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleCreateDraft}>
-        + New Draft
+      <button
+        type="button"
+        onClick={handleCreateDraft}
+        className="mt-5 inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-accent-foreground transition-colors hover:bg-accent-hover active:translate-y-px"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Draft
       </button>
 
       {showCreateModal ? (

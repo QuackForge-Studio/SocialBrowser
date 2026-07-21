@@ -1,26 +1,10 @@
 ﻿import React, { useState, useEffect, useCallback } from "react";
+import { WarningOctagon, X } from "@phosphor-icons/react";
 import type { DashboardBridge } from "../types";
-
-// ── helpers ──
 
 function getBridge(): DashboardBridge | undefined {
   return window.__socialBrowserDashboard;
 }
-
-// ── palette ──
-
-const C = {
-  bg: "#1a1a2e",
-  surface: "#16213e",
-  primary: "#0f3460",
-  accent: "#e94560",
-  text: "#eee",
-  textDim: "#888",
-  success: "#2ecc71",
-  error: "#e74c3c",
-  warning: "#f39c12",
-  border: "#2a2a4a",
-};
 
 const NOTICE_TEXT =
   "Session isolation is not anti-detection and does not evade platform enforcement. Capture is read-only observation of owned content only.";
@@ -63,111 +47,53 @@ export function ToSAcknowledgment({
     }
   }, [bridge, accountId, onAcknowledged]);
 
-  // ── overlay + modal ──
-
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-      }}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+      role="dialog"
+      aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div
-        style={{
-          background: C.surface,
-          border: `1px solid ${C.border}`,
-          borderRadius: 12,
-          padding: 28,
-          maxWidth: 480,
-          width: "90%",
-          color: C.text,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-        }}
-      >
-        <h3
-          style={{
-            fontSize: 16,
-            fontWeight: 700,
-            margin: "0 0 12px 0",
-            color: C.warning,
-          }}
-        >
-          Account Risk Acknowledgment
-        </h3>
+      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-7 shadow-lg">
+        <div className="mb-3 flex items-start gap-2.5">
+          <WarningOctagon size={20} weight="fill" className="mt-0.5 flex-shrink-0 text-warning" />
+          <h3 className="text-base font-semibold tracking-tight text-text">
+            Account Risk Acknowledgment
+          </h3>
+        </div>
 
         {accountLabel && (
-          <p style={{ fontSize: 13, color: C.textDim, margin: "0 0 8px 0" }}>
-            Account: <strong style={{ color: C.text }}>{accountLabel}</strong>
+          <p className="mb-2 text-[13px] text-text-dim">
+            Account: <span className="font-medium text-text">{accountLabel}</span>
           </p>
         )}
 
-        <div
-          style={{
-            background: C.bg,
-            border: `1px solid ${C.warning}`,
-            borderLeft: `4px solid ${C.warning}`,
-            borderRadius: 6,
-            padding: "12px 16px",
-            margin: "0 0 20px 0",
-            fontSize: 13,
-            lineHeight: 1.6,
-            color: C.text,
-          }}
-        >
+        <div className="mb-5 rounded-md border border-warning border-l-4 bg-warning-soft p-4 text-[13px] leading-relaxed text-text">
           {NOTICE_TEXT}
         </div>
 
         {error && (
-          <p
-            style={{
-              color: C.error,
-              fontSize: 12,
-              margin: "0 0 12px 0",
-            }}
-          >
-            {error}
+          <p className="mb-3 flex items-center gap-1.5 text-[12px] text-error">
+            <X size={12} weight="bold" /> {error}
           </p>
         )}
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <div className="flex justify-end gap-2.5">
           <button
+            type="button"
             onClick={onCancel}
             disabled={loading}
-            style={{
-              background: "transparent",
-              color: C.textDim,
-              border: `1px solid ${C.border}`,
-              borderRadius: 6,
-              padding: "8px 20px",
-              fontSize: 13,
-              cursor: loading ? "default" : "pointer",
-              opacity: loading ? 0.5 : 1,
-            }}
+            className="rounded-md border border-border px-5 py-2 text-[13px] text-text-dim transition-colors hover:bg-surface-hover disabled:opacity-50"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleAcknowledge}
             disabled={loading}
-            style={{
-              background: C.accent,
-              color: "#fff",
-              border: "none",
-              borderRadius: 6,
-              padding: "8px 20px",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: loading ? "default" : "pointer",
-              opacity: loading ? 0.7 : 1,
-            }}
+            className="rounded-md bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-colors hover:bg-accent-hover active:translate-y-px disabled:opacity-70"
           >
             {loading ? "Acknowledging..." : "I Acknowledge"}
           </button>
@@ -177,10 +103,6 @@ export function ToSAcknowledgment({
   );
 }
 
-/**
- * Hook that checks whether an account needs acknowledgment
- * and returns whether the acknowledgment modal should be shown.
- */
 export function useAccountAcknowledgment(
   accountIds: string[],
   onAcknowledged?: (accountId: string) => void
@@ -198,7 +120,6 @@ export function useAccountAcknowledgment(
           const r = await bridge.checkAcknowledged({ accountId: id });
           if (!r.acknowledged) unacked.push(id);
         } catch {
-          // assume not acknowledged on error
           unacked.push(id);
         }
       })

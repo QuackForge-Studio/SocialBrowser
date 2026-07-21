@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Plus, X, CaretUp, CaretDown, WarningCircle } from "@phosphor-icons/react";
 import type {
   Workspace,
   TabGroup,
@@ -9,55 +10,20 @@ import type {
 } from "../types";
 import { ToSAcknowledgment } from "./ToSAcknowledgment";
 
-// ── helpers ──
-
 function getBridge(): DashboardBridge | undefined {
   return window.__socialBrowserDashboard;
 }
-
-// ── palette ──
-
-const C = {
-  bg: "#1a1a2e",
-  surface: "#16213e",
-  primary: "#0f3460",
-  accent: "#e94560",
-  text: "#eee",
-  textDim: "#888",
-  success: "#2ecc71",
-  error: "#e74c3c",
-  warning: "#f39c12",
-  border: "#2a2a4a",
-};
-
-const sDivider: React.CSSProperties = {
-  border: "none",
-  borderTop: `1px solid ${C.border}`,
-  margin: "8px 0",
-};
-
-const sIconBtn: React.CSSProperties = {
-  background: "transparent",
-  border: "none",
-  color: C.textDim,
-  cursor: "pointer",
-  fontSize: 14,
-  padding: "2px 6px",
-  borderRadius: 4,
-};
-
-// ── inline-edit helper ──
 
 function InlineEdit({
   value,
   onCommit,
   placeholder,
-  style,
+  className,
 }: {
   value: string;
   onCommit: (v: string) => void;
   placeholder?: string;
-  style?: React.CSSProperties;
+  className?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -77,65 +43,89 @@ function InlineEdit({
     }
   };
 
-  return editing ? (
-    <input
-      autoFocus
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
-      placeholder={placeholder}
-      style={{
-        background: C.surface,
-        color: C.text,
-        border: `1px solid ${C.accent}`,
-        borderRadius: 4,
-        padding: "2px 6px",
-        fontSize: 13,
-        width: "100%",
-        boxSizing: "border-box",
-        ...style,
-      }}
-    />
-  ) : (
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        className="w-full rounded-sm border border-accent bg-bg px-1.5 py-0.5 text-[13px] text-text outline-none"
+      />
+    );
+  }
+
+  return (
     <span
       onDoubleClick={() => setEditing(true)}
       title="Double-click to rename"
-      style={{ cursor: "pointer", ...style }}
+      className={"cursor-pointer flex-1 truncate text-[13px] text-text " + (className ?? "")}
     >
       {value}
     </span>
   );
 }
 
-// ── panel wrap helper ──
+function Panel({
+  title,
+  children,
+  action,
+}: {
+  title: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col overflow-y-auto rounded-lg border border-border bg-surface p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-faint">
+          {title}
+        </h3>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
 
-const panelWrap: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  display: "flex",
-  flexDirection: "column",
-  background: C.surface,
-  borderRadius: 8,
-  padding: 12,
-  overflowY: "auto",
-};
-
-const panelTitle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 700,
-  color: C.textDim,
-  textTransform: "uppercase" as const,
-  letterSpacing: 1,
-  marginBottom: 8,
-};
-
-// ── Main Component ──
+function IconBtn({
+  onClick,
+  disabled,
+  title,
+  children,
+  danger,
+}: {
+  onClick: (e: React.MouseEvent) => void;
+  disabled?: boolean;
+  title: string;
+  children: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(e); }}
+      disabled={disabled}
+      title={title}
+      className={[
+        "flex h-6 w-6 items-center justify-center rounded-sm transition-colors",
+        disabled
+          ? "cursor-default opacity-30"
+          : danger
+            ? "text-text-faint hover:bg-error-soft hover:text-error"
+            : "text-text-faint hover:bg-surface-hover hover:text-text-dim",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function WorkspaceManager() {
   const bridge = getBridge();
 
-  // ── data state ──
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [groups, setGroups] = useState<TabGroup[]>([]);
   const [groupAccounts, setGroupAccounts] = useState<GroupAccountInfo[]>([]);
@@ -148,11 +138,7 @@ export function WorkspaceManager() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // ── ToS Acknowledgment modal state ──
   const [ackModalAccountId, setAckModalAccountId] = useState<string | null>(null);
-
-  // ── load ──
 
   const loadData = useCallback(async () => {
     if (!bridge) return;
@@ -164,13 +150,9 @@ export function WorkspaceManager() {
       ]);
       setWorkspaces(ws);
       setAllAccounts(accts);
-
-      // Restore previously selected workspace/group from persisted state
       if (wsState.activeWorkspaceId && ws.some((w: Workspace) => w.id === wsState.activeWorkspaceId)) {
         setSelWsId(wsState.activeWorkspaceId);
-        if (wsState.activeGroupId) {
-          setSelGrpId(wsState.activeGroupId);
-        }
+        if (wsState.activeGroupId) setSelGrpId(wsState.activeGroupId);
       }
     } catch (e: any) {
       setError(e?.message ?? "Failed to load data");
@@ -179,56 +161,28 @@ export function WorkspaceManager() {
     }
   }, [bridge]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  // ── ack modal handlers ──
-
-  const handleAckOpen = useCallback((accountId: string) => {
-    setAckModalAccountId(accountId);
-  }, []);
-
-  const handleAckClose = useCallback(() => {
-    setAckModalAccountId(null);
-  }, []);
-
+  const handleAckOpen = useCallback((accountId: string) => setAckModalAccountId(accountId), []);
+  const handleAckClose = useCallback(() => setAckModalAccountId(null), []);
   const handleAckConfirmed = useCallback(() => {
     if (!ackModalAccountId) return;
-    // Refresh ack state for this account
     setAckMap((prev) => ({ ...prev, [ackModalAccountId]: true }));
     setAckModalAccountId(null);
   }, [ackModalAccountId]);
 
-  // ── load groups when workspace changes ──
-
   useEffect(() => {
-    if (!bridge || !selWsId) {
-      setGroups([]);
-      return;
-    }
+    if (!bridge || !selWsId) { setGroups([]); return; }
     bridge.getTabGroups({ workspaceId: selWsId }).then(setGroups).catch(() => {});
   }, [bridge, selWsId]);
 
-  // ── load group accounts + tabs when group changes ──
-
   useEffect(() => {
-    if (!bridge || !selGrpId) {
-      setGroupAccounts([]);
-      setGroupTabs([]);
-      return;
-    }
+    if (!bridge || !selGrpId) { setGroupAccounts([]); setGroupTabs([]); return; }
     Promise.all([
       bridge.getGroupAccounts({ groupId: selGrpId }),
       bridge.getGroupTabs({ groupId: selGrpId }),
-    ])
-      .then(([ga, gt]) => {
-        setGroupAccounts(ga);
-        setGroupTabs(gt);
-      })
-      .catch(() => {});
+    ]).then(([ga, gt]) => { setGroupAccounts(ga); setGroupTabs(gt); }).catch(() => {});
 
-    // also check acknowledgement for each account in group
     (async () => {
       const map: Record<string, boolean> = {};
       try {
@@ -236,46 +190,36 @@ export function WorkspaceManager() {
         await Promise.all(
           ga.map(async (m) => {
             try {
-              const r = await bridge.checkAcknowledged({
-                accountId: m.accountId,
-              });
+              const r = await bridge.checkAcknowledged({ accountId: m.accountId });
               map[m.accountId] = r.acknowledged;
-            } catch {
-              map[m.accountId] = false;
-            }
+            } catch { map[m.accountId] = false; }
           })
         );
-      } catch { /* ignore fetch errors */ }
+      } catch { /* ignore */ }
       setAckMap(map);
     })();
   }, [bridge, selGrpId]);
 
-  // ── workspace actions ──
-
   const createWs = async () => {
-    if (!bridge) return;
-    const name = window.prompt("Workspace name:")?.trim();
-    if (!name) return;
-    try {
-      const ws = await bridge.createWorkspace({ name });
-      setWorkspaces((p) =>
-        [...p, ws].sort((a, b) => a.sortOrder - b.sortOrder)
-      );
-    } catch (e: any) {
-      setError(e?.message ?? "Create workspace failed");
+    if (!bridge) {
+      setError("Bridge not available � dashboard may still be loading. Please try again.");
+      return;
     }
+    try {
+      // Electron WebContentsView does NOT support window.prompt()
+      // Use "New Workspace" as default name � user can double-click to rename
+      const name = "New Workspace";
+      const ws = await bridge.createWorkspace({ name });
+      setWorkspaces((p) => [...p, ws].sort((a, b) => a.sortOrder - b.sortOrder));
+    } catch (e: any) { setError(e?.message ?? "Create workspace failed"); }
   };
 
   const renameWs = async (id: string, name: string) => {
     if (!bridge) return;
     try {
       await bridge.renameWorkspace({ id, name });
-      setWorkspaces((p) =>
-        p.map((w) => (w.id === id ? { ...w, name } : w))
-      );
-    } catch (e: any) {
-      setError(e?.message ?? "Rename workspace failed");
-    }
+      setWorkspaces((p) => p.map((w) => (w.id === id ? { ...w, name } : w)));
+    } catch (e: any) { setError(e?.message ?? "Rename workspace failed"); }
   };
 
   const deleteWs = async (id: string) => {
@@ -284,13 +228,8 @@ export function WorkspaceManager() {
     try {
       await bridge.deleteWorkspace({ id });
       setWorkspaces((p) => p.filter((w) => w.id !== id));
-      if (selWsId === id) {
-        setSelWsId(null);
-        setSelGrpId(null);
-      }
-    } catch (e: any) {
-      setError(e?.message ?? "Delete workspace failed");
-    }
+      if (selWsId === id) { setSelWsId(null); setSelGrpId(null); }
+    } catch (e: any) { setError(e?.message ?? "Delete workspace failed"); }
   };
 
   const moveWs = (idx: number, dir: -1 | 1) => {
@@ -300,38 +239,25 @@ export function WorkspaceManager() {
     [newList[idx], newList[target]] = [newList[target], newList[idx]];
     const ids = newList.map((w) => w.id);
     setWorkspaces(newList);
-    if (bridge)
-      bridge
-        .reorderWorkspaces({ ids })
-        .catch((e: any) => setError(e?.message ?? "Reorder failed"));
+    if (bridge) bridge.reorderWorkspaces({ ids }).catch((e: any) => setError(e?.message ?? "Reorder failed"));
   };
-
-  // ── group actions ──
 
   const createGroup = async () => {
     if (!bridge || !selWsId) return;
-    const name = window.prompt("Group name:")?.trim();
+    const name = "New Group";
     if (!name) return;
     try {
       const g = await bridge.createTabGroup({ workspaceId: selWsId, name });
-      setGroups((p) =>
-        [...p, g].sort((a, b) => a.sortOrder - b.sortOrder)
-      );
-    } catch (e: any) {
-      setError(e?.message ?? "Create group failed");
-    }
+      setGroups((p) => [...p, g].sort((a, b) => a.sortOrder - b.sortOrder));
+    } catch (e: any) { setError(e?.message ?? "Create group failed"); }
   };
 
   const renameGroup = async (id: string, name: string) => {
     if (!bridge) return;
     try {
       await bridge.renameTabGroup({ id, name });
-      setGroups((p) =>
-        p.map((g) => (g.id === id ? { ...g, name } : g))
-      );
-    } catch (e: any) {
-      setError(e?.message ?? "Rename group failed");
-    }
+      setGroups((p) => p.map((g) => (g.id === id ? { ...g, name } : g)));
+    } catch (e: any) { setError(e?.message ?? "Rename group failed"); }
   };
 
   const deleteGroup = async (id: string) => {
@@ -341,9 +267,7 @@ export function WorkspaceManager() {
       await bridge.deleteTabGroup({ id });
       setGroups((p) => p.filter((g) => g.id !== id));
       if (selGrpId === id) setSelGrpId(null);
-    } catch (e: any) {
-      setError(e?.message ?? "Delete group failed");
-    }
+    } catch (e: any) { setError(e?.message ?? "Delete group failed"); }
   };
 
   const moveGroup = (idx: number, dir: -1 | 1) => {
@@ -353,29 +277,18 @@ export function WorkspaceManager() {
     [newList[idx], newList[target]] = [newList[target], newList[idx]];
     const ids = newList.map((g) => g.id);
     setGroups(newList);
-    if (bridge)
-      bridge
-        .reorderTabGroups({ ids })
-        .catch((e: any) => setError(e?.message ?? "Reorder failed"));
+    if (bridge) bridge.reorderTabGroups({ ids }).catch((e: any) => setError(e?.message ?? "Reorder failed"));
   };
-
-  // ── membership actions ──
 
   const addAccount = async (accountId: string) => {
     if (!bridge || !selGrpId) return;
     try {
-      const r = await bridge.addAccountToGroup({
-        groupId: selGrpId,
-        accountId,
-      });
+      const r = await bridge.addAccountToGroup({ groupId: selGrpId, accountId });
       if (!r.alreadyMember) {
-        // reload
         const ga = await bridge.getGroupAccounts({ groupId: selGrpId });
         setGroupAccounts(ga);
       }
-    } catch (e: any) {
-      setError(e?.message ?? "Add account failed");
-    }
+    } catch (e: any) { setError(e?.message ?? "Add account failed"); }
   };
 
   const removeAccount = async (accountId: string) => {
@@ -383,9 +296,7 @@ export function WorkspaceManager() {
     try {
       await bridge.removeAccountFromGroup({ groupId: selGrpId, accountId });
       setGroupAccounts((p) => p.filter((a) => a.accountId !== accountId));
-    } catch (e: any) {
-      setError(e?.message ?? "Remove account failed");
-    }
+    } catch (e: any) { setError(e?.message ?? "Remove account failed"); }
   };
 
   const moveAccount = (idx: number, dir: -1 | 1) => {
@@ -394,31 +305,15 @@ export function WorkspaceManager() {
     if (target < 0 || target >= newList.length) return;
     [newList[idx], newList[target]] = [newList[target], newList[idx]];
     setGroupAccounts(newList);
-    if (bridge && selGrpId)
-      bridge
-        .reorderGroupAccounts({
-          groupId: selGrpId,
-          accountIds: newList.map((a) => a.accountId),
-        })
-        .catch((e: any) => setError(e?.message ?? "Reorder failed"));
+    if (bridge && selGrpId) bridge.reorderGroupAccounts({ groupId: selGrpId, accountIds: newList.map((a) => a.accountId) }).catch((e: any) => setError(e?.message ?? "Reorder failed"));
   };
-
-  // ── tab actions ──
 
   const addTab = async (platform: string, accountId: string) => {
     if (!bridge || !selGrpId) return;
     try {
-      const t = await bridge.addGroupTab({
-        groupId: selGrpId,
-        platform,
-        accountId,
-      });
-      setGroupTabs((p) =>
-        [...p, t].sort((a, b) => a.sortOrder - b.sortOrder)
-      );
-    } catch (e: any) {
-      setError(e?.message ?? "Add tab failed");
-    }
+      const t = await bridge.addGroupTab({ groupId: selGrpId, platform, accountId });
+      setGroupTabs((p) => [...p, t].sort((a, b) => a.sortOrder - b.sortOrder));
+    } catch (e: any) { setError(e?.message ?? "Add tab failed"); }
   };
 
   const removeTab = async (id: string) => {
@@ -426,9 +321,7 @@ export function WorkspaceManager() {
     try {
       await bridge.removeGroupTab({ id });
       setGroupTabs((p) => p.filter((t) => t.id !== id));
-    } catch (e: any) {
-      setError(e?.message ?? "Remove tab failed");
-    }
+    } catch (e: any) { setError(e?.message ?? "Remove tab failed"); }
   };
 
   const moveTab = (idx: number, dir: -1 | 1) => {
@@ -437,310 +330,204 @@ export function WorkspaceManager() {
     if (target < 0 || target >= newList.length) return;
     [newList[idx], newList[target]] = [newList[target], newList[idx]];
     setGroupTabs(newList);
-    if (bridge && selGrpId)
-      bridge
-        .reorderGroupTabs({
-          groupId: selGrpId,
-          tabIds: newList.map((t) => t.id),
-        })
-        .catch((e: any) => setError(e?.message ?? "Reorder failed"));
+    if (bridge && selGrpId) bridge.reorderGroupTabs({ groupId: selGrpId, tabIds: newList.map((t) => t.id) }).catch((e: any) => setError(e?.message ?? "Reorder failed"));
   };
-
-  // ── select group ──
 
   const selectGroup = (wsId: string, gId: string) => {
     setSelGrpId(gId);
     if (bridge) bridge.setActiveGroup({ workspaceId: wsId, groupId: gId });
   };
 
-  // ── available accounts (not yet in group) ──
-
   const groupAccountIds = new Set(groupAccounts.map((a) => a.accountId));
-  const availableAccounts = allAccounts.filter(
-    (a) => !groupAccountIds.has(a.id)
-  );
-
-  // ── loading ──
+  const availableAccounts = allAccounts.filter((a) => !groupAccountIds.has(a.id));
 
   if (loading) {
     return (
-      <div style={{ padding: 24, color: C.text }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>
-          Workspaces
-        </h2>
-        <p style={{ color: C.textDim, marginTop: 12 }}>Loading...</p>
+      <div className="p-6">
+        <h2 className="text-lg font-semibold tracking-tight">Workspaces</h2>
+        <p className="mt-3 text-[13px] text-text-dim">Loading...</p>
       </div>
     );
   }
-
-  // ── empty state ──
 
   if (workspaces.length === 0) {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100%",
-          color: C.textDim,
-          padding: 40,
-        }}
-      >
-        <p style={{ fontSize: 18, marginBottom: 4 }}>No workspaces yet</p>
-        <p style={{ fontSize: 13, marginBottom: 16 }}>
+      <div className="flex h-full flex-col items-center justify-center px-10 text-center">
+        <p className="text-[17px] font-medium text-text">No workspaces yet</p>
+        <p className="mt-1.5 text-[13px] text-text-dim">
           Create a workspace to start organizing your accounts and tabs.
         </p>
         <button
+          type="button"
           onClick={createWs}
-          style={{
-            background: C.accent,
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            padding: "10px 24px",
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
+          className="mt-5 inline-flex items-center gap-1.5 rounded-md bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-colors hover:bg-accent-hover active:translate-y-px"
         >
-          + Create Workspace
+          <Plus size={14} weight="bold" /> Create Workspace
         </button>
-        {error && (
-          <p style={{ color: C.error, marginTop: 12, fontSize: 13 }}>
-            {error}
-          </p>
-        )}
+        {error && <p className="mt-4 text-[12px] text-error">{error}</p>}
       </div>
     );
   }
 
-  // ── full layout ──
-
   return (
-    <div style={{ padding: 16, color: C.text, height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Workspaces</h2>
-        <button onClick={createWs} style={{ ...sIconBtn, color: C.success, fontSize: 18, fontWeight: 700 }} title="Create workspace">
-          +
+    <div className="flex h-full flex-col p-4">
+      {/* Header */}
+      <div className="mb-3 flex items-center gap-3">
+        <h2 className="text-lg font-semibold tracking-tight">Workspaces</h2>
+        <button
+          type="button"
+          onClick={createWs}
+          title="Create workspace"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-success transition-colors hover:bg-success-soft"
+        >
+          <Plus size={16} weight="bold" />
         </button>
         {error && (
-          <span style={{ color: C.error, fontSize: 12, marginLeft: "auto" }}>
+          <span className="ml-auto inline-flex items-center gap-2 rounded-md bg-error-soft px-2.5 py-1 text-[12px] text-error">
             {error}
             <button
+              type="button"
               onClick={() => setError(null)}
-              style={{ ...sIconBtn, color: C.textDim, marginLeft: 8 }}
+              className="text-text-faint hover:text-text"
             >
-              x
+              <X size={12} />
             </button>
           </span>
         )}
       </div>
 
-      <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 0 }}>
-        {/* ── LEFT: Workspaces ── */}
-        <div style={panelWrap}>
-          <div style={panelTitle}>Workspaces</div>
+      {/* Three-panel layout */}
+      <div className="flex min-h-0 flex-1 gap-3">
+        {/* LEFT: Workspaces */}
+        <Panel title="Workspaces">
           {workspaces.map((ws, i) => (
             <div
               key={ws.id}
               onClick={() => { setSelWsId(ws.id); setSelGrpId(null); }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 8px",
-                borderRadius: 6,
-                cursor: "pointer",
-                background: selWsId === ws.id ? C.primary : "transparent",
-                border: selWsId === ws.id ? `1px solid ${C.accent}` : "1px solid transparent",
-                marginBottom: 2,
-              }}
+              className={[
+                "group mb-0.5 flex items-center gap-1 rounded-md border px-2 py-1.5 cursor-pointer transition-colors",
+                selWsId === ws.id
+                  ? "border-accent bg-accent-soft"
+                  : "border-transparent hover:bg-surface-hover",
+              ].join(" ")}
             >
-              <button
-                onClick={(e) => { e.stopPropagation(); moveWs(i, -1); }}
-                disabled={i === 0}
-                style={{ ...sIconBtn, opacity: i === 0 ? 0.3 : 1 }}
-              >
-                ▲
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); moveWs(i, 1); }}
-                disabled={i === workspaces.length - 1}
-                style={{ ...sIconBtn, opacity: i === workspaces.length - 1 ? 0.3 : 1 }}
-              >
-                ▼
-              </button>
+              <IconBtn onClick={() => moveWs(i, -1)} disabled={i === 0} title="Move up">
+                <CaretUp size={10} weight="fill" />
+              </IconBtn>
+              <IconBtn onClick={() => moveWs(i, 1)} disabled={i === workspaces.length - 1} title="Move down">
+                <CaretDown size={10} weight="fill" />
+              </IconBtn>
               <InlineEdit
                 value={ws.name}
                 onCommit={(v) => renameWs(ws.id, v)}
-                style={{ flex: 1, fontSize: 13, color: C.text }}
               />
-              <button
-                onClick={(e) => { e.stopPropagation(); deleteWs(ws.id); }}
-                style={{ ...sIconBtn, color: C.error }}
-                title="Delete workspace"
-              >
-                ✕
-              </button>
+              <IconBtn onClick={() => deleteWs(ws.id)} title="Delete workspace" danger>
+                <X size={11} weight="bold" />
+              </IconBtn>
             </div>
           ))}
-        </div>
+        </Panel>
 
-        {/* ── CENTER: Groups ── */}
-        <div style={panelWrap}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div style={panelTitle}>Groups</div>
-            {selWsId && (
-              <button onClick={createGroup} style={{ ...sIconBtn, color: C.success, fontSize: 16, fontWeight: 700 }} title="Create group">
-                +
-              </button>
-            )}
-          </div>
+        {/* CENTER: Groups */}
+        <Panel
+          title="Groups"
+          action={selWsId ? (
+            <button
+              type="button"
+              onClick={createGroup}
+              title="Create group"
+              className="flex h-6 w-6 items-center justify-center rounded-sm text-success transition-colors hover:bg-success-soft"
+            >
+              <Plus size={14} weight="bold" />
+            </button>
+          ) : null}
+        >
           {!selWsId ? (
-            <p style={{ color: C.textDim, fontSize: 12 }}>Select a workspace</p>
+            <p className="text-[12px] text-text-faint">Select a workspace</p>
           ) : groups.length === 0 ? (
-            <p style={{ color: C.textDim, fontSize: 12 }}>No groups in this workspace</p>
+            <p className="text-[12px] text-text-faint">No groups in this workspace</p>
           ) : (
             groups.map((g, i) => (
               <div
                 key={g.id}
                 onClick={() => selectGroup(g.workspaceId, g.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  background: selGrpId === g.id ? C.primary : "transparent",
-                  border: selGrpId === g.id ? `1px solid ${C.accent}` : "1px solid transparent",
-                  marginBottom: 2,
-                }}
+                className={[
+                  "group mb-0.5 flex items-center gap-1 rounded-md border px-2 py-1.5 cursor-pointer transition-colors",
+                  selGrpId === g.id
+                    ? "border-accent bg-accent-soft"
+                    : "border-transparent hover:bg-surface-hover",
+                ].join(" ")}
               >
-                <button
-                  onClick={(e) => { e.stopPropagation(); moveGroup(i, -1); }}
-                  disabled={i === 0}
-                  style={{ ...sIconBtn, opacity: i === 0 ? 0.3 : 1 }}
-                >
-                  ▲
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); moveGroup(i, 1); }}
-                  disabled={i === groups.length - 1}
-                  style={{ ...sIconBtn, opacity: i === groups.length - 1 ? 0.3 : 1 }}
-                >
-                  ▼
-                </button>
-                <InlineEdit
-                  value={g.name}
-                  onCommit={(v) => renameGroup(g.id, v)}
-                  style={{ flex: 1, fontSize: 13, color: C.text }}
-                />
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteGroup(g.id); }}
-                  style={{ ...sIconBtn, color: C.error }}
-                  title="Delete group"
-                >
-                  ✕
-                </button>
+                <IconBtn onClick={() => moveGroup(i, -1)} disabled={i === 0} title="Move up">
+                  <CaretUp size={10} weight="fill" />
+                </IconBtn>
+                <IconBtn onClick={() => moveGroup(i, 1)} disabled={i === groups.length - 1} title="Move down">
+                  <CaretDown size={10} weight="fill" />
+                </IconBtn>
+                <InlineEdit value={g.name} onCommit={(v) => renameGroup(g.id, v)} />
+                <IconBtn onClick={() => deleteGroup(g.id)} title="Delete group" danger>
+                  <X size={11} weight="bold" />
+                </IconBtn>
               </div>
             ))
           )}
-        </div>
+        </Panel>
 
-        {/* ── RIGHT: Members & Tabs ── */}
-        <div style={panelWrap}>
+        {/* RIGHT: Members & Tabs */}
+        <Panel title={selGrpId ? `Members & Tabs` : "Members & Tabs"}>
           {!selGrpId ? (
-            <p style={{ color: C.textDim, fontSize: 12 }}>Select a group</p>
+            <p className="text-[12px] text-text-faint">Select a group</p>
           ) : (
             <>
               {/* Accounts */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={panelTitle}>
+              <div className="mb-4">
+                <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-faint">
                   Accounts ({groupAccounts.length})
-                </div>
+                </h4>
                 {groupAccounts.map((ga, i) => (
                   <div
                     key={ga.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "6px 8px",
-                      borderRadius: 6,
-                      background: C.primary,
-                      marginBottom: 2,
-                      fontSize: 12,
-                    }}
+                    className="mb-0.5 flex items-center gap-1.5 rounded-md bg-bg-elevated px-2 py-1.5 text-[12px]"
                   >
-                    <button
-                      onClick={() => moveAccount(i, -1)}
-                      disabled={i === 0}
-                      style={{ ...sIconBtn, opacity: i === 0 ? 0.3 : 1, fontSize: 10 }}
-                    >
-                      ▲
-                    </button>
-                    <button
-                      onClick={() => moveAccount(i, 1)}
-                      disabled={i === groupAccounts.length - 1}
-                      style={{ ...sIconBtn, opacity: i === groupAccounts.length - 1 ? 0.3 : 1, fontSize: 10 }}
-                    >
-                      ▼
-                    </button>
+                    <IconBtn onClick={() => moveAccount(i, -1)} disabled={i === 0} title="Move up">
+                      <CaretUp size={9} weight="fill" />
+                    </IconBtn>
+                    <IconBtn onClick={() => moveAccount(i, 1)} disabled={i === groupAccounts.length - 1} title="Move down">
+                      <CaretDown size={9} weight="fill" />
+                    </IconBtn>
                     <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: ackMap[ga.accountId] ? C.success : C.warning,
-                        flexShrink: 0,
-                        cursor: ackMap[ga.accountId] ? "default" : "pointer",
-                      }}
-                      title={
-                        ackMap[ga.accountId]
-                          ? "Acknowledged"
-                          : "Click to acknowledge"
-                      }
+                      className={[
+                        "h-2 w-2 flex-shrink-0 rounded-full",
+                        ackMap[ga.accountId] ? "bg-success" : "bg-warning cursor-pointer",
+                      ].join(" ")}
+                      title={ackMap[ga.accountId] ? "Acknowledged" : "Click to acknowledge"}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!ackMap[ga.accountId]) {
-                          handleAckOpen(ga.accountId);
-                        }
+                        if (!ackMap[ga.accountId]) handleAckOpen(ga.accountId);
                       }}
                     />
-                    <span style={{ flex: 1 }}>
+                    <span className="flex-1 truncate text-text">
                       {ga.displayName || ga.handle || ga.accountId}
                       {ga.platform && (
-                        <span style={{ color: C.textDim, marginLeft: 4 }}>
-                          @{ga.platform}
-                        </span>
+                        <span className="ml-1 text-text-faint">@{ga.platform}</span>
                       )}
                       {!ackMap[ga.accountId] && (
-                        <span
-                          style={{ color: C.warning, marginLeft: 6, fontSize: 10, cursor: "pointer" }}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleAckOpen(ga.accountId); }}
                           title="Click to acknowledge"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAckOpen(ga.accountId);
-                          }}
+                          className="ml-1.5 inline-flex text-warning hover:text-warning-hover"
                         >
-                          (!)
-                        </span>
+                          <WarningCircle size={11} weight="fill" />
+                        </button>
                       )}
                     </span>
-                    <button
-                      onClick={() => removeAccount(ga.accountId)}
-                      style={{ ...sIconBtn, color: C.error, fontSize: 12 }}
-                      title="Remove account"
-                    >
-                      ✕
-                    </button>
+                    <IconBtn onClick={() => removeAccount(ga.accountId)} title="Remove account" danger>
+                      <X size={10} weight="bold" />
+                    </IconBtn>
                   </div>
                 ))}
 
-                {/* Add account dropdown */}
                 {availableAccounts.length > 0 && (
                   <select
                     value=""
@@ -748,16 +535,7 @@ export function WorkspaceManager() {
                       if (e.target.value) addAccount(e.target.value);
                       e.target.value = "";
                     }}
-                    style={{
-                      marginTop: 6,
-                      width: "100%",
-                      background: C.bg,
-                      color: C.text,
-                      border: `1px solid ${C.border}`,
-                      borderRadius: 4,
-                      padding: "4px 8px",
-                      fontSize: 12,
-                    }}
+                    className="mt-1.5 w-full"
                   >
                     <option value="">+ Add account...</option>
                     {availableAccounts.map((a) => (
@@ -769,73 +547,40 @@ export function WorkspaceManager() {
                 )}
               </div>
 
-              <hr style={sDivider} />
+              <div className="my-2 h-px bg-border" />
 
               {/* Tabs */}
               <div>
-                <div style={panelTitle}>Tabs ({groupTabs.length})</div>
+                <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-faint">
+                  Tabs ({groupTabs.length})
+                </h4>
                 {groupTabs.map((t, i) => (
                   <div
                     key={t.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "6px 8px",
-                      borderRadius: 6,
-                      background: C.bg,
-                      marginBottom: 2,
-                      fontSize: 12,
-                    }}
+                    className="mb-0.5 flex items-center gap-1.5 rounded-md bg-bg-elevated px-2 py-1.5 text-[12px]"
                   >
-                    <button
-                      onClick={() => moveTab(i, -1)}
-                      disabled={i === 0}
-                      style={{ ...sIconBtn, opacity: i === 0 ? 0.3 : 1, fontSize: 10 }}
-                    >
-                      ▲
-                    </button>
-                    <button
-                      onClick={() => moveTab(i, 1)}
-                      disabled={i === groupTabs.length - 1}
-                      style={{ ...sIconBtn, opacity: i === groupTabs.length - 1 ? 0.3 : 1, fontSize: 10 }}
-                    >
-                      ▼
-                    </button>
-                    <span style={{ flex: 1 }}>
+                    <IconBtn onClick={() => moveTab(i, -1)} disabled={i === 0} title="Move up">
+                      <CaretUp size={9} weight="fill" />
+                    </IconBtn>
+                    <IconBtn onClick={() => moveTab(i, 1)} disabled={i === groupTabs.length - 1} title="Move down">
+                      <CaretDown size={9} weight="fill" />
+                    </IconBtn>
+                    <span className="flex-1 truncate text-text">
                       {t.platform}
                       {t.url && (
-                        <span style={{ color: C.textDim, marginLeft: 4, fontSize: 10 }}>
-                          {t.url.length > 30
-                            ? t.url.slice(0, 30) + "..."
-                            : t.url}
+                        <span className="ml-1 truncate text-[10px] text-text-faint">
+                          {t.url.length > 30 ? t.url.slice(0, 30) + "..." : t.url}
                         </span>
                       )}
                     </span>
-                    <button
-                      onClick={() => removeTab(t.id)}
-                      style={{ ...sIconBtn, color: C.error, fontSize: 12 }}
-                      title="Remove tab"
-                    >
-                      ✕
-                    </button>
+                    <IconBtn onClick={() => removeTab(t.id)} title="Remove tab" danger>
+                      <X size={10} weight="bold" />
+                    </IconBtn>
                   </div>
                 ))}
 
-                {/* Add tab */}
-                <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
-                  <select
-                    id="tab-platform"
-                    style={{
-                      flex: 1,
-                      background: C.bg,
-                      color: C.text,
-                      border: `1px solid ${C.border}`,
-                      borderRadius: 4,
-                      padding: "4px 8px",
-                      fontSize: 12,
-                    }}
-                  >
+                <div className="mt-1.5 flex gap-1.5">
+                  <select id="tab-platform" className="flex-1">
                     <option value="">Platform...</option>
                     <option value="twitter">Twitter</option>
                     <option value="linkedin">LinkedIn</option>
@@ -844,18 +589,7 @@ export function WorkspaceManager() {
                     <option value="reddit">Reddit</option>
                     <option value="tiktok">TikTok</option>
                   </select>
-                  <select
-                    id="tab-account"
-                    style={{
-                      flex: 1,
-                      background: C.bg,
-                      color: C.text,
-                      border: `1px solid ${C.border}`,
-                      borderRadius: 4,
-                      padding: "4px 8px",
-                      fontSize: 12,
-                    }}
-                  >
+                  <select id="tab-account" className="flex-1">
                     <option value="">Account...</option>
                     {groupAccounts.map((ga) => (
                       <option key={ga.accountId} value={ga.accountId}>
@@ -864,24 +598,13 @@ export function WorkspaceManager() {
                     ))}
                   </select>
                   <button
+                    type="button"
                     onClick={() => {
-                      const plat = (
-                        document.getElementById("tab-platform") as HTMLSelectElement
-                      )?.value;
-                      const acct = (
-                        document.getElementById("tab-account") as HTMLSelectElement
-                      )?.value;
+                      const plat = (document.getElementById("tab-platform") as HTMLSelectElement)?.value;
+                      const acct = (document.getElementById("tab-account") as HTMLSelectElement)?.value;
                       if (plat && acct) addTab(plat, acct);
                     }}
-                    style={{
-                      background: C.accent,
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: 4,
-                      padding: "4px 12px",
-                      fontSize: 12,
-                      cursor: "pointer",
-                    }}
+                    className="rounded-sm bg-accent px-3 py-1 text-[12px] font-medium text-accent-foreground transition-colors hover:bg-accent-hover"
                   >
                     + Tab
                   </button>
@@ -889,18 +612,16 @@ export function WorkspaceManager() {
               </div>
             </>
           )}
-        </div>
+        </Panel>
       </div>
 
-      {/* ── ToS Acknowledgment Modal ── */}
+      {/* ToS Acknowledgment Modal */}
       {ackModalAccountId && (
         <ToSAcknowledgment
           accountId={ackModalAccountId}
           accountLabel={
-            groupAccounts.find((ga) => ga.accountId === ackModalAccountId)
-              ?.displayName ||
-            groupAccounts.find((ga) => ga.accountId === ackModalAccountId)
-              ?.handle ||
+            groupAccounts.find((ga) => ga.accountId === ackModalAccountId)?.displayName ||
+            groupAccounts.find((ga) => ga.accountId === ackModalAccountId)?.handle ||
             ackModalAccountId
           }
           onAcknowledged={handleAckConfirmed}

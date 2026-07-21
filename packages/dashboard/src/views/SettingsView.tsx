@@ -59,17 +59,16 @@ export function SettingsView() {
 
   if (loading) {
     return (
-      <div>
-        <h2>Settings</h2>
-        <div className="loading-state" style={{ marginTop: 40 }}>
-          <div className="spinner" />
-          <p>Loading settings...</p>
+      <div className="p-6">
+        <h2 className="text-lg font-semibold tracking-tight">Settings</h2>
+        <div className="mt-10 flex flex-col items-center gap-3 text-text-dim">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" />
+          <p className="text-[13px]">Loading settings...</p>
         </div>
       </div>
     );
   }
 
-  // Collect unique adapter versions from accounts
   const adapterVersions = accounts
     .filter((a) => a.adapterVersion != null)
     .map((a) => ({ platform: a.platform, version: a.adapterVersion! }));
@@ -78,32 +77,40 @@ export function SettingsView() {
   );
 
   return (
-    <div className="settings-view" data-testid="settings-view">
-      <h2>Settings</h2>
+    <div className="max-w-3xl p-6" data-testid="settings-view">
+      <h2 className="text-lg font-semibold tracking-tight">Settings</h2>
 
       {/* Accounts Section */}
-      <section className="settings-section">
-        <h3>Accounts</h3>
+      <section className="mt-8">
+        <h3 className="text-[13px] font-semibold uppercase tracking-wider text-text-faint">
+          Accounts
+        </h3>
         {accounts.length === 0 ? (
-          <div className="insight-empty">
-            <p>No accounts configured yet. Add an account from the platform tabs.</p>
+          <div className="mt-3 rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[13px] text-text-dim">
+            No accounts configured yet. Add an account from the platform tabs.
           </div>
         ) : (
-          <div className="settings-table-wrapper">
-            <table className="settings-table" data-testid="accounts-table">
+          <div className="mt-3 overflow-hidden rounded-lg border border-border">
+            <table className="w-full text-[13px]" data-testid="accounts-table">
               <thead>
-                <tr>
-                  <th>Platform</th>
-                  <th>Handle</th>
-                  <th>Adapter Version</th>
+                <tr className="bg-surface text-left text-text-dim">
+                  <th className="px-4 py-2.5 font-medium">Platform</th>
+                  <th className="px-4 py-2.5 font-medium">Handle</th>
+                  <th className="px-4 py-2.5 font-medium">Adapter Version</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border">
                 {accounts.map((account) => (
-                  <tr key={account.id} data-testid={'account-row-' + account.id}>
-                    <td className="settings-platform-cell">{account.platform}</td>
-                    <td>{account.handle}</td>
-                    <td>{account.adapterVersion != null ? 'v' + account.adapterVersion : 'N/A'}</td>
+                  <tr
+                    key={account.id}
+                    className="bg-bg-elevated transition-colors hover:bg-surface-hover"
+                    data-testid={'account-row-' + account.id}
+                  >
+                    <td className="px-4 py-2.5 font-medium text-text">{account.platform}</td>
+                    <td className="px-4 py-2.5 text-text-dim">{account.handle}</td>
+                    <td className="px-4 py-2.5 font-mono text-[12px] text-text-dim">
+                      {account.adapterVersion != null ? 'v' + account.adapterVersion : 'N/A'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -113,18 +120,20 @@ export function SettingsView() {
       </section>
 
       {/* AI Provider Section */}
-      <section className="settings-section">
-        <h3>AI Provider</h3>
-        <div className="settings-provider-row">
-          <label className="settings-label" htmlFor="provider-select">
+      <section className="mt-8">
+        <h3 className="text-[13px] font-semibold uppercase tracking-wider text-text-faint">
+          AI Provider
+        </h3>
+        <div className="mt-3 flex items-center gap-3">
+          <label htmlFor="provider-select" className="text-[13px] text-text-dim">
             Provider:
           </label>
           <select
             id="provider-select"
-            className="settings-select"
             value={selectedProvider}
             onChange={(e) => handleProviderChange(e.target.value)}
             data-testid="provider-select"
+            className="min-w-[140px]"
           >
             {PROVIDER_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -133,8 +142,13 @@ export function SettingsView() {
             ))}
           </select>
           <span
-            className={'settings-key-status' + (keyStatus?.configured ? ' configured' : ' not-configured')}
             data-testid="key-status"
+            className={[
+              'rounded-full px-2.5 py-0.5 text-[11px] font-medium',
+              keyStatus?.configured
+                ? 'bg-success-soft text-success'
+                : 'bg-warning-soft text-warning',
+            ].join(' ')}
           >
             {keyStatus?.configured ? 'Configured' : 'Not configured'}
           </span>
@@ -142,26 +156,31 @@ export function SettingsView() {
       </section>
 
       {/* Adapter Versions Section */}
-      <section className="settings-section">
-        <h3>Adapter Versions</h3>
+      <section className="mt-8">
+        <h3 className="text-[13px] font-semibold uppercase tracking-wider text-text-faint">
+          Adapter Versions
+        </h3>
         {uniqueAdapterVersions.length === 0 ? (
-          <div className="insight-empty">
-            <p>No adapter version data available yet.</p>
+          <div className="mt-3 rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[13px] text-text-dim">
+            No adapter version data available yet.
           </div>
         ) : (
-          <div className="settings-table-wrapper">
-            <table className="settings-table" data-testid="adapter-versions-table">
+          <div className="mt-3 overflow-hidden rounded-lg border border-border">
+            <table className="w-full text-[13px]" data-testid="adapter-versions-table">
               <thead>
-                <tr>
-                  <th>Platform</th>
-                  <th>Version</th>
+                <tr className="bg-surface text-left text-text-dim">
+                  <th className="px-4 py-2.5 font-medium">Platform</th>
+                  <th className="px-4 py-2.5 font-medium">Version</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border">
                 {uniqueAdapterVersions.map((av) => (
-                  <tr key={av.platform + '-' + av.version}>
-                    <td className="settings-platform-cell">{av.platform}</td>
-                    <td>v{av.version}</td>
+                  <tr
+                    key={av.platform + '-' + av.version}
+                    className="bg-bg-elevated transition-colors hover:bg-surface-hover"
+                  >
+                    <td className="px-4 py-2.5 font-medium text-text">{av.platform}</td>
+                    <td className="px-4 py-2.5 font-mono text-[12px] text-text-dim">v{av.version}</td>
                   </tr>
                 ))}
               </tbody>
@@ -171,10 +190,14 @@ export function SettingsView() {
       </section>
 
       {/* Privacy Notice Section */}
-      <section className="settings-section settings-privacy-section" data-testid="privacy-section">
-        <h3>Privacy</h3>
-        <div className="settings-privacy-notice">
-          <p data-testid="privacy-text">{PRIVACY_TEXT}</p>
+      <section className="mt-8" data-testid="privacy-section">
+        <h3 className="text-[13px] font-semibold uppercase tracking-wider text-text-faint">
+          Privacy
+        </h3>
+        <div className="mt-3 rounded-lg border border-border bg-surface p-4">
+          <p className="text-[13px] leading-relaxed text-text-dim" data-testid="privacy-text">
+            {PRIVACY_TEXT}
+          </p>
         </div>
       </section>
     </div>

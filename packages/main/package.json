@@ -6,8 +6,8 @@
     "scripts":  {
                     "typecheck":  "tsc --noEmit",
                     "lint":  "eslint src/",
-                    "build":  "tsc \u0026\u0026 node ../../scripts/copy-assets.js",
-                    "dev":  "tsc \u0026\u0026 node ../../scripts/copy-assets.js \u0026\u0026 electron .",
+                    "build":  "node ../../node_modules/typescript/bin/tsc; node ../../scripts/copy-assets.js",
+                    "dev":  "node ../../node_modules/typescript/bin/tsc; if ($LASTEXITCODE -eq 0) { node ../../scripts/copy-assets.js; if ($LASTEXITCODE -eq 0) { & ../../node_modules/electron/dist/electron.exe . } }",
                     "package":  "electron-builder --win --x64",
                     "rebuild":  "@electron/rebuild -f -w better-sqlite3 -w sqlite-vec",
                     "verify-addons":  "node ../../scripts/verify-addons.js"
