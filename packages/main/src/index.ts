@@ -185,6 +185,76 @@ function setupDashboardIpc(): void {
 }
 
 
+function setupWorkspaceManageIpc(): void {
+  const dashHandlers: Array<{ channel: string; workerType: string }> = [
+    { channel: 'dash:workspace:manage:get-workspaces', workerType: 'get_workspaces' },
+    { channel: 'dash:workspace:manage:create-workspace', workerType: 'create_workspace' },
+    { channel: 'dash:workspace:manage:rename-workspace', workerType: 'rename_workspace' },
+    { channel: 'dash:workspace:manage:delete-workspace', workerType: 'delete_workspace' },
+    { channel: 'dash:workspace:manage:reorder-workspaces', workerType: 'reorder_workspaces' },
+    { channel: 'dash:workspace:manage:get-tab-groups', workerType: 'get_tab_groups' },
+    { channel: 'dash:workspace:manage:create-tab-group', workerType: 'create_tab_group' },
+    { channel: 'dash:workspace:manage:rename-tab-group', workerType: 'rename_tab_group' },
+    { channel: 'dash:workspace:manage:delete-tab-group', workerType: 'delete_tab_group' },
+    { channel: 'dash:workspace:manage:reorder-tab-groups', workerType: 'reorder_tab_groups' },
+    { channel: 'dash:workspace:manage:get-group-accounts', workerType: 'get_group_accounts' },
+    { channel: 'dash:workspace:manage:add-account-to-group', workerType: 'add_account_to_group' },
+    { channel: 'dash:workspace:manage:remove-account-from-group', workerType: 'remove_account_from_group' },
+    { channel: 'dash:workspace:manage:reorder-group-accounts', workerType: 'reorder_group_accounts' },
+    { channel: 'dash:workspace:manage:get-group-tabs', workerType: 'get_group_tabs' },
+    { channel: 'dash:workspace:manage:add-group-tab', workerType: 'add_group_tab' },
+    { channel: 'dash:workspace:manage:remove-group-tab', workerType: 'remove_group_tab' },
+    { channel: 'dash:workspace:manage:reorder-group-tabs', workerType: 'reorder_group_tabs' },
+  ];
+
+  for (const handler of dashHandlers) {
+    ipcMain.handle(handler.channel, async (_event, payload?: unknown) => {
+      try {
+        return await workerRequest(handler.workerType, payload);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn('[Main] ' + handler.channel + ' error:', msg);
+        return { error: msg };
+      }
+    });
+  }
+}
+
+
+
+function setupComplianceIpc(): void {
+  ipcMain.handle('dash:acknowledge-account', async (_event, params: unknown) => {
+    try {
+      return await workerRequest('acknowledge_account', params);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[Main] dash:acknowledge-account error:', msg);
+      return { error: msg };
+    }
+  });
+
+  ipcMain.handle('dash:check-acknowledged', async (_event, params: unknown) => {
+    try {
+      return await workerRequest('check_acknowledged', params);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[Main] dash:check-acknowledged error:', msg);
+      return { error: msg };
+    }
+  });
+
+  ipcMain.handle('dash:get-audit-events', async (_event, params: unknown) => {
+    try {
+      return await workerRequest('get_audit_events', params);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[Main] dash:get-audit-events error:', msg);
+      return { error: msg };
+    }
+  });
+}
+
+
 /**
  * Handler for dash:navigate-to IPC.
  */
@@ -281,6 +351,8 @@ app.whenReady().then(() => {
 
   // 4. Wire up IPC handlers
   setupDashboardIpc();
+  setupWorkspaceManageIpc();
+  setupComplianceIpc();
   setupNavigateToHandler(publishMgr);
   setupPrefillComposeHandler(publishMgr);
   setupClipboardHandler();
@@ -318,10 +390,12 @@ app.on('before-quit', async (event) => {
   try {
     if (sessionManager) { await sessionManager.flushAllCookies(); }
     if (worker) {
-      const shutdownId = 'shutdown-' + Date.now();
-      worker.postMessage({ type: 'shutdown', id: shutdownId });
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      try { worker.terminate(); } catch { /* noop */ }
+      try {
+        await workerRequest('shutdown');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn('[Main] Worker shutdown acknowledgement failed:', msg);
+      }
       worker = null;
     }
     if (workspaceController) { workspaceController.dispose(); workspaceController = null; }

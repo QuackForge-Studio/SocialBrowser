@@ -6,7 +6,10 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
   getPosts: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:get-posts', params),
   getAnalytics: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:get-analytics', params),
   getHeatmap: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:get-heatmap', params),
+  getDrafts: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:get-drafts', params),
   createDraft: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:create-draft', params),
+  updateDraft: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:update-draft', params),
+  deleteDraft: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:delete-draft', params),
   generateDraft: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:generate-draft', params),
   getSettings: (): Promise<unknown> => ipcRenderer.invoke('dash:get-settings'),
   updateSettings: (settings: unknown): Promise<void> => ipcRenderer.invoke('dash:update-settings', settings),
@@ -18,6 +21,26 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
     ipcRenderer.invoke('dash:prefill-compose', params),
   copyToClipboard: (params: { text: string }): Promise<unknown> =>
     ipcRenderer.invoke('dash:copy-to-clipboard', params),
+
+  // ===== Workspace & Group Management APIs =====
+  getWorkspaces: (): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:get-workspaces'),
+  createWorkspace: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:create-workspace', params),
+  renameWorkspace: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:rename-workspace', params),
+  deleteWorkspace: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:delete-workspace', params),
+  reorderWorkspaces: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:reorder-workspaces', params),
+  getTabGroups: (params?: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:get-tab-groups', params),
+  createTabGroup: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:create-tab-group', params),
+  renameTabGroup: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:rename-tab-group', params),
+  deleteTabGroup: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:delete-tab-group', params),
+  reorderTabGroups: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:reorder-tab-groups', params),
+  getGroupAccounts: (params?: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:get-group-accounts', params),
+  addAccountToGroup: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:add-account-to-group', params),
+  removeAccountFromGroup: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:remove-account-from-group', params),
+  reorderGroupAccounts: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:reorder-group-accounts', params),
+  getGroupTabs: (params?: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:get-group-tabs', params),
+  addGroupTab: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:add-group-tab', params),
+  removeGroupTab: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:remove-group-tab', params),
+  reorderGroupTabs: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:workspace:manage:reorder-group-tabs', params),
 
   // ===== Workspace & Group Navigation APIs =====
   // These IPC handlers are always active (trusted native navigation),
@@ -58,4 +81,9 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
   /** Handle workspace deletion. */
   handleWorkspaceDeleted: (params: { workspaceId: string }): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('dash:workspace:workspace-deleted', params),
+
+  // ===== Compliance APIs =====
+  acknowledgeAccount: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:acknowledge-account', params),
+  checkAcknowledged: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:check-acknowledged', params),
+  getAuditEvents: (params?: unknown): Promise<unknown> => ipcRenderer.invoke('dash:get-audit-events', params),
 });

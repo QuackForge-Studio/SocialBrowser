@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+﻿import React, { useState, useCallback, useEffect } from 'react';
 import type { DashboardView, PlatformTab } from './types';
 import type { DashboardBridge } from './types';
 import { Sidebar } from './Sidebar';
@@ -6,9 +6,11 @@ import { TabBar } from './TabBar';
 import { CalendarView } from './views/CalendarView';
 import { AnalyticsView } from './views/AnalyticsView';
 import { SettingsView } from './views/SettingsView';
+import { WorkspaceManager } from './views/WorkspaceManager';
 import { PrivacyModal } from './PrivacyModal';
 
 const NAV_ITEMS: Array<{ view: DashboardView; label: string; icon: string }> = [
+  { view: 'workspaces', label: 'Workspaces', icon: '\u{1F5C2}' },
   { view: 'calendar', label: 'Calendar', icon: '\u{1F4C5}' },
   { view: 'analytics', label: 'Analytics', icon: '\u{1F4C8}' },
   { view: 'settings', label: 'Settings', icon: '\u2699' },
@@ -19,7 +21,7 @@ function getBridge(): DashboardBridge | undefined {
 }
 
 export function App() {
-  const [activeView, setActiveView] = useState<DashboardView>('calendar');
+  const [activeView, setActiveView] = useState<DashboardView>('workspaces');
   const [tabs] = useState<PlatformTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -76,6 +78,8 @@ export function App() {
   // Render the active view content
   const renderContent = () => {
     switch (activeView) {
+      case 'workspaces':
+        return <WorkspaceManager />;
       case 'calendar':
         return <CalendarView />;
       case 'analytics':
@@ -83,7 +87,7 @@ export function App() {
       case 'settings':
         return <SettingsView />;
       default:
-        return <CalendarView />;
+        return <WorkspaceManager />;
     }
   };
 

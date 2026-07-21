@@ -1,5 +1,5 @@
 ﻿/** Dashboard view identifiers */
-export type DashboardView = 'calendar' | 'analytics' | 'settings';
+export type DashboardView = 'calendar' | 'analytics' | 'settings' | 'workspaces';
 
 /** A platform tab entry */
 export interface PlatformTab {
@@ -83,6 +83,63 @@ export interface Account {
   updatedAt: string;
 }
 
+/** Workspace type */
+export interface Workspace {
+  id: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** TabGroup type */
+export interface TabGroup {
+  id: string;
+  workspaceId: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** GroupAccount with account info */
+export interface GroupAccountInfo {
+  id: string;
+  groupId: string;
+  accountId: string;
+  sortOrder: number;
+  createdAt: string;
+  platform?: string;
+  handle?: string;
+  displayName?: string;
+  sessionPartition?: string;
+}
+
+/** GroupTab */
+export interface GroupTab {
+  id: string;
+  groupId: string;
+  platform: string;
+  accountId: string;
+  url?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Audit event record */
+export interface AuditEvent {
+  id: string;
+  eventType: string;
+  actorId: string | null;
+  targetId: string | null;
+  platform: string | null;
+  outcome: string | null;
+  limitClass: string | null;
+  metadataJson: string | null;
+  createdAt: string;
+}
+
 /** Dashboard IPC API exposed via contextBridge */
 export interface DashboardBridge {
   getAccounts: () => Promise<Account[]>;
@@ -100,6 +157,42 @@ export interface DashboardBridge {
   navigateTo: (params: { platform: string; accountId: string; url?: string }) => Promise<unknown>;
   prefillCompose: (params: { platform: string; accountId: string; text: string }) => Promise<unknown>;
   copyToClipboard: (params: { text: string }) => Promise<unknown>;
+
+  // ===== Workspace & Group Management APIs =====
+  getWorkspaces: () => Promise<Workspace[]>;
+  createWorkspace: (params: { name?: string }) => Promise<Workspace>;
+  renameWorkspace: (params: { id: string; name: string }) => Promise<{ updated: boolean }>;
+  deleteWorkspace: (params: { id: string }) => Promise<{ deleted: boolean }>;
+  reorderWorkspaces: (params: { ids: string[] }) => Promise<{ reordered: boolean }>;
+  getTabGroups: (params?: { workspaceId?: string }) => Promise<TabGroup[]>;
+  createTabGroup: (params: { workspaceId: string; name?: string }) => Promise<TabGroup>;
+  renameTabGroup: (params: { id: string; name: string }) => Promise<{ updated: boolean }>;
+  deleteTabGroup: (params: { id: string }) => Promise<{ deleted: boolean }>;
+  reorderTabGroups: (params: { ids: string[] }) => Promise<{ reordered: boolean }>;
+  getGroupAccounts: (params?: { groupId?: string }) => Promise<GroupAccountInfo[]>;
+  addAccountToGroup: (params: { groupId: string; accountId: string }) => Promise<{ id: string; alreadyMember?: boolean }>;
+  removeAccountFromGroup: (params: { groupId: string; accountId: string }) => Promise<{ removed: boolean }>;
+  reorderGroupAccounts: (params: { groupId: string; accountIds: string[] }) => Promise<{ reordered: boolean }>;
+  getGroupTabs: (params?: { groupId?: string }) => Promise<GroupTab[]>;
+  addGroupTab: (params: { groupId: string; platform: string; accountId: string; url?: string }) => Promise<GroupTab>;
+  removeGroupTab: (params: { id: string }) => Promise<{ removed: boolean }>;
+  reorderGroupTabs: (params: { groupId: string; tabIds: string[] }) => Promise<{ reordered: boolean }>;
+
+  // ===== Workspace Navigation APIs (trusted native, always active) =====
+  getWorkspaceState: () => Promise<{ activeWorkspaceId: string | null; activeGroupId: string | null }>;
+  setActiveGroup: (params: { workspaceId: string; groupId: string }) => Promise<{ success: boolean; error?: string }>;
+  openTab: (params: { platform: string; accountId: string }) => Promise<{ success: boolean; error?: string; tabId?: string }>;
+  closeTab: (params: { tabId: string }) => Promise<{ success: boolean; error?: string }>;
+  showDashboard: () => Promise<{ success: boolean }>;
+  getWorkspaceTabs: () => Promise<any[]>;
+  handleMembershipRemoved: (params: { groupId: string; accountId: string }) => Promise<{ success: boolean; error?: string }>;
+  handleGroupDeleted: (params: { groupId: string }) => Promise<{ success: boolean; error?: string }>;
+  handleWorkspaceDeleted: (params: { workspaceId: string }) => Promise<{ success: boolean; error?: string }>;
+
+  // ===== Compliance APIs =====
+  acknowledgeAccount: (params: { accountId: string }) => Promise<{ acknowledged: boolean }>;
+  checkAcknowledged: (params: { accountId: string }) => Promise<{ acknowledged: boolean }>;
+  getAuditEvents: (params?: { eventType?: string; actorId?: string; limit?: number; offset?: number }) => Promise<AuditEvent[]>;
 }
 
 declare global {
@@ -149,4 +242,3 @@ export interface HeatmapCellData {
 
 /** Minimum posts required for meaningful analytics */
 export const MIN_ANALYTICS_POSTS = 3;
-
