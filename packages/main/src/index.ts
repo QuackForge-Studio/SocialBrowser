@@ -1,6 +1,10 @@
 import { app, ipcMain, clipboard, Menu, nativeImage } from 'electron';
 import { Worker } from 'worker_threads';
 import path from 'path';
+
+// Tell Windows to identify this as Social Browser, not "electron.exe"
+app.setAppUserModelId('com.social-browser.app');
+
 import {
   wireUpIpcGate,
   removeIpcGateHandlers,
