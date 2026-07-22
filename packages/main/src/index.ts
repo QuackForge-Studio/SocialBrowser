@@ -295,24 +295,27 @@ ipcMain.handle('dash:close-browser-tab', (_event, params: { tabId: string }) => 
   return { success: false, error: 'Tab not found' };
 });
 
-ipcMain.handle('dash:workspace:get-tabs', () => {
-  const tabs = layoutManager?.getTabs() || [];
-  const activeTabId = layoutManager?.getActiveTabId() || null;
-  return {
-    activeTabId,
-    tabs: tabs.map(t => ({
-      id: t.id,
-      label: t.label,
-      platform: 'google',
-      url: (browserTabRegistry.get(Number(t.id)) as any)?.getUrl?.() || '',
-    })),
-  };
-});
 
-ipcMain.handle('dash:workspace:show-dashboard', () => {
-  layoutManager?.activateDashboard();
-  return { success: true };
-});
+function autoLaunchDefaultBrowserTab(): void {
+  try {
+    const profileId = 'auto-launch-' + Date.now();
+    const partition = 'persist:social-browser:auto-launch';
+    const initialUrl = 'https://google.com';
+    const btv = new BrowserTabView({ profileId, partition, initialUrl });
+    const wcId = btv.view.webContents.id;
+    registerBrowserTab(wcId, btv);
+    layoutManager?.addTab(wcId.toString(), 'Browser', btv.view, () => {
+      browserTabRegistry.delete(wcId.toString());
+      btv.close();
+    });
+    layoutManager?.activateTab(wcId.toString());
+    console.log('[Main] Auto-launched default browser tab');
+  } catch (err) {
+    console.warn('[Main] autoLaunchDefaultBrowserTab error:', err);
+  }
+}
+
+
 
 
 function setupWorkspaceManageIpc(): void {
@@ -527,10 +530,13 @@ app.whenReady().then(() => {
   // 5. Show the window immediately (first paint)
   baseWindow.show();
 
-  // 6. Auto-launch a default browser tab so the app is browser-first on startup
+  // 6. Activate the dashboard UI on cold startup
+  layoutManager.activateDashboard();
+
+  // 7. Auto-launch a default browser tab so the app opens browser-first
   autoLaunchDefaultBrowserTab();
 
-  // 7. Defer background worker thread startup until after window is painted
+  // 8. Defer background worker thread startup until after window is painted
   setImmediate(() => {
     startWorker();
   });

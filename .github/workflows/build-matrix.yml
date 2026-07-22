@@ -37,6 +37,7 @@ jobs:
 
       - name: Get pnpm Store Path
         id: pnpm-cache
+        shell: bash
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_ENV
 
       - name: Cache pnpm dependencies
@@ -48,13 +49,13 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
-      - name: Rebuild Native Modules for Electron
-        run: pnpm --filter @social-browser/main rebuild
+      - name: Build All Monorepo Packages
+        run: pnpm build
 
-      - name: Run Workspace Tests
-        run: pnpm test
+      - name: Run Unit Tests
+        run: pnpm --filter @social-browser/main test; pnpm --filter @social-browser/dashboard test
 
       - name: Package Desktop Binary (${{ matrix.platform }})
         run: pnpm --filter @social-browser/main package:${{ matrix.platform }}

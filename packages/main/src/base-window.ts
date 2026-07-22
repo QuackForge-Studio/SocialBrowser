@@ -39,7 +39,11 @@ export class BaseWindow {
   onMaximize(handler: () => void): void { this.maximizeHandlers.push(handler); }
   onUnmaximize(handler: () => void): void { this.unmaximizeHandlers.push(handler); }
   onClose(handler: (event: Electron.Event) => void): void { this.closeHandlers.push(handler); }
-  show(): void { this.win.show(); }
+  show(): void {
+    this.win.show();
+    if (this.win.isMinimized()) this.win.restore();
+    this.win.focus();
+  }
   close(): void { this.win.close(); }
   destroy(): void { this.win.destroy(); }
 }
