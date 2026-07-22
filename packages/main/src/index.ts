@@ -250,20 +250,66 @@ ipcMain.handle('dash:open-default-browser-tab', async (_event, params?: { url?: 
   }
 });
 
-function autoLaunchDefaultBrowserTab(): void {
-  const btv = new BrowserTabView({
-    profileId: 'default-browser',
-    partition: 'persist:social-browser:default-browser',
-    initialUrl: 'https://google.com',
+ipcMain.handle('dash:set-sidebar-open', (_event, open: boolean) => {
+  layoutManager?.setSidebarOpen(open);
+  return { success: true };
+});
+
+ipcMain.handle('dash:get-browser-tabs', () => {
+  const tabs = layoutManager?.getTabs() || [];
+  const activeTabId = layoutManager?.getActiveTabId() || null;
+  return tabs.map(t => {
+    const btv = browserTabRegistry.get(Number(t.id));
+    return {
+      id: t.id,
+      label: t.label,
+      platform: btv?.profileId || 'google',
+      url: btv?.getUrl() || '',
+      active: t.id === activeTabId,
+    };
   });
-  const wcId = btv.view.webContents.id;
-  registerBrowserTab(wcId, btv);
-  layoutManager?.addTab(wcId.toString(), 'Browser', btv.view, () => {
-    browserTabRegistry.delete(wcId.toString());
-    btv.close();
-  });
-  layoutManager?.activateTab(wcId.toString());
-}
+});
+
+ipcMain.handle('dash:navigate-tab', (_event, params: { tabId: string; url: string }) => {
+  const { tabId, url } = params;
+  const btv = browserTabRegistry.get(Number(tabId));
+  if (btv && url) {
+    if (url.startsWith('javascript:')) {
+      void btv.view.webContents.executeJavaScript(url.substring(11));
+    } else {
+      btv.loadUrl(url);
+    }
+    return { success: true };
+  }
+  return { success: false, error: 'Tab not found' };
+});
+
+ipcMain.handle('dash:workspace:get-tabs', () => {
+  const tabs = layoutManager?.getTabs() || [];
+  const activeTabId = layoutManager?.getActiveTabId() || null;
+  return {
+    activeTabId,
+    tabs: tabs.map(t => ({
+      id: t.id,
+      label: t.label,
+      platform: 'google',
+      url: (browserTabRegistry.get(Number(t.id)) as any)?.getUrl?.() || '',
+    })),
+  };
+});
+
+ipcMain.handle('dash:workspace:close-tab', (_event, params: { tabId: string }) => {
+  if (params?.tabId) {
+    layoutManager?.closeTab(params.tabId);
+    return { success: true };
+  }
+  return { success: false, error: 'Invalid tabId' };
+});
+
+ipcMain.handle('dash:workspace:show-dashboard', () => {
+  layoutManager?.activateDashboard();
+  return { success: true };
+});
 
 
 function setupWorkspaceManageIpc(): void {

@@ -28,6 +28,13 @@ export class ViewLayoutManager {
     this.recalculateBounds();
   }
 
+  private sidebarOpen = false;
+
+  setSidebarOpen(open: boolean): void {
+    this.sidebarOpen = open;
+    this.recalculateBounds();
+  }
+
   // Full window bounds for shell view
   private getFullBounds(): { x: number; y: number; width: number; height: number } {
     const { width, height } = this.baseWindow.getContentBounds();
@@ -37,10 +44,11 @@ export class ViewLayoutManager {
   // Viewport bounds for browser tabs (docked below TitleBar and to the right of Sidebar)
   private getTabBounds(): { x: number; y: number; width: number; height: number } {
     const { width, height } = this.baseWindow.getContentBounds();
+    const sidebarW = this.sidebarOpen ? SIDEBAR_WIDTH : 0;
     return {
-      x: SIDEBAR_WIDTH,
+      x: sidebarW,
       y: TITLE_BAR_HEIGHT,
-      width: Math.max(0, width - SIDEBAR_WIDTH),
+      width: Math.max(0, width - sidebarW),
       height: Math.max(0, height - TITLE_BAR_HEIGHT),
     };
   }

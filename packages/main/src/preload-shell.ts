@@ -91,6 +91,7 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
     ipcRenderer.invoke('dash:workspace:workspace-deleted', params),
 
   // ===== Browser Profile APIs =====
+  setSidebarOpen: (open: boolean): Promise<unknown> => ipcRenderer.invoke('dash:set-sidebar-open', open),
   getProfiles: (): Promise<unknown> => ipcRenderer.invoke('dash:get-profiles'),
   createProfile: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:create-profile', params),
   deleteProfile: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:delete-profile', params),
