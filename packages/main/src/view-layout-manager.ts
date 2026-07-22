@@ -10,7 +10,7 @@ export interface TabEntry {
 }
 
 export const SIDEBAR_WIDTH = 232;
-export const TITLE_BAR_HEIGHT = 44;
+export const TITLE_BAR_HEIGHT = 82; // 44px tab strip + 38px URL bar
 
 export class ViewLayoutManager {
   private readonly baseWindow: BaseWindow;
