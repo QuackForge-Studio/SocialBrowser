@@ -5,7 +5,7 @@
     "scripts": {
         "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit",
         "lint": "eslint src/",
-        "build": "node scripts/build.js; node scripts/copy-html.js"
+        "build": "node scripts/build.js"
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4.3.3",

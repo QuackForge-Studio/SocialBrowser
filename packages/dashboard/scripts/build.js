@@ -42,9 +42,16 @@ async function buildJs() {
   console.log('[dashboard] JS built: dist/bundle.js');
 }
 
+async function copyHtml() {
+  const src = path.join(srcDir, 'index.html');
+  const dest = path.join(distDir, 'index.html');
+  await fs.copyFile(src, dest);
+  console.log('[dashboard] Copied index.html to dist/');
+}
+
 async function main() {
   await fs.mkdir(distDir, { recursive: true });
-  await Promise.all([buildCss(), buildJs()]);
+  await Promise.all([buildCss(), buildJs(), copyHtml()]);
   console.log('[dashboard] Build complete');
 }
 

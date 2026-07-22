@@ -1,6 +1,7 @@
 import { build } from 'esbuild';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -43,6 +44,9 @@ async function runBuild() {
     sourcemap: true,
     logLevel: 'info',
   });
+
+  // 3. Copy assets into main/dist
+  execSync(`node "${path.join(ROOT, 'scripts', 'copy-assets.js')}"`, { stdio: 'inherit' });
 
   console.log('[build-main] Build completed successfully.');
 }

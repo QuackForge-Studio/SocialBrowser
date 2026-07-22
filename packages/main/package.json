@@ -6,8 +6,8 @@
     "scripts": {
         "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit",
         "lint": "eslint src/",
-        "build": "node ../../scripts/build-main.mjs; node ../../scripts/copy-assets.js",
-        "dev": "node ../../scripts/build-main.mjs; node ../../scripts/copy-assets.js; ../../node_modules/.bin/electron .",
+        "build": "node ../../scripts/build-main.mjs",
+        "dev": "node ../../scripts/build-main.mjs && ../../node_modules/.bin/electron .",
         "package": "electron-builder --win --x64",
         "package:win": "electron-builder --win --x64",
         "package:mac": "electron-builder --mac --x64 --arm64",
