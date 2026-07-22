@@ -259,12 +259,12 @@ ipcMain.handle('dash:get-browser-tabs', () => {
   const tabs = layoutManager?.getTabs() || [];
   const activeTabId = layoutManager?.getActiveTabId() || null;
   return tabs.map(t => {
-    const btv = browserTabRegistry.get(Number(t.id));
+    const btv = browserTabRegistry.get(t.id);
     return {
       id: t.id,
       label: t.label,
-      platform: btv?.profileId || 'google',
-      url: btv?.getUrl() || '',
+      platform: 'browser',
+      url: btv && !btv.isDestroyed() ? btv.getUrl() : '',
       active: t.id === activeTabId,
     };
   });
@@ -272,12 +272,12 @@ ipcMain.handle('dash:get-browser-tabs', () => {
 
 ipcMain.handle('dash:navigate-tab', (_event, params: { tabId: string; url: string }) => {
   const { tabId, url } = params;
-  const btv = browserTabRegistry.get(Number(tabId));
-  if (btv && url) {
+  const btv = browserTabRegistry.get(tabId);
+  if (btv && !btv.isDestroyed() && url) {
     if (url.startsWith('javascript:')) {
       void btv.view.webContents.executeJavaScript(url.substring(11));
     } else {
-      btv.loadUrl(url);
+      void btv.loadURL(url);
     }
     return { success: true };
   }
@@ -378,42 +378,6 @@ function setupComplianceIpc(): void {
       console.warn('[Main] dash:get-audit-events error:', msg);
       return { error: msg };
     }
-  });
-}
-
-
-// ===== Browser Tab Sync IPC handlers =====
-
-function setupBrowserTabSyncIpc(): void {
-  // dash:get-browser-tabs — returns all open browser tabs with their labels and URLs
-  ipcMain.handle('dash:get-browser-tabs', () => {
-    const tabs: Array<{ id: string; label: string; platform: string; url: string }> = [];
-    for (const [id, btv] of browserTabRegistry) {
-      if (!btv.isDestroyed()) {
-        tabs.push({
-          id,
-          label: btv.getTitle() || 'Browser',
-          platform: 'browser',
-          url: btv.getUrl(),
-        });
-      }
-    }
-    return tabs;
-  });
-
-  // dash:get-tab-url — returns current URL for a specific tab
-  ipcMain.handle('dash:get-tab-url', (_event, params: { tabId: string }) => {
-    const btv = browserTabRegistry.get(params.tabId);
-    if (!btv || btv.isDestroyed()) return { url: '' };
-    return { url: btv.getUrl() };
-  });
-
-  // dash:navigate-tab — navigate a specific tab to a URL
-  ipcMain.handle('dash:navigate-tab', async (_event, params: { tabId: string; url: string }) => {
-    const btv = browserTabRegistry.get(params.tabId);
-    if (!btv || btv.isDestroyed()) return { success: false, error: 'Tab not found' };
-    await btv.loadURL(params.url);
-    return { success: true };
   });
 }
 
@@ -540,7 +504,6 @@ app.whenReady().then(() => {
   setupNavigateToHandler(publishMgr);
   setupPrefillComposeHandler(publishMgr);
   setupClipboardHandler();
-  setupBrowserTabSyncIpc();
 
   // 3. Wire up capture IPC validation gate
   wireUpIpcGate((channel: string, data: unknown) => {
