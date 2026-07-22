@@ -34,6 +34,13 @@ let layoutManager: ViewLayoutManager | null = null;
 let sessionManager: SessionManager | null = null;
 let workspaceController: WorkspaceTabController | null = null;
 
+/** Registry of browser tab views for URL/tab queries from the dashboard */
+const browserTabRegistry = new Map<string, BrowserTabView>();
+
+function registerBrowserTab(wcId: number, btv: BrowserTabView): void {
+  browserTabRegistry.set(wcId.toString(), btv);
+}
+
 /**
  * Map of pending IPC requests from renderer -> worker.
  * Resolves when the worker responds with matching msgId.
@@ -210,7 +217,11 @@ ipcMain.handle('dash:launch-browser-profile', async (_event, params: { profileId
     const btv = new BrowserTabView({ profileId, partition, initialUrl });
     const wcId = btv.view.webContents.id;
     const label = 'Browser:' + profileId.substring(0, 8);
-    layoutManager?.addTab(wcId.toString(), label, btv.view, () => { btv.close(); });
+    registerBrowserTab(wcId, btv);
+    layoutManager?.addTab(wcId.toString(), label, btv.view, () => {
+      browserTabRegistry.delete(wcId.toString());
+      btv.close();
+    });
     layoutManager?.activateTab(wcId.toString());
     return { success: true };
   } catch (err) {
@@ -226,7 +237,11 @@ ipcMain.handle('dash:open-default-browser-tab', async (_event, params?: { url?: 
     const initialUrl = params?.url || 'https://google.com';
     const btv = new BrowserTabView({ profileId, partition, initialUrl });
     const wcId = btv.view.webContents.id;
-    layoutManager?.addTab(wcId.toString(), 'Browser', btv.view, () => { btv.close(); });
+    registerBrowserTab(wcId, btv);
+    layoutManager?.addTab(wcId.toString(), 'Browser', btv.view, () => {
+      browserTabRegistry.delete(wcId.toString());
+      btv.close();
+    });
     layoutManager?.activateTab(wcId.toString());
     return { success: true };
   } catch (err) {
@@ -242,7 +257,11 @@ function autoLaunchDefaultBrowserTab(): void {
     initialUrl: 'https://google.com',
   });
   const wcId = btv.view.webContents.id;
-  layoutManager?.addTab(wcId.toString(), 'Browser', btv.view, () => { btv.close(); });
+  registerBrowserTab(wcId, btv);
+  layoutManager?.addTab(wcId.toString(), 'Browser', btv.view, () => {
+    browserTabRegistry.delete(wcId.toString());
+    btv.close();
+  });
   layoutManager?.activateTab(wcId.toString());
 }
 
@@ -313,6 +332,42 @@ function setupComplianceIpc(): void {
       console.warn('[Main] dash:get-audit-events error:', msg);
       return { error: msg };
     }
+  });
+}
+
+
+// ===== Browser Tab Sync IPC handlers =====
+
+function setupBrowserTabSyncIpc(): void {
+  // dash:get-browser-tabs — returns all open browser tabs with their labels and URLs
+  ipcMain.handle('dash:get-browser-tabs', () => {
+    const tabs: Array<{ id: string; label: string; platform: string; url: string }> = [];
+    for (const [id, btv] of browserTabRegistry) {
+      if (!btv.isDestroyed()) {
+        tabs.push({
+          id,
+          label: btv.getTitle() || 'Browser',
+          platform: 'browser',
+          url: btv.getUrl(),
+        });
+      }
+    }
+    return tabs;
+  });
+
+  // dash:get-tab-url — returns current URL for a specific tab
+  ipcMain.handle('dash:get-tab-url', (_event, params: { tabId: string }) => {
+    const btv = browserTabRegistry.get(params.tabId);
+    if (!btv || btv.isDestroyed()) return { url: '' };
+    return { url: btv.getUrl() };
+  });
+
+  // dash:navigate-tab — navigate a specific tab to a URL
+  ipcMain.handle('dash:navigate-tab', async (_event, params: { tabId: string; url: string }) => {
+    const btv = browserTabRegistry.get(params.tabId);
+    if (!btv || btv.isDestroyed()) return { success: false, error: 'Tab not found' };
+    await btv.loadURL(params.url);
+    return { success: true };
   });
 }
 
@@ -439,6 +494,7 @@ app.whenReady().then(() => {
   setupNavigateToHandler(publishMgr);
   setupPrefillComposeHandler(publishMgr);
   setupClipboardHandler();
+  setupBrowserTabSyncIpc();
 
   // 3. Wire up capture IPC validation gate
   wireUpIpcGate((channel: string, data: unknown) => {

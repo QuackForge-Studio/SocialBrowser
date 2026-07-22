@@ -7,9 +7,11 @@ interface TitleBarProps {
   tabs: PlatformTab[];
   activeTabId: string | null;
   activeView: DashboardView;
+  sidebarOpen: boolean;
   onTabSelect: (id: string) => void;
   onTabClose: (id: string) => void;
   onAddTab: () => void;
+  onToggleSidebar: () => void;
 }
 
 const PLATFORMS: Record<string, { color: string }> = {
@@ -95,16 +97,26 @@ function WindowControls() {
   );
 }
 
-export function TitleBar({ tabs, activeTabId, activeView, onTabSelect, onTabClose, onAddTab }: TitleBarProps) {
+import { List } from '@phosphor-icons/react';
+
+export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSelect, onTabClose, onAddTab, onToggleSidebar }: TitleBarProps) {
   return (
     <div
       className="fixed top-0 left-0 right-0 z-50 flex h-11 items-stretch select-none border-b border-border bg-bg-base/95 backdrop-blur-md"
       style={{ WebkitAppRegion: 'drag' as any, paddingLeft: 10 }}
     >
-      {/* App Logo */}
-      <div className="flex items-center gap-2 mr-3 my-auto shrink-0" style={{ WebkitAppRegion: 'no-drag' as any }}>
+      {/* App Logo — click to toggle sidebar */}
+      <button
+        onClick={onToggleSidebar}
+        title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+        className="flex items-center gap-2 mr-3 my-auto shrink-0 rounded-lg px-2 py-1 -ml-1 transition-all hover:bg-bg-hover active:scale-95 cursor-pointer"
+        style={{ WebkitAppRegion: 'no-drag' as any }}
+      >
         <img src={logoPng} alt="Social Browser" className="h-6 w-auto" />
-      </div>
+        <span className="text-[10px] font-medium text-text-muted bg-bg-elevated px-1.5 py-0.5 rounded-md">
+          <List size={14} weight="bold" />
+        </span>
+      </button>
 
       {/* Vertical Divider */}
       <div className="h-4 w-px bg-border my-auto mr-2 shrink-0" />

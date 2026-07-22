@@ -19,6 +19,7 @@ export function App() {
   const [tabs] = useState<PlatformTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const bridge = getBridge();
@@ -58,17 +59,23 @@ export function App() {
         tabs={tabs}
         activeTabId={activeTabId}
         activeView={activeView}
+        sidebarOpen={sidebarOpen}
         onTabSelect={setActiveTabId}
         onTabClose={handleCloseTab}
         onAddTab={handleAddTab}
+        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
       />
       <Sidebar
         navItems={DEFAULT_NAV_ITEMS}
         activeView={activeView}
+        isOpen={sidebarOpen}
         onNavigate={setActiveView}
         onNavigateToPlatform={handleNavigateToPlatform}
       />
-      <main className="absolute bottom-0 left-[232px] right-0 top-11 overflow-y-auto">
+      <main
+        className="absolute bottom-0 right-0 top-11 overflow-y-auto transition-all duration-200"
+        style={{ left: sidebarOpen ? '232px' : '0px' }}
+      >
         {renderContent()}
       </main>
       {showPrivacyModal && <PrivacyModal onAcknowledge={handlePrivacyAcknowledge} />}

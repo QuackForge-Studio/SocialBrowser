@@ -19,6 +19,7 @@ export interface PlatformTab {
   id: string;
   label: string;
   platform: string;
+  url?: string;
 }
 
 /** Navigation state for the ShellView */
@@ -208,6 +209,10 @@ export interface DashboardBridge {
   deleteProfile: (params: { id: string }) => Promise<{ deleted: boolean }>;
   launchBrowserProfile: (params: { profileId: string; url?: string }) => Promise<{ success: boolean; error?: string }>;
   openDefaultBrowserTab: (params?: { url?: string }) => Promise<{ success: boolean; error?: string }>;
+  getBrowserTabs: () => Promise<PlatformTab[]>;
+  getTabUrl: (params: { tabId: string }) => Promise<{ url: string }>;
+  navigateTab: (params: { tabId: string; url: string }) => Promise<{ success: boolean }>;
+  closeTab: (params: { tabId: string }) => Promise<{ success: boolean; error?: string }>;
 
   // ===== Compliance APIs =====
   acknowledgeAccount: (params: { accountId: string }) => Promise<{ acknowledged: boolean }>;

@@ -98,6 +98,10 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
     ipcRenderer.invoke('dash:launch-browser-profile', params),
   openDefaultBrowserTab: (params?: { url?: string }): Promise<unknown> =>
     ipcRenderer.invoke('dash:open-default-browser-tab', params),
+  getBrowserTabs: (): Promise<unknown> => ipcRenderer.invoke('dash:get-browser-tabs'),
+  getTabUrl: (params: { tabId: string }): Promise<unknown> => ipcRenderer.invoke('dash:get-tab-url', params),
+  navigateTab: (params: { tabId: string; url: string }): Promise<unknown> =>
+    ipcRenderer.invoke('dash:navigate-tab', params),
 
   // ===== Compliance APIs =====
   acknowledgeAccount: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:acknowledge-account', params),

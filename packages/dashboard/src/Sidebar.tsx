@@ -7,13 +7,20 @@ export interface NavItem { view: DashboardView; label: string; icon: React.React
 interface SidebarProps {
   navItems: NavItem[];
   activeView: DashboardView;
+  isOpen: boolean;
   onNavigate: (view: DashboardView) => void;
   onNavigateToPlatform: (platform: string, accountId: string) => void;
 }
 
-export function Sidebar({ navItems, activeView, onNavigate }: SidebarProps) {
+export function Sidebar({ navItems, activeView, isOpen, onNavigate }: SidebarProps) {
   return (
-    <aside className="fixed top-11 left-0 bottom-0 z-40 flex w-[232px] flex-col border-r border-border/60 bg-bg-base/95 backdrop-blur-md" style={{ WebkitAppRegion: 'no-drag' as any }}>
+    <aside
+      className="fixed top-11 left-0 bottom-0 z-40 flex w-[232px] flex-col border-r border-border/60 bg-bg-base/95 backdrop-blur-md transition-transform duration-200 ease-out"
+      style={{
+        WebkitAppRegion: 'no-drag' as any,
+        transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+      }}
+    >
       {/* Workspace quick switcher */}
       <div className="border-b border-border/60 p-3">
         <div className="flex items-center gap-2.5 rounded-xl bg-bg-elevated/80 border border-border px-3 py-2 cursor-pointer text-[13px] text-text hover:bg-bg-hover hover:border-accent/30 transition-all shadow-sm group">
