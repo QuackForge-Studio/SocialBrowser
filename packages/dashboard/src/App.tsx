@@ -50,23 +50,6 @@ export function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const toggleSidebar = useCallback(() => {
-    setSidebarOpen((prev) => {
-      const next = !prev;
-      const bridge = getBridge();
-      if (bridge && (bridge as any).setSidebarOpen) {
-        (bridge as any).setSidebarOpen(next);
-      }
-      return next;
-    });
-  }, []);
-
-  const handlePrivacyAcknowledge = useCallback(() => {
-    const bridge = getBridge();
-    if (bridge) bridge.updateSettings({ privacy_acknowledged: 'true' }).catch(() => {});
-    setShowPrivacyModal(false);
-  }, []);
-
   const handleSelectTab = useCallback(async (id: string) => {
     const bridge = getBridge();
     if (!bridge) return;
@@ -82,6 +65,30 @@ export function App() {
         await bridge.openTab({ platform: 'google', accountId: id });
       }
     }
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    // When a browser tab is active, clicking hamburger returns to dashboard
+    if (activeTabId) {
+      handleSelectTab('');
+      const bridge = getBridge();
+      if (bridge) bridge.showDashboard();
+      return;
+    }
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      const bridge = getBridge();
+      if (bridge && (bridge as any).setSidebarOpen) {
+        (bridge as any).setSidebarOpen(next);
+      }
+      return next;
+    });
+  }, [activeTabId, handleSelectTab]);
+
+  const handlePrivacyAcknowledge = useCallback(() => {
+    const bridge = getBridge();
+    if (bridge) bridge.updateSettings({ privacy_acknowledged: 'true' }).catch(() => {});
+    setShowPrivacyModal(false);
   }, []);
 
   const handleAddTab = useCallback(async () => {
@@ -118,7 +125,7 @@ export function App() {
   };
 
   return (
-    <div className="h-full w-full bg-bg text-text">
+    <div className="h-full w-full text-text" style={{ background: activeTabId ? 'transparent' : undefined }}>
       <TitleBar
         tabs={tabs}
         activeTabId={activeTabId}
@@ -139,11 +146,16 @@ export function App() {
         }}
         onNavigateToPlatform={handleNavigateToPlatform}
       />
+      {/* When a browser tab is active, hide the main content area so the browser
+          tab behind the transparent shell is visible. Clicks pass through to the
+          browser tab via pointer-events: none. TitleBar and Sidebar stay on top. */}
       <main
         className="absolute bottom-0 right-0 overflow-y-auto transition-all duration-200"
         style={{
           left: sidebarOpen ? '232px' : '0px',
           top: activeTabId ? '82px' : '44px',
+          pointerEvents: activeTabId ? 'none' : 'auto',
+          display: activeTabId ? 'none' : undefined,
         }}
       >
         {renderContent()}

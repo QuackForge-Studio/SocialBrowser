@@ -54,10 +54,15 @@ export class ViewLayoutManager {
   }
 
   recalculateBounds(): void {
-    this.shellView.setBounds(this.getFullBounds());
     if (this.activeTabId) {
+      // When a tab is active, shell is clipped to title bar height only.
+      // The browser tab occupies the rest of the content area.
+      const { width } = this.baseWindow.getContentBounds();
+      this.shellView.setBounds({ x: 0, y: 0, width, height: TITLE_BAR_HEIGHT });
       const tab = this.tabs.get(this.activeTabId);
       if (tab) tab.view.setBounds(this.getTabBounds());
+    } else {
+      this.shellView.setBounds(this.getFullBounds());
     }
   }
 
@@ -75,12 +80,21 @@ export class ViewLayoutManager {
       const current = this.tabs.get(this.activeTabId);
       if (current) current.view.setVisible(false);
     }
-    // Keep shellView visible so TitleBar and Sidebar remain visible
-    this.shellView.setVisible(true);
+
+    // Add browser tab view on top of the shell
     if (!this.baseWindow.contentView.children.includes(tab.view))
       this.baseWindow.contentView.addChildView(tab.view);
     tab.view.setBounds(this.getTabBounds());
     tab.view.setVisible(true);
+
+    // Clip shell to title bar height only so it doesn't overlap the
+    // browser content area. The shell's TitleBar stays visible and
+    // clickable. Sidebar is hidden — user clicks hamburger to return
+    // to dashboard.
+    const { width } = this.baseWindow.getContentBounds();
+    this.shellView.setBounds({ x: 0, y: 0, width, height: TITLE_BAR_HEIGHT });
+    this.shellView.setVisible(true);
+
     this.activeTabId = id;
   }
 

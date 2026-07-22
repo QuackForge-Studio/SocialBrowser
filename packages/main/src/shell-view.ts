@@ -27,6 +27,9 @@ export class ShellView {
 
     // Load the built dashboard HTML from __dirname/dashboard/index.html.
     // Assets are copied here by scripts/copy-assets.js during build.
+    // Transparent background so browser tabs can show through when active
+    this.view.setBackgroundColor('#00000000');
+
     const indexPath = path.join(__dirname, 'dashboard', 'index.html');
     this.view.webContents.loadFile(indexPath);
   }
