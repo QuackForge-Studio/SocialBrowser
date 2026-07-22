@@ -110,11 +110,12 @@ export function TitleBar({ tabs, activeTabId, activeView, onTabSelect, onTabClos
       <div className="h-4 w-px bg-border my-auto mr-2 shrink-0" />
 
       {/* Tab Strip */}
-      <div className="flex-1 flex items-center gap-0.5 overflow-x-auto py-1 pr-2" style={{ WebkitAppRegion: 'no-drag' as any }}>
+      <div className="flex-1 flex items-center gap-0.5 overflow-x-auto py-1 pr-2">
         <button
           onClick={() => onTabSelect('')}
           className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[13.5px] transition-colors shrink-0"
           style={{
+            WebkitAppRegion: 'no-drag' as any,
             background: activeTabId === null ? 'var(--color-bg-elevated)' : 'transparent',
             color: activeTabId === null ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
           }}
@@ -132,6 +133,7 @@ export function TitleBar({ tabs, activeTabId, activeView, onTabSelect, onTabClos
               onClick={() => onTabSelect(tab.id)}
               className="group flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[13.5px] transition-colors shrink-0 max-w-[180px]"
               style={{
+                WebkitAppRegion: 'no-drag' as any,
                 background: active ? 'var(--color-bg-elevated)' : 'transparent',
                 color: active ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
                 borderLeft: active ? `2px solid ${p.color}` : '2px solid transparent',
@@ -157,6 +159,7 @@ export function TitleBar({ tabs, activeTabId, activeView, onTabSelect, onTabClos
           onClick={onAddTab}
           title="New browser tab"
           className="flex h-6 w-6 items-center justify-center rounded-lg text-text-faint transition-colors hover:bg-bg-hover hover:text-accent shrink-0 ml-1"
+          style={{ WebkitAppRegion: 'no-drag' as any }}
         >
           <Plus size={13} weight="bold" />
         </button>
