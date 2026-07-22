@@ -51,6 +51,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Show tool versions
+        run: |
+          node -v
+          pnpm -v
+
       - name: Build All Monorepo Packages
         run: pnpm build
 
