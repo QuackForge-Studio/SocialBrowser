@@ -7,7 +7,7 @@
                     "typecheck":  "tsc -b",
                     "lint":  "eslint . --ext .ts",
                     "dev":  "pnpm --filter @social-browser/main dev",
-                    "build":  "pnpm -r build",
+                    "build":  "node scripts/build-all.mjs",
                     "package":  "pnpm --filter @social-browser/main package",
                     "test":  "powershell -File scripts/run-tests.ps1",
                     "test:integration":  "vitest run --config vitest.integration.config.ts",
