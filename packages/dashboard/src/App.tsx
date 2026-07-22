@@ -95,7 +95,9 @@ export function App() {
   const handleCloseTab = useCallback(async (tabId: string) => {
     const bridge = getBridge();
     if (bridge) {
-      await bridge.closeTab({ tabId });
+      if ((bridge as any).closeBrowserTab) {
+      await (bridge as any).closeBrowserTab({ tabId });
+    }
     }
   }, []);
 

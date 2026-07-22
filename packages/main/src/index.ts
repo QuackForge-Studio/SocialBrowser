@@ -284,6 +284,17 @@ ipcMain.handle('dash:navigate-tab', (_event, params: { tabId: string; url: strin
   return { success: false, error: 'Tab not found' };
 });
 
+ipcMain.handle('dash:close-browser-tab', (_event, params: { tabId: string }) => {
+  const { tabId } = params;
+  const btv = browserTabRegistry.get(tabId);
+  if (btv) {
+    browserTabRegistry.delete(tabId);
+    layoutManager?.closeTab(tabId);
+    return { success: true };
+  }
+  return { success: false, error: 'Tab not found' };
+});
+
 ipcMain.handle('dash:workspace:get-tabs', () => {
   const tabs = layoutManager?.getTabs() || [];
   const activeTabId = layoutManager?.getActiveTabId() || null;
@@ -296,14 +307,6 @@ ipcMain.handle('dash:workspace:get-tabs', () => {
       url: (browserTabRegistry.get(Number(t.id)) as any)?.getUrl?.() || '',
     })),
   };
-});
-
-ipcMain.handle('dash:workspace:close-tab', (_event, params: { tabId: string }) => {
-  if (params?.tabId) {
-    layoutManager?.closeTab(params.tabId);
-    return { success: true };
-  }
-  return { success: false, error: 'Invalid tabId' };
 });
 
 ipcMain.handle('dash:workspace:show-dashboard', () => {

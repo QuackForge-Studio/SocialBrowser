@@ -212,7 +212,7 @@ export interface DashboardBridge {
   getBrowserTabs: () => Promise<PlatformTab[]>;
   getTabUrl: (params: { tabId: string }) => Promise<{ url: string }>;
   navigateTab: (params: { tabId: string; url: string }) => Promise<{ success: boolean }>;
-  closeTab: (params: { tabId: string }) => Promise<{ success: boolean; error?: string }>;
+  closeBrowserTab: (params: { tabId: string }) => Promise<{ success: boolean; error?: string }>;
 
   // ===== Compliance APIs =====
   acknowledgeAccount: (params: { accountId: string }) => Promise<{ acknowledged: boolean }>;
