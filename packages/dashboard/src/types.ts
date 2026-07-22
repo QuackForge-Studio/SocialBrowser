@@ -1,5 +1,18 @@
-﻿/** Dashboard view identifiers */
-export type DashboardView = 'calendar' | 'analytics' | 'settings' | 'workspaces';
+/** Dashboard view identifiers */
+export type DashboardView = 'profiles' | 'workspaces' | 'proxies' | 'calendar' | 'analytics' | 'settings';
+
+export interface BrowserProfile {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  groupId: string;
+  partition: string;
+  proxyUrl?: string;
+  userAgent?: string;
+  createdAt: number;
+  lastOpenedAt: number;
+}
 
 /** A platform tab entry */
 export interface PlatformTab {

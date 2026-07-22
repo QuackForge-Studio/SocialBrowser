@@ -1,4 +1,4 @@
-﻿const esbuild = require('esbuild');
+const esbuild = require('esbuild');
 const path = require('path');
 const fs = require('fs/promises');
 const postcss = require('postcss');
@@ -29,6 +29,8 @@ async function buildJs() {
     format: 'iife',
     sourcemap: true,
     loader: {
+      '.svg': 'dataurl',
+      '.png': 'dataurl',
       '.tsx': 'tsx',
       '.ts': 'ts',
     },

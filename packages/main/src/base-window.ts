@@ -1,11 +1,5 @@
-﻿import { BrowserWindow } from 'electron';
+import { BrowserWindow } from 'electron';
 
-/**
- * BaseWindow is a wrapper around BrowserWindow that serves as a native
- * view container WITHOUT a built-in renderer. No loadFile/loadURL is
- * called on the BrowserWindow — all content comes from WebContentsView
- * children managed by the ViewLayoutManager.
- */
 export class BaseWindow {
   public readonly win: BrowserWindow;
   private resizeHandlers: Array<() => void> = [];
@@ -15,12 +9,14 @@ export class BaseWindow {
 
   constructor() {
     this.win = new BrowserWindow({
-      width: 1200,
+      width: 1280,
       height: 800,
-      minWidth: 1024,
-      minHeight: 700,
-      title: 'Social Browser',
+      minWidth: 900,
+      minHeight: 600,
+      frame: false,
+      title: '',
       show: false,
+      backgroundColor: '#0f1117',
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -28,80 +24,22 @@ export class BaseWindow {
       },
     });
 
-    // IMPORTANT: Do NOT call loadFile/loadURL on this BrowserWindow.
-    // The BaseWindow serves as a native container only. All content
-    // comes from WebContentsView children.
-
-    this.win.on('resize', () => {
-      for (const handler of this.resizeHandlers) {
-        handler();
-      }
-    });
-
-    this.win.on('maximize', () => {
-      for (const handler of this.maximizeHandlers) {
-        handler();
-      }
-    });
-
-    this.win.on('unmaximize', () => {
-      for (const handler of this.unmaximizeHandlers) {
-        handler();
-      }
-    });
-
-    this.win.on('close', (event: Electron.Event) => {
-      for (const handler of this.closeHandlers) {
-        handler(event);
-      }
-    });
+    this.win.on('resize', () => { for (const h of this.resizeHandlers) h(); });
+    this.win.on('maximize', () => { for (const h of this.maximizeHandlers) h(); });
+    this.win.on('unmaximize', () => { for (const h of this.unmaximizeHandlers) h(); });
+    this.win.on('close', (event: Electron.Event) => { for (const h of this.closeHandlers) h(event); });
   }
 
-  /** The root contentView of the BrowserWindow. */
-  get contentView() {
-    return this.win.contentView;
-  }
-
-  /** Get the content area dimensions. */
+  get contentView() { return this.win.contentView; }
   getContentBounds(): { width: number; height: number } {
-    const bounds = this.win.getBounds();
-    // Use the window client area size (content view bounds).
     const cb = this.win.contentView.getBounds();
     return { width: cb.width, height: cb.height };
   }
-
-  /** Register a resize event handler. */
-  onResize(handler: () => void): void {
-    this.resizeHandlers.push(handler);
-  }
-
-  /** Register a maximize event handler. */
-  onMaximize(handler: () => void): void {
-    this.maximizeHandlers.push(handler);
-  }
-
-  /** Register an unmaximize event handler. */
-  onUnmaximize(handler: () => void): void {
-    this.unmaximizeHandlers.push(handler);
-  }
-
-  /** Register a close event handler. */
-  onClose(handler: (event: Electron.Event) => void): void {
-    this.closeHandlers.push(handler);
-  }
-
-  /** Show the window. */
-  show(): void {
-    this.win.show();
-  }
-
-  /** Close the window. */
-  close(): void {
-    this.win.close();
-  }
-
-  /** Destroy the window. */
-  destroy(): void {
-    this.win.destroy();
-  }
+  onResize(handler: () => void): void { this.resizeHandlers.push(handler); }
+  onMaximize(handler: () => void): void { this.maximizeHandlers.push(handler); }
+  onUnmaximize(handler: () => void): void { this.unmaximizeHandlers.push(handler); }
+  onClose(handler: (event: Electron.Event) => void): void { this.closeHandlers.push(handler); }
+  show(): void { this.win.show(); }
+  close(): void { this.win.close(); }
+  destroy(): void { this.win.destroy(); }
 }

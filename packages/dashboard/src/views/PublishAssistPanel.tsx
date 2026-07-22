@@ -78,21 +78,21 @@ export function PublishAssistPanel({
 
   const containerCls = "w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-lg";
   const btnPrimaryCls =
-    "inline-flex items-center gap-1.5 rounded-md bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-colors hover:bg-accent-hover active:translate-y-px";
+    "inline-flex items-center gap-1.5 rounded-md bg-accent px-5 py-2 text-[19px] font-semibold text-accent-foreground transition-colors hover:bg-accent-hover active:translate-y-px";
   const btnPrimarySurfaceCls =
-    "inline-flex items-center gap-1.5 rounded-md bg-bg-elevated border border-border px-5 py-2 text-[13px] font-medium text-text transition-colors hover:bg-surface-hover active:translate-y-px";
+    "inline-flex items-center gap-1.5 rounded-md bg-bg-elevated border border-border px-5 py-2 text-[19px] font-medium text-text transition-colors hover:bg-surface-hover active:translate-y-px";
   const btnSecondaryCls =
-    "rounded-md border border-border px-5 py-2 text-[13px] text-text-dim transition-colors hover:bg-surface-hover";
+    "rounded-md border border-border px-5 py-2 text-[19px] text-text-dim transition-colors hover:bg-surface-hover";
 
   if (status === "idle") {
     return (
       <div className={containerCls}>
-        <h3 className="text-[15px] font-semibold tracking-tight text-text">Publish Draft</h3>
-        <p className="mt-1 text-[12px] text-text-dim">
+        <h3 className="text-[19px] font-semibold tracking-tight text-text">Publish Draft</h3>
+        <p className="mt-1 text-[16px] text-text-dim">
           Platform: <span className="font-medium text-text">{platform}</span>
         </p>
 
-        <div className="mt-3 max-h-40 overflow-y-auto rounded-md border border-border bg-bg p-3 text-[12px] leading-relaxed text-text whitespace-pre-wrap break-words">
+        <div className="mt-3 max-h-40 overflow-y-auto rounded-md border border-border bg-bg p-3 text-[16px] leading-relaxed text-text whitespace-pre-wrap break-words">
           {text}
         </div>
 
@@ -111,11 +111,11 @@ export function PublishAssistPanel({
   if (status === "confirming") {
     return (
       <div className={containerCls}>
-        <h3 className="text-[15px] font-semibold tracking-tight text-text">Confirm Publication</h3>
-        <p className="mt-2 text-[13px] leading-relaxed text-text-dim">
+        <h3 className="text-[19px] font-semibold tracking-tight text-text">Confirm Publication</h3>
+        <p className="mt-2 text-[19px] leading-relaxed text-text-dim">
           This will open {platform} and insert your text into the compose field.
         </p>
-        <p className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-warning">
+        <p className="mt-1 flex items-center gap-1.5 text-[19px] font-medium text-warning">
           <WarningCircle size={14} weight="fill" />
           You must manually click the Publish button on the platform.
         </p>
@@ -138,8 +138,8 @@ export function PublishAssistPanel({
   if (status === "navigating" || status === "prefilling") {
     return (
       <div className={containerCls}>
-        <h3 className="text-[15px] font-semibold tracking-tight text-text">Publishing...</h3>
-        <p className="mt-2 text-[13px] text-text-dim">
+        <h3 className="text-[19px] font-semibold tracking-tight text-text">Publishing...</h3>
+        <p className="mt-2 text-[19px] text-text-dim">
           {status === "navigating" ? `Navigating to ${platform}...` : "Inserting text into compose field..."}
         </p>
         <div className="mt-3 h-0.5 w-full overflow-hidden rounded-full bg-border">
@@ -158,9 +158,9 @@ export function PublishAssistPanel({
       <div className={containerCls}>
         <div className="mb-3 flex items-center gap-2">
           <Check size={18} weight="bold" className="text-success" />
-          <h3 className="text-[15px] font-semibold text-success">Text Inserted</h3>
+          <h3 className="text-[19px] font-semibold text-success">Text Inserted</h3>
         </div>
-        <p className="mb-4 text-[13px] leading-relaxed text-text">{SUCCESS_MESSAGE}</p>
+        <p className="mb-4 text-[19px] leading-relaxed text-text">{SUCCESS_MESSAGE}</p>
 
         <div className="flex justify-end gap-2.5">
           <button
@@ -183,12 +183,12 @@ export function PublishAssistPanel({
     <div className={containerCls}>
       <div className="mb-3 flex items-center gap-2">
         <X size={18} weight="bold" className="text-error" />
-        <h3 className="text-[15px] font-semibold text-error">Publication Failed</h3>
+        <h3 className="text-[19px] font-semibold text-error">Publication Failed</h3>
       </div>
       {errorMsg && (
-        <p className="mb-3 text-[12px] text-error">{errorMsg}</p>
+        <p className="mb-3 text-[16px] text-error">{errorMsg}</p>
       )}
-      <p className="mb-4 text-[12px] text-text-dim">
+      <p className="mb-4 text-[16px] text-text-dim">
         You can still copy the text to your clipboard and paste it manually.
       </p>
 

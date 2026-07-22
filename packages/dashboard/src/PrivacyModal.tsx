@@ -28,8 +28,8 @@ export function PrivacyModal({ onAcknowledge }: PrivacyModalProps) {
         </h2>
 
         <div className="mt-4 space-y-3">
-          <p className="text-[13px] leading-relaxed text-text">{PRIVACY_TEXT}</p>
-          <p className="text-[12px] leading-relaxed text-text-dim">
+          <p className="text-[19px] leading-relaxed text-text">{PRIVACY_TEXT}</p>
+          <p className="text-[16px] leading-relaxed text-text-dim">
             This application processes your social media data entirely on your local machine.
             No data is shared with third parties except when you explicitly use AI features,
             in which case only the text you select is sent to your configured AI provider.
@@ -41,7 +41,7 @@ export function PrivacyModal({ onAcknowledge }: PrivacyModalProps) {
             type="button"
             onClick={onAcknowledge}
             data-testid="privacy-acknowledge-btn"
-            className="rounded-md bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-colors duration-150 hover:bg-accent-hover active:translate-y-px"
+            className="rounded-md bg-accent px-5 py-2 text-[19px] font-semibold text-accent-foreground transition-colors duration-150 hover:bg-accent-hover active:translate-y-px"
           >
             I Understand
           </button>

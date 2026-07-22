@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { DashboardView, PlatformTab } from './types';
 import type { DashboardBridge } from './types';
 import { Sidebar, DEFAULT_NAV_ITEMS } from './Sidebar';
-import { TabBar } from './TabBar';
+import { TitleBar } from './TitleBar';
+import { ProfileLauncher } from './views/ProfileLauncher';
 import { CalendarView } from './views/CalendarView';
 import { AnalyticsView } from './views/AnalyticsView';
 import { SettingsView } from './views/SettingsView';
@@ -14,80 +15,49 @@ function getBridge(): DashboardBridge | undefined {
 }
 
 export function App() {
-  const [activeView, setActiveView] = useState<DashboardView>('workspaces');
+  const [activeView, setActiveView] = useState<DashboardView>('profiles');
   const [tabs] = useState<PlatformTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
-  // Check first-launch privacy acknowledgment
   useEffect(() => {
     const bridge = getBridge();
     if (!bridge) return;
-
     bridge.getSettings().then((settings) => {
-      const settingsMap = settings as Record<string, string>;
-      if (settingsMap.privacy_acknowledged !== 'true') {
-        setShowPrivacyModal(true);
-      }
-    }).catch((err) => {
-      console.error('[App] Failed to check privacy settings:', err);
-      setShowPrivacyModal(true);
-    });
+      if ((settings as Record<string, string>).privacy_acknowledged !== 'true') setShowPrivacyModal(true);
+    }).catch(() => setShowPrivacyModal(true));
   }, []);
 
   const handlePrivacyAcknowledge = useCallback(() => {
     const bridge = getBridge();
-    if (bridge) {
-      bridge.updateSettings({ privacy_acknowledged: 'true' }).catch((err) => {
-        console.error('[App] Failed to save privacy acknowledgment:', err);
-      });
-    }
+    if (bridge) bridge.updateSettings({ privacy_acknowledged: 'true' }).catch(() => {});
     setShowPrivacyModal(false);
   }, []);
 
-  const handleNavigateToPlatform = useCallback(
-    (platform: string, accountId: string) => {
-      const bridge = getBridge();
-      if (bridge) {
-        bridge.navigateTo({ platform, accountId });
-      }
-      console.log('[Dashboard] navigate-to:', { platform, accountId });
-    },
-    []
-  );
-
-  const handleAddTab = useCallback(() => {
-    console.log('[Dashboard] Add tab requested');
-  }, []);
-
-  const handleCloseTab = useCallback((_tabId: string) => {
-    console.log('[Dashboard] Close tab requested:', _tabId);
+  const handleAddTab = useCallback(() => {}, []);
+  const handleCloseTab = useCallback((_tabId: string) => {}, []);
+  const handleNavigateToPlatform = useCallback((platform: string, accountId: string) => {
+    const bridge = getBridge();
+    if (bridge) bridge.navigateTo({ platform, accountId });
   }, []);
 
   const renderContent = () => {
     switch (activeView) {
-      case 'workspaces':
-        return <WorkspaceManager />;
-      case 'calendar':
-        return <CalendarView />;
-      case 'analytics':
-        return <AnalyticsView />;
-      case 'settings':
-        return <SettingsView />;
-      default:
-        return <WorkspaceManager />;
+      case 'profiles': return <ProfileLauncher />;
+      case 'workspaces': return <WorkspaceManager />;
+      case 'calendar': return <CalendarView />;
+      case 'analytics': return <AnalyticsView />;
+      case 'settings': return <SettingsView />;
+      default: return <ProfileLauncher />;
     }
   };
 
-  useEffect(() => {
-    console.log('[Dashboard] Shell loaded successfully');
-  }, []);
-
   return (
     <div className="h-full w-full bg-bg text-text">
-      <TabBar
+      <TitleBar
         tabs={tabs}
         activeTabId={activeTabId}
+        activeView={activeView}
         onTabSelect={setActiveTabId}
         onTabClose={handleCloseTab}
         onAddTab={handleAddTab}
@@ -98,12 +68,10 @@ export function App() {
         onNavigate={setActiveView}
         onNavigateToPlatform={handleNavigateToPlatform}
       />
-      <main className="absolute bottom-0 left-[200px] right-0 top-[44px] overflow-y-auto">
+      <main className="absolute bottom-0 left-[232px] right-0 top-11 overflow-y-auto">
         {renderContent()}
       </main>
-      {showPrivacyModal ? (
-        <PrivacyModal onAcknowledge={handlePrivacyAcknowledge} />
-      ) : null}
+      {showPrivacyModal && <PrivacyModal onAcknowledge={handlePrivacyAcknowledge} />}
     </div>
   );
 }

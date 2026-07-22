@@ -1,4 +1,12 @@
-﻿import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
+
+// === Window controls ===
+contextBridge.exposeInMainWorld('__socialBrowserWindow', {
+  minimize: () => ipcRenderer.invoke('window:minimize'),
+  maximize: () => ipcRenderer.invoke('window:maximize'),
+  close: () => ipcRenderer.invoke('window:close'),
+  isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+});
 
 contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
   // ===== Existing Dashboard APIs =====

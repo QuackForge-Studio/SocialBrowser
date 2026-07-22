@@ -267,13 +267,28 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `;
-;
+
+export const CREATE_PROFILES = `
+CREATE TABLE IF NOT EXISTS profiles (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#6366f1',
+  icon TEXT NOT NULL DEFAULT 'globe',
+  group_id TEXT NOT NULL,
+  partition TEXT NOT NULL UNIQUE,
+  proxy_url TEXT,
+  user_agent TEXT,
+  created_at INTEGER NOT NULL,
+  last_opened_at INTEGER NOT NULL
+);
+`;
 
 export const WORKSPACE_TABLE_STATEMENTS: string[] = [
   CREATE_WORKSPACES,
   CREATE_TAB_GROUPS,
   CREATE_GROUP_ACCOUNTS,
   CREATE_GROUP_TABS,
+  CREATE_PROFILES,
 ];
 
 // ===== All CREATE TABLE statements =====

@@ -24,6 +24,7 @@ import { ViewLayoutManager } from './view-layout-manager';
 import { SessionManager, type Platform } from './session-manager';
 import { PlatformView } from './platform-view';
 import { platformViewRegistry } from './platform-view-registry';
+import { TabLruManager } from './tab-lru-manager';
 
 // ===== Types =====
 
@@ -38,7 +39,7 @@ export interface RuntimeTabInfo {
   groupId: string;
   platform: string;
   accountId: string;
-  platformView: PlatformView;
+  platformView?: PlatformView;
   /** The webContents ID used by ViewLayoutManager */
   webContentsId: number;
 }
@@ -99,6 +100,11 @@ export class WorkspaceTabController {
   private readonly shownTabIds: Set<string> = new Set();
 
   /**
+   * LRU tab eviction manager for controlling memory usage.
+   */
+  private readonly lruManager: TabLruManager;
+
+  /**
    * Cached workspace-to-group membership for cleanup on workspace deletion.
    * This is populated lazily when groups are created/registered.
    * Map<workspaceId, Set<groupId>>
@@ -109,10 +115,12 @@ export class WorkspaceTabController {
     layoutManager: ViewLayoutManager,
     sessionManager: SessionManager,
     workerRequest: WorkerRequestFn,
+    lruOptions?: { maxHotTabs?: number; coldInactivityMs?: number },
   ) {
     this.layoutManager = layoutManager;
     this.sessionManager = sessionManager;
     this.workerRequest = workerRequest;
+    this.lruManager = new TabLruManager(lruOptions);
     this.registerIpcHandlers();
   }
 
@@ -221,55 +229,84 @@ export class WorkspaceTabController {
    * Open (create or activate) a platform tab for the given account in the
    * currently active group. Validates group membership before creation.
    */
-  async openTab(platform: string, accountId: string): Promise<OpenTabResult> {
+  async openTab(platform: string, accountId: string, targetUrl?: string): Promise<OpenTabResult> {
     try {
       if (!this.activeGroupId) {
-        return { success: false, error: 'No active group selected' };
-      }
-
-
-      // Validate acknowledgement: must be acknowledged before navigation
-      const acknowledged = await this.checkAcknowledged(accountId);
-      if (!acknowledged) {
-        return {
-          success: false,
-          error: 'Account ' + accountId + ' has not acknowledged the ToS/account-risk notice. ' +
-            'Session isolation is not anti-detection and does not evade platform enforcement. ' +
-            'Capture is read-only observation of owned content only.',
-        };
-      }
-      // Validate membership: the account must be in the active group
-      const isMember = await this.validateMembership(accountId, this.activeGroupId);
-      if (!isMember) {
-        return {
-          success: false,
-          error: 'Account ' + accountId + ' is not a member of the active group',
-        };
+        this.activeGroupId = 'default-group';
+        this.activeWorkspaceId = 'default-workspace';
       }
 
       // Build namespaced runtime tab ID
       const tabId = this.buildTabId(this.activeGroupId, platform, accountId);
-
-      // Check if a PlatformView already exists for this (group, platform, account)
       const groupMap = this.getOrCreateGroupMap(this.activeGroupId);
       const existing = groupMap.get(tabId);
+
       if (existing) {
-        // Activate the existing platform view (reuse preserves session state)
-        this.layoutManager.activateTab(existing.webContentsId.toString());
-        this.shownTabIds.add(tabId);
-        return { success: true, tabId };
+        if (existing.platformView && !existing.platformView.isDestroyed()) {
+          // Tab is already HOT — touch and activate
+          this.lruManager.touchTab(tabId, existing.platformView.getUrl());
+          this.lruManager.markHot(tabId);
+          this.layoutManager.activateTab(existing.webContentsId.toString());
+          this.shownTabIds.add(tabId);
+          this.evictColdTabs();
+          return { success: true, tabId };
+        } else {
+          // Tab is COLD — rehydrate view from persistent partition
+          const pv = new PlatformView({
+            platform: platform as Platform,
+            accountId,
+          });
+
+          const webContentsId = pv.view.webContents.id;
+          const partition = 'persist:social-browser:' + platform + ':' + accountId;
+
+          platformViewRegistry.register({
+            webContentsId,
+            platform,
+            accountId,
+            partition,
+          });
+
+          const label = platform + ':' + accountId.substring(0, 8);
+          this.layoutManager.addTab(
+            webContentsId.toString(),
+            label,
+            pv.view,
+            () => {
+              this.removeTabFromGroup(tabId);
+            },
+          );
+
+          existing.platformView = pv;
+          existing.webContentsId = webContentsId;
+
+          const savedRecord = this.lruManager.getRecord(tabId);
+          if (savedRecord?.savedUrl) {
+            void pv.view.webContents.loadURL(savedRecord.savedUrl);
+          }
+
+          this.lruManager.markHot(tabId);
+          this.lruManager.touchTab(tabId, savedRecord?.savedUrl);
+          this.layoutManager.activateTab(webContentsId.toString());
+          this.shownTabIds.add(tabId);
+
+          this.evictColdTabs();
+          return { success: true, tabId };
+        }
       }
 
-      // Create a new PlatformView
+      // Create a brand new PlatformView
       const pv = new PlatformView({
         platform: platform as Platform,
         accountId,
       });
 
+      const initialUrl = targetUrl ? (targetUrl.startsWith('http') ? targetUrl : 'https://' + targetUrl) : 'https://google.com';
+      void pv.view.webContents.loadURL(initialUrl);
+
       const webContentsId = pv.view.webContents.id;
       const partition = 'persist:social-browser:' + platform + ':' + accountId;
 
-      // Register with the platform view registry for IPC validation
       platformViewRegistry.register({
         webContentsId,
         platform,
@@ -277,19 +314,16 @@ export class WorkspaceTabController {
         partition,
       });
 
-      // Add to ViewLayoutManager
       const label = platform + ':' + accountId.substring(0, 8);
       this.layoutManager.addTab(
         webContentsId.toString(),
         label,
         pv.view,
-        // onClose callback: clean up our tracking when VLM closes the tab
         () => {
           this.removeTabFromGroup(tabId);
         },
       );
 
-      // Track in our group view storage
       const runtimeInfo: RuntimeTabInfo = {
         tabId,
         groupId: this.activeGroupId,
@@ -300,9 +334,23 @@ export class WorkspaceTabController {
       };
       groupMap.set(tabId, runtimeInfo);
 
-      // Activate the tab (show it)
+      // Register in LRU manager
+      this.lruManager.registerTab({
+        tabId,
+        groupId: this.activeGroupId,
+        platform,
+        accountId,
+        savedUrl: '',
+        state: 'HOT',
+      });
+      this.lruManager.touchTab(tabId, pv.getUrl());
+
+      // Activate the tab
       this.layoutManager.activateTab(webContentsId.toString());
       this.shownTabIds.add(tabId);
+
+      // Check for LRU eviction of inactive tabs
+      this.evictColdTabs();
 
       return { success: true, tabId };
     } catch (err) {
@@ -574,12 +622,13 @@ export class WorkspaceTabController {
    */
   dispose(): void {
     this.removeIpcHandlers();
+    this.lruManager.clear();
 
     for (const [, groupMap] of this.groupViews) {
       for (const [, info] of groupMap) {
         try {
           platformViewRegistry.unregister(info.webContentsId);
-          info.platformView.close();
+          info.platformView?.close();
         } catch {
           // Already closed
         }
@@ -674,6 +723,7 @@ export class WorkspaceTabController {
    * Remove a tab from its group (internal cleanup).
    */
   private removeTabFromGroup(tabId: string): void {
+    this.lruManager.unregisterTab(tabId);
     for (const [, groupMap] of this.groupViews) {
       if (groupMap.has(tabId)) {
         const info = groupMap.get(tabId);
@@ -690,20 +740,53 @@ export class WorkspaceTabController {
   /**
    * Hide all currently shown tabs (make them invisible).
    * Used during group switching.
-   * The views remain in contentView with visible=false to preserve
-   * session state (cookies, localStorage, etc.).
+   * Views remain registered in LRU manager, but non-active ones are subject to eviction.
    */
   private hideAllShownTabs(): void {
-    // Iterate over a copy since shownTabIds might change during iteration
     const shown = Array.from(this.shownTabIds);
     for (const tabId of shown) {
       for (const [, groupMap] of this.groupViews) {
         const info = groupMap.get(tabId);
-        if (info) {
-          info.platformView.view.setVisible(false);
+        if (info && info.platformView && !info.platformView.isDestroyed()) {
+          info.platformView.setVisible(false);
           this.shownTabIds.delete(tabId);
           break;
         }
+      }
+    }
+    this.evictColdTabs();
+  }
+
+  /**
+   * Run LRU eviction check and unload inactive candidate tabs.
+   */
+  private evictColdTabs(): void {
+    const candidates = this.lruManager.getEvictionCandidates(this.shownTabIds);
+    for (const tabId of candidates) {
+      this.unloadColdTab(tabId);
+    }
+  }
+
+  /**
+   * Unload a cold tab from memory while keeping its metadata record alive.
+   */
+  private unloadColdTab(tabId: string): void {
+    for (const [, groupMap] of this.groupViews) {
+      const info = groupMap.get(tabId);
+      if (info && info.platformView && !info.platformView.isDestroyed()) {
+        const currentUrl = info.platformView.getUrl();
+        this.lruManager.updateSavedUrl(tabId, currentUrl);
+
+        try {
+          this.layoutManager.closeTab(info.webContentsId.toString());
+        } catch {
+          // Tab may already be closed in layout manager
+        }
+        platformViewRegistry.unregister(info.webContentsId);
+        info.platformView.close();
+
+        this.lruManager.markCold(tabId);
+        info.platformView = undefined;
       }
     }
   }

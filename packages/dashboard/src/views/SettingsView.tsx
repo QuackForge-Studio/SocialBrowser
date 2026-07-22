@@ -63,7 +63,7 @@ export function SettingsView() {
         <h2 className="text-lg font-semibold tracking-tight">Settings</h2>
         <div className="mt-10 flex flex-col items-center gap-3 text-text-dim">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" />
-          <p className="text-[13px]">Loading settings...</p>
+          <p className="text-[19px]">Loading settings...</p>
         </div>
       </div>
     );
@@ -82,16 +82,16 @@ export function SettingsView() {
 
       {/* Accounts Section */}
       <section className="mt-8">
-        <h3 className="text-[13px] font-semibold uppercase tracking-wider text-text-faint">
+        <h3 className="text-[19px] font-semibold uppercase tracking-wider text-text-faint">
           Accounts
         </h3>
         {accounts.length === 0 ? (
-          <div className="mt-3 rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[13px] text-text-dim">
+          <div className="mt-3 rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[19px] text-text-dim">
             No accounts configured yet. Add an account from the platform tabs.
           </div>
         ) : (
           <div className="mt-3 overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-[13px]" data-testid="accounts-table">
+            <table className="w-full text-[19px]" data-testid="accounts-table">
               <thead>
                 <tr className="bg-surface text-left text-text-dim">
                   <th className="px-4 py-2.5 font-medium">Platform</th>
@@ -108,7 +108,7 @@ export function SettingsView() {
                   >
                     <td className="px-4 py-2.5 font-medium text-text">{account.platform}</td>
                     <td className="px-4 py-2.5 text-text-dim">{account.handle}</td>
-                    <td className="px-4 py-2.5 font-mono text-[12px] text-text-dim">
+                    <td className="px-4 py-2.5 font-mono text-[16px] text-text-dim">
                       {account.adapterVersion != null ? 'v' + account.adapterVersion : 'N/A'}
                     </td>
                   </tr>
@@ -121,11 +121,11 @@ export function SettingsView() {
 
       {/* AI Provider Section */}
       <section className="mt-8">
-        <h3 className="text-[13px] font-semibold uppercase tracking-wider text-text-faint">
+        <h3 className="text-[19px] font-semibold uppercase tracking-wider text-text-faint">
           AI Provider
         </h3>
         <div className="mt-3 flex items-center gap-3">
-          <label htmlFor="provider-select" className="text-[13px] text-text-dim">
+          <label htmlFor="provider-select" className="text-[19px] text-text-dim">
             Provider:
           </label>
           <select
@@ -144,7 +144,7 @@ export function SettingsView() {
           <span
             data-testid="key-status"
             className={[
-              'rounded-full px-2.5 py-0.5 text-[11px] font-medium',
+              'rounded-full px-2.5 py-0.5 text-[19px] font-medium',
               keyStatus?.configured
                 ? 'bg-success-soft text-success'
                 : 'bg-warning-soft text-warning',
@@ -157,16 +157,16 @@ export function SettingsView() {
 
       {/* Adapter Versions Section */}
       <section className="mt-8">
-        <h3 className="text-[13px] font-semibold uppercase tracking-wider text-text-faint">
+        <h3 className="text-[19px] font-semibold uppercase tracking-wider text-text-faint">
           Adapter Versions
         </h3>
         {uniqueAdapterVersions.length === 0 ? (
-          <div className="mt-3 rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[13px] text-text-dim">
+          <div className="mt-3 rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[19px] text-text-dim">
             No adapter version data available yet.
           </div>
         ) : (
           <div className="mt-3 overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-[13px]" data-testid="adapter-versions-table">
+            <table className="w-full text-[19px]" data-testid="adapter-versions-table">
               <thead>
                 <tr className="bg-surface text-left text-text-dim">
                   <th className="px-4 py-2.5 font-medium">Platform</th>
@@ -180,7 +180,7 @@ export function SettingsView() {
                     className="bg-bg-elevated transition-colors hover:bg-surface-hover"
                   >
                     <td className="px-4 py-2.5 font-medium text-text">{av.platform}</td>
-                    <td className="px-4 py-2.5 font-mono text-[12px] text-text-dim">v{av.version}</td>
+                    <td className="px-4 py-2.5 font-mono text-[16px] text-text-dim">v{av.version}</td>
                   </tr>
                 ))}
               </tbody>
@@ -191,11 +191,11 @@ export function SettingsView() {
 
       {/* Privacy Notice Section */}
       <section className="mt-8" data-testid="privacy-section">
-        <h3 className="text-[13px] font-semibold uppercase tracking-wider text-text-faint">
+        <h3 className="text-[19px] font-semibold uppercase tracking-wider text-text-faint">
           Privacy
         </h3>
         <div className="mt-3 rounded-lg border border-border bg-surface p-4">
-          <p className="text-[13px] leading-relaxed text-text-dim" data-testid="privacy-text">
+          <p className="text-[19px] leading-relaxed text-text-dim" data-testid="privacy-text">
             {PRIVACY_TEXT}
           </p>
         </div>

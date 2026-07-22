@@ -44,6 +44,9 @@ export type WorkerMessageType =
   | 'record_ai_audit'
   | 'get_audit_events'
   | 'get_group_account_ids'
+  | 'get_profiles'
+  | 'create_profile'
+  | 'delete_profile'
   | 'get-api-key-response';
 
 export interface WorkerMessage {

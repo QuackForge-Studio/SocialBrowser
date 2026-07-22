@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Workspace UI Tests
  *
  * Tests for WorkspaceManager, ToSAcknowledgment, DenialBanner, and PublishAssistPanel.
@@ -664,7 +664,7 @@ describe("PublishAssistPanel", () => {
       fireEvent.click(screen.getByText("Publish"));
 
       // Click confirm
-      fireEvent.click(screen.getByText("Yes, Open & Insert"));
+      fireEvent.click(screen.getByText(/Yes, Open/i));
 
       // Wait for the flow to complete
       await waitFor(() => {
@@ -703,7 +703,7 @@ describe("PublishAssistPanel", () => {
 
       // Navigate through the flow
       fireEvent.click(screen.getByText("Publish"));
-      fireEvent.click(screen.getByText("Yes, Open & Insert"));
+      fireEvent.click(screen.getByText(/Yes, Open/i));
 
       // Wait for success state
       await waitFor(() => {
@@ -733,7 +733,7 @@ describe("PublishAssistPanel", () => {
 
       // Navigate through the flow
       fireEvent.click(screen.getByText("Publish"));
-      fireEvent.click(screen.getByText("Yes, Open & Insert"));
+      fireEvent.click(screen.getByText(/Yes, Open/i));
 
       // Wait for success state
       await waitFor(() => {

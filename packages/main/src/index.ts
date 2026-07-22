@@ -1,4 +1,4 @@
-import { app, ipcMain, clipboard } from 'electron';
+import { app, ipcMain, clipboard, Menu, nativeImage } from 'electron';
 import { Worker } from 'worker_threads';
 import path from 'path';
 import {
@@ -135,6 +135,9 @@ function setupDashboardIpc(): void {
     { channel: 'dash:get-settings', workerType: 'get_settings' },
     { channel: 'dash:get-analytics', workerType: 'get_analytics' },
     { channel: 'dash:get-heatmap', workerType: 'get_heatmap' },
+    { channel: 'dash:get-profiles', workerType: 'get_profiles' },
+    { channel: 'dash:create-profile', workerType: 'create_profile' },
+    { channel: 'dash:delete-profile', workerType: 'delete_profile' },
   ];
 
   for (const handler of dashHandlers) {
@@ -149,7 +152,7 @@ function setupDashboardIpc(): void {
     });
   }
 
-  // dash:generate-draft — special handling with AI/RAG
+  // dash:generate-draft ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â special handling with AI/RAG
   ipcMain.handle('dash:generate-draft', async (_event, payload: unknown) => {
     try {
       return await workerRequest('generate_draft', payload);
@@ -160,14 +163,21 @@ function setupDashboardIpc(): void {
     }
   });
 
-  // dash:get-key-status — returns masked key status (no key value ever)
+  // dash:get-key-status ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â returns masked key status (no key value ever)
+  // dash:get-key-status ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â  returns masked key status (no key value ever)
   ipcMain.handle('dash:get-key-status', async () => {
     const provider = process.env.AI_PROVIDER || 'openai';
     const configured = vault.hasApiKey(provider);
     return { provider, configured };
   });
 
-  // dash:update-settings — handles API key storage via KeyVault
+  // dash:get-performance-metrics — returns real-time Electron process CPU and memory metrics
+  ipcMain.handle('dash:get-performance-metrics', async () => {
+    const { diagnosticsManager } = await import('./diagnostics-manager');
+    return diagnosticsManager.getSnapshot();
+  });
+
+  // dash:update-settings ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â  handles API key storage via KeyVault
   ipcMain.handle('dash:update-settings', async (_event, settings: Record<string, unknown>) => {
     if (settings.apiKey && typeof settings.apiKey === 'string') {
       const provider = (settings.aiProvider as string) || process.env.AI_PROVIDER || 'openai';
@@ -266,6 +276,9 @@ function setupNavigateToHandler(publishMgr: ReturnType<typeof getPublishAssistMa
         return { success: false, error: 'Platform and accountId are required' };
       }
       console.log(sanitizeLog('[Main] dash:navigate-to: ' + platform + ':' + accountId));
+      if (workspaceController) {
+        return await workspaceController.openTab(platform, accountId, url);
+      }
       const result = await publishMgr.navigateTo({ platform, accountId, url });
       return result;
     } catch (err) {
@@ -334,25 +347,40 @@ function setupClipboardHandler(): void {
   });
 }
 
+
+// ===== Window controls IPC (custom title bar) =====
+function setupWindowControlIpc(): void {
+  ipcMain.handle('window:minimize', () => baseWindow?.win.minimize());
+  ipcMain.handle('window:maximize', () => {
+    if (baseWindow?.win.isMaximized()) baseWindow.win.unmaximize();
+    else baseWindow?.win.maximize();
+    return baseWindow?.win.isMaximized();
+  });
+  ipcMain.handle('window:close', () => baseWindow?.close());
+  ipcMain.handle('window:is-maximized', () => baseWindow?.win.isMaximized() ?? false);
+}
+
 app.whenReady().then(() => {
+  setupWindowControlIpc();
+  // Remove default menu bar (File, Edit, View, Window, Help)
+  Menu.setApplicationMenu(null);
   // Guard against EPIPE crashes when parent process closes pipe
   installConsoleGuard();
 
   console.log('[Main] Social Browser starting...');
 
-  // 1. Start worker thread
-  startWorker();
-
-  // 2. Set up base window, shell view, layout manager, and session manager
+  // 1. Set up base window, shell view, layout manager, and session manager immediately for fast paint
   baseWindow = new BaseWindow();
+  try {
+    const iconPath = path.join(__dirname, 'icon.png');
+    if (require('fs').existsSync(iconPath)) baseWindow.win.setIcon(require('electron').nativeImage.createFromPath(iconPath));
+  } catch { /* icon optional */ }
   shellView = new ShellView();
   layoutManager = new ViewLayoutManager(baseWindow, shellView);
   sessionManager = new SessionManager();
 
-  // 3. Initialize publish assist manager
+  // 2. Initialize publish assist manager & IPC handlers
   const publishMgr = getPublishAssistManager();
-
-  // 4. Wire up IPC handlers
   setupDashboardIpc();
   setupWorkspaceManageIpc();
   setupComplianceIpc();
@@ -360,7 +388,7 @@ app.whenReady().then(() => {
   setupPrefillComposeHandler(publishMgr);
   setupClipboardHandler();
 
-  // 5. Wire up capture IPC validation gate
+  // 3. Wire up capture IPC validation gate
   wireUpIpcGate((channel: string, data: unknown) => {
     if (worker) {
       worker.postMessage({ type: 'process_capture', payload: { channel, data }, id: 'capture-' + Date.now() });
@@ -369,15 +397,20 @@ app.whenReady().then(() => {
     }
   });
 
-  // 6. Create the workspace tab controller (above ViewLayoutManager)
+  // 4. Create the workspace tab controller (above ViewLayoutManager)
   workspaceController = new WorkspaceTabController(
     layoutManager,
     sessionManager,
     workerRequest,
   );
 
-  // 7. Show the window
+  // 5. Show the window immediately (first paint)
   baseWindow.show();
+
+  // 6. Defer background worker thread startup until after window is painted
+  setImmediate(() => {
+    startWorker();
+  });
 
   console.log('[Main] WorkspaceTabController active — verified native navigation while ShellView is hidden');
   console.log('[Main] Social Browser ready');

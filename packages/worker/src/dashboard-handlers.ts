@@ -262,3 +262,58 @@ export function getHeatmapHandler(db: Database.Database, send: SendFn, msgId: st
     send({ id: msgId, success: false, error: msg });
   }
 }
+
+export function getProfilesHandler(db: Database.Database, send: SendFn, msgId: string): void {
+  try {
+    const rows = db.prepare(
+      'SELECT id, name, color, icon, group_id as groupId, partition, ' +
+      'proxy_url as proxyUrl, user_agent as userAgent, created_at as createdAt, ' +
+      'last_opened_at as lastOpenedAt FROM profiles ORDER BY last_opened_at DESC'
+    ).all();
+    send({ id: msgId, success: true, data: rows });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[Dashboard] Get profiles error:', msg);
+    send({ id: msgId, success: false, error: msg });
+  }
+}
+
+export function createProfileHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
+  try {
+    const id = (payload.id as string) || uuidv4();
+    const now = Date.now();
+    const partition = `persist:social-browser:profile:${id}`;
+    db.prepare(
+      'INSERT INTO profiles (id, name, color, icon, group_id, partition, proxy_url, user_agent, created_at, last_opened_at) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+      id,
+      (payload.name as string) || 'New Profile',
+      (payload.color as string) || '#6366f1',
+      (payload.icon as string) || 'globe',
+      (payload.groupId as string) || 'default',
+      partition,
+      (payload.proxyUrl as string) || null,
+      (payload.userAgent as string) || null,
+      now,
+      now
+    );
+    send({ id: msgId, success: true, data: { id, partition } });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[Dashboard] Create profile error:', msg);
+    send({ id: msgId, success: false, error: msg });
+  }
+}
+
+export function deleteProfileHandler(db: Database.Database, send: SendFn, msgId: string, payload: Record<string, unknown>): void {
+  try {
+    const id = payload.id as string;
+    db.prepare('DELETE FROM profiles WHERE id = ?').run(id);
+    send({ id: msgId, success: true, data: { success: true } });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[Dashboard] Delete profile error:', msg);
+    send({ id: msgId, success: false, error: msg });
+  }
+}

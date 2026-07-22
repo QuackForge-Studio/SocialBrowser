@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* === Social Browser â€” Taste-Skill Design Tokens === */
+/* === Social Browser Ã¢â‚¬â€ Taste-Skill Design Tokens === */
 @theme {
   /* Core palette */
   --color-bg-base: #0f1117;
@@ -63,7 +63,26 @@ html, body {
 }
 #root { height: 100%; }
 
-/* ===== MOTION â€” wraps in prefers-reduced-motion ===== */
+/* Global cursor pointer enforcement for interactive elements */
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+select,
+summary,
+a {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"],
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+/* ===== MOTION Ã¢â‚¬â€ wraps in prefers-reduced-motion ===== */
 @media (prefers-reduced-motion: no-preference) {
   /* Sidebar item mount */
   @keyframes sidebarItemIn {
@@ -143,7 +162,7 @@ input[type="text"], input[type="search"], textarea {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 7px 10px;
-  font-size: 13px;
+  font-size: 17px;
   color: var(--color-text-primary);
   transition: border-color var(--motion-fast) var(--motion-spring);
 }
@@ -162,7 +181,7 @@ select {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 7px 32px 7px 10px;
-  font-size: 13px;
+  font-size: 17px;
   color: var(--color-text-primary);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -223,7 +242,7 @@ option {
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -247,7 +266,7 @@ option {
   border-radius: var(--radius-pill);
   background: var(--color-badge-bg);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   color: var(--color-text-muted);
 }
 
@@ -262,5 +281,61 @@ option {
   gap: 12px;
 }
 .empty-state-icon { color: var(--color-text-muted); opacity: 0.4; }
-.empty-state-title { font-size: 13px; color: var(--color-text-muted); font-weight: 500; }
-.empty-state-sub { font-size: 12px; color: var(--color-text-faint); max-width: 260px; line-height: 1.5; }
+.empty-state-title { font-size: 17px; color: var(--color-text-muted); font-weight: 500; }
+.empty-state-sub { font-size: 16px; color: var(--color-text-faint); max-width: 260px; line-height: 1.5; }
+
+/* === Ambient Glow Canvas & Glassmorphism Extensions === */
+.ambient-bg {
+  background-color: var(--color-bg-base);
+  background-image: 
+    radial-gradient(ellipse at 15% 0%, rgba(249, 115, 22, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse at 85% 90%, rgba(10, 102, 194, 0.05) 0%, transparent 55%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.015) 0%, transparent 80%);
+}
+
+.glass-card {
+  background: rgba(26, 29, 39, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  background: rgba(31, 34, 53, 0.85);
+  border-color: rgba(249, 115, 22, 0.35);
+  box-shadow: 0 8px 30px -4px rgba(249, 115, 22, 0.12), 0 4px 12px rgba(0,0,0,0.5);
+  transform: translateY(-2px);
+}
+
+.glass-panel {
+  background: rgba(26, 29, 39, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.platform-pill-twitter { background: rgba(29, 161, 242, 0.12); color: #1DA1F2; border: 1px solid rgba(29, 161, 242, 0.25); }
+.platform-pill-linkedin { background: rgba(10, 102, 194, 0.12); color: #38bdf8; border: 1px solid rgba(10, 102, 194, 0.25); }
+.platform-pill-facebook { background: rgba(8, 102, 255, 0.12); color: #60a5fa; border: 1px solid rgba(8, 102, 255, 0.25); }
+.platform-pill-instagram { background: rgba(228, 64, 95, 0.12); color: #f472b6; border: 1px solid rgba(228, 64, 95, 0.25); }
+.platform-pill-reddit { background: rgba(255, 69, 0, 0.12); color: #ff6b35; border: 1px solid rgba(255, 69, 0, 0.25); }
+.platform-pill-tiktok { background: rgba(0, 242, 234, 0.12); color: #2dd4bf; border: 1px solid rgba(0, 242, 234, 0.25); }
+
+.gradient-avatar-0 { background: linear-gradient(135deg, #f97316, #ea580c); color: #fff; }
+.gradient-avatar-1 { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; }
+.gradient-avatar-2 { background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; }
+.gradient-avatar-3 { background: linear-gradient(135deg, #ec4899, #be185d); color: #fff; }
+.gradient-avatar-4 { background: linear-gradient(135deg, #10b981, #047857); color: #fff; }
+
+.template-card {
+  background: rgba(26, 29, 39, 0.4);
+  border: 1px stroke rgba(255, 255, 255, 0.07);
+  transition: all 180ms ease;
+}
+.template-card:hover {
+  background: rgba(31, 34, 53, 0.7);
+  border-color: rgba(249, 115, 22, 0.4);
+  transform: translateY(-1px);
+}

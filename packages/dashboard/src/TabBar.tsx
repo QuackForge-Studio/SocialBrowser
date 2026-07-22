@@ -12,7 +12,14 @@ interface TabBarProps {
 
 export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onAddTab }: TabBarProps) {
   return (
-    <div className="fixed top-0 left-60 right-0 z-40 flex h-11 items-center gap-1 border-b border-border bg-bg-elevated px-2">
+    <div
+      className="fixed top-0 left-0 right-[220px] z-50 flex h-9 items-center gap-0.5 px-1"
+      style={{
+        background: 'var(--color-bg-base)',
+        borderBottom: '1px solid var(--color-border)',
+      }}
+    >
+      {/* Tabs */}
       {tabs.map((tab) => {
         const active = tab.id === activeTabId;
         return (
@@ -20,22 +27,42 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onAddTab }:
             key={tab.id}
             type="button"
             onClick={() => onTabSelect(tab.id)}
-            className={[
-              'group flex h-8 items-center gap-2 rounded-md border px-3 text-[12px] transition-colors duration-150',
-              active
-                ? 'border-accent bg-accent-soft text-accent'
-                : 'border-transparent text-text-dim hover:bg-surface-hover hover:text-text',
-            ].join(' ')}
+            className="group relative flex h-8 items-center gap-2 rounded-t-lg px-3 text-[14px] transition-all"
+            style={{
+              background: active ? 'var(--color-bg-elevated)' : 'transparent',
+              color: active ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+              borderLeft: active ? '1px solid var(--color-border)' : '1px solid transparent',
+              borderRight: active ? '1px solid var(--color-border)' : '1px solid transparent',
+              borderTop: active ? '1px solid var(--color-border)' : '1px solid transparent',
+              borderBottom: active ? '1px solid var(--color-bg-elevated)' : '1px solid transparent',
+              marginBottom: active ? '-1px' : '0',
+            }}
           >
-            <span>{tab.label}</span>
+            {/* Accent line on top */}
+            {active && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 2,
+                  background: 'var(--color-accent)',
+                  borderTopLeftRadius: 8,
+                  borderTopRightRadius: 8,
+                }}
+              />
+            )}
+            <span className="truncate max-w-[160px]">{tab.label}</span>
             <span
               role="button"
-              aria-label={'Close ' + tab.label + ' tab'}
-              onClick={(e) => {
-                e.stopPropagation();
-                onTabClose(tab.id);
+              aria-label={'Close ' + tab.label}
+              onClick={(e) => { e.stopPropagation(); onTabClose(tab.id); }}
+              className="flex h-4 w-4 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-60 hover:opacity-100"
+              style={{
+                color: 'var(--color-text-muted)',
+                background: 'var(--color-bg-hover)',
               }}
-              className="flex h-4 w-4 items-center justify-center rounded-sm opacity-50 transition-opacity hover:bg-accent-soft hover:opacity-100"
             >
               <X size={10} weight="bold" />
             </span>
@@ -43,11 +70,24 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onAddTab }:
         );
       })}
 
+      {/* Add tab button */}
       <button
         type="button"
         onClick={onAddTab}
-        title="Add platform tab"
-        className="flex h-7 w-7 items-center justify-center rounded-md border border-dashed border-border text-text-faint transition-colors duration-150 hover:border-accent hover:text-accent"
+        title="New tab"
+        className="flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-150"
+        style={{
+          color: 'var(--color-text-faint)',
+          background: 'transparent',
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-accent)';
+          (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-bg-hover)';
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-faint)';
+          (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+        }}
       >
         <Plus size={14} weight="bold" />
       </button>

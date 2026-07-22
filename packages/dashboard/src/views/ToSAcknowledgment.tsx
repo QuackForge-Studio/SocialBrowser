@@ -65,17 +65,17 @@ export function ToSAcknowledgment({
         </div>
 
         {accountLabel && (
-          <p className="mb-2 text-[13px] text-text-dim">
+          <p className="mb-2 text-[19px] text-text-dim">
             Account: <span className="font-medium text-text">{accountLabel}</span>
           </p>
         )}
 
-        <div className="mb-5 rounded-md border border-warning border-l-4 bg-warning-soft p-4 text-[13px] leading-relaxed text-text">
+        <div className="mb-5 rounded-md border border-warning border-l-4 bg-warning-soft p-4 text-[19px] leading-relaxed text-text">
           {NOTICE_TEXT}
         </div>
 
         {error && (
-          <p className="mb-3 flex items-center gap-1.5 text-[12px] text-error">
+          <p className="mb-3 flex items-center gap-1.5 text-[16px] text-error">
             <X size={12} weight="bold" /> {error}
           </p>
         )}
@@ -85,7 +85,7 @@ export function ToSAcknowledgment({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="rounded-md border border-border px-5 py-2 text-[13px] text-text-dim transition-colors hover:bg-surface-hover disabled:opacity-50"
+            className="rounded-md border border-border px-5 py-2 text-[19px] text-text-dim transition-colors hover:bg-surface-hover disabled:opacity-50"
           >
             Cancel
           </button>
@@ -93,7 +93,7 @@ export function ToSAcknowledgment({
             type="button"
             onClick={handleAcknowledge}
             disabled={loading}
-            className="rounded-md bg-accent px-5 py-2 text-[13px] font-semibold text-accent-foreground transition-colors hover:bg-accent-hover active:translate-y-px disabled:opacity-70"
+            className="rounded-md bg-accent px-5 py-2 text-[19px] font-semibold text-accent-foreground transition-colors hover:bg-accent-hover active:translate-y-px disabled:opacity-70"
           >
             {loading ? "Acknowledging..." : "I Acknowledge"}
           </button>

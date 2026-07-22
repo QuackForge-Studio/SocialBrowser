@@ -20,6 +20,9 @@ import {
   updateSettingsHandler,
   getAnalyticsHandler,
   getHeatmapHandler,
+  getProfilesHandler,
+  createProfileHandler,
+  deleteProfileHandler,
 } from './dashboard-handlers';
 import {
   getWorkspacesHandler,
@@ -397,6 +400,15 @@ if (port) {
         break;
       case 'get_heatmap':
         dbFn(getHeatmapHandler);
+        break;
+      case 'get_profiles':
+        dbFn(getProfilesHandler);
+        break;
+      case 'create_profile':
+        dbFn(createProfileHandler);
+        break;
+      case 'delete_profile':
+        dbFn(deleteProfileHandler);
         break;
       case 'shutdown':
         handleShutdown(msgId);

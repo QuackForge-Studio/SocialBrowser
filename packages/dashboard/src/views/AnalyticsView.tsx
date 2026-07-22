@@ -29,7 +29,7 @@ function heatmapStyle(value: number | null, confidence: number, excluded: boolea
 
 function TrendLines({ data }: { data: TrendDataPoint[] }) {
   if (data.length === 0) {
-    return <div className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[13px] text-text-dim">No trend data available.</div>;
+    return <div className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[19px] text-text-dim">No trend data available.</div>;
   }
 
   const width = 600;
@@ -40,7 +40,7 @@ function TrendLines({ data }: { data: TrendDataPoint[] }) {
 
   const scores = data.map((d) => d.avgScore).filter((s): s is number => s !== null);
   if (scores.length === 0) {
-    return <div className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[13px] text-text-dim">No scored posts for trend analysis.</div>;
+    return <div className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[19px] text-text-dim">No scored posts for trend analysis.</div>;
   }
 
   const minScore = Math.max(0, Math.min(...scores) - 5);
@@ -136,7 +136,7 @@ function TimingHeatmap({ cells }: { cells: HeatmapCellData[] }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-[14px] font-semibold text-text">Timing Heatmap (hour x day)</span>
+        <span className="text-[16px] font-semibold text-text">Timing Heatmap (hour x day)</span>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as "hour" | "confidence")}
@@ -151,7 +151,7 @@ function TimingHeatmap({ cells }: { cells: HeatmapCellData[] }) {
         <div className="mb-0.5 flex gap-0.5" style={{ marginLeft: 44 }}>
           <div className="w-8 flex-shrink-0" />
           {DAY_NAMES.map((day) => (
-            <div key={day} className="w-8 flex-shrink-0 pb-1 text-center text-[10px] text-text-faint">{day}</div>
+            <div key={day} className="w-8 flex-shrink-0 pb-1 text-center text-[16px] text-text-faint">{day}</div>
           ))}
         </div>
         {/* Rows */}
@@ -180,7 +180,7 @@ function TimingHeatmap({ cells }: { cells: HeatmapCellData[] }) {
       </div>
 
       {/* Legend */}
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-text-faint">
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[19px] text-text-faint">
         <span>Low</span>
         <div className="flex gap-px">
           <div className="h-3 w-5 rounded-sm" style={{ background: "var(--color-error)" }} />
@@ -207,7 +207,7 @@ function PostList({ posts, title, isTop }: { posts: AnalyticsPost[]; title: stri
 
   return (
     <div>
-      <h3 className="mb-3 text-[15px] font-semibold text-text">{title}</h3>
+      <h3 className="mb-3 text-[19px] font-semibold text-text">{title}</h3>
       <div className="flex flex-col gap-2">
         {posts.map((post, idx) => {
           const score = post.compositeScore ?? post.engagementScore;
@@ -218,11 +218,11 @@ function PostList({ posts, title, isTop }: { posts: AnalyticsPost[]; title: stri
               : "bg-error-soft text-error";
           return (
             <div key={post.id} className="flex items-start gap-3 rounded-lg border border-border bg-surface p-3 transition-colors hover:bg-surface-hover">
-              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-surface-hover text-[12px] font-bold text-text-dim">
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-surface-hover text-[16px] font-bold text-text-dim">
                 {isTop ? idx + 1 : posts.length - idx}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] leading-snug text-text" style={{
+                <p className="text-[19px] leading-snug text-text" style={{
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: "vertical",
@@ -235,7 +235,7 @@ function PostList({ posts, title, isTop }: { posts: AnalyticsPost[]; title: stri
                       : post.contentText
                     : "(No text)"}
                 </p>
-                <div className="mt-1 flex gap-2 text-[11px] text-text-faint">
+                <div className="mt-1 flex gap-2 text-[19px] text-text-faint">
                   <span>{post.platform}/{post.authorHandle}</span>
                   {post.publishedAt && (
                     <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
@@ -243,7 +243,7 @@ function PostList({ posts, title, isTop }: { posts: AnalyticsPost[]; title: stri
                 </div>
               </div>
               <div className="flex-shrink-0">
-                <span className={"inline-block rounded-full px-2.5 py-1 text-[12px] font-bold " + scoreCls}>
+                <span className={"inline-block rounded-full px-2.5 py-1 text-[16px] font-bold " + scoreCls}>
                   {post.compositeScore?.toFixed(1) ?? post.engagementScore?.toFixed(1) ?? "N/A"}
                 </span>
               </div>
@@ -265,7 +265,7 @@ function AccountSelector({
   onChange: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-2 text-[13px] text-text-dim">
+    <div className="flex items-center gap-2 text-[19px] text-text-dim">
       <label htmlFor="analytics-account">Account:</label>
       <select id="analytics-account" value={selectedAccountId} onChange={(e) => onChange(e.target.value)}>
         <option value="">All Accounts</option>
@@ -295,7 +295,7 @@ function SummaryCards({ data }: { data: AnalyticsData }) {
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {cards.map((c) => (
         <div key={c.label} className="rounded-lg border border-border bg-surface p-4">
-          <h3 className="text-[12px] font-medium text-text-dim">{c.label}</h3>
+          <h3 className="text-[16px] font-medium text-text-dim">{c.label}</h3>
           <div className="mt-1 font-mono text-2xl font-bold text-text">{c.value}</div>
         </div>
       ))}
@@ -353,7 +353,7 @@ export function AnalyticsView() {
         <h2 className="text-lg font-semibold tracking-tight">Analytics</h2>
         <div className="mt-10 flex flex-col items-center gap-3 text-text-dim">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" />
-          <p className="text-[13px]">Loading analytics data...</p>
+          <p className="text-[19px]">Loading analytics data...</p>
         </div>
       </div>
     );
@@ -363,7 +363,7 @@ export function AnalyticsView() {
     return (
       <div className="p-6">
         <h2 className="text-lg font-semibold tracking-tight">Analytics</h2>
-        <div className="mt-10 rounded-lg border border-error/30 bg-error-soft p-4 text-[13px] text-error">
+        <div className="mt-10 rounded-lg border border-error/30 bg-error-soft p-4 text-[19px] text-error">
           {error}
         </div>
       </div>
@@ -375,8 +375,8 @@ export function AnalyticsView() {
       <div className="p-6">
         <h2 className="text-lg font-semibold tracking-tight">Analytics</h2>
         <div className="mt-10 flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-[17px] font-medium text-text">No posts captured yet</p>
-          <p className="mt-1.5 max-w-md text-[13px] text-text-dim">
+          <p className="text-[19px] font-medium text-text">No posts captured yet</p>
+          <p className="mt-1.5 max-w-md text-[19px] text-text-dim">
             Add an account to start capturing posts. Analytics will become available once you have captured posts with engagement data.
           </p>
         </div>
@@ -389,8 +389,8 @@ export function AnalyticsView() {
       <div className="p-6">
         <h2 className="text-lg font-semibold tracking-tight">Analytics</h2>
         <div className="mt-10 flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-[17px] font-medium text-text">Insufficient data</p>
-          <p className="mt-1.5 max-w-md text-[13px] text-text-dim">
+          <p className="text-[19px] font-medium text-text">Insufficient data</p>
+          <p className="mt-1.5 max-w-md text-[19px] text-text-dim">
             At least {MIN_ANALYTICS_POSTS} posts with engagement data are needed for meaningful analytics. Currently have {analyticsData.totalPosts} post{analyticsData.totalPosts !== 1 ? "s" : ""}. Continue capturing to see trends, heatmap, and performance insights.
           </p>
         </div>
@@ -417,11 +417,11 @@ export function AnalyticsView() {
 
       {/* Trend Lines */}
       <div>
-        <h3 className="mb-3 text-[15px] font-semibold text-text">Engagement Trend</h3>
+        <h3 className="mb-3 text-[19px] font-semibold text-text">Engagement Trend</h3>
         {hasTrendData ? (
           <TrendLines data={analyticsData.trendData} />
         ) : (
-          <div className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[13px] text-text-dim">
+          <div className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-[19px] text-text-dim">
             No scored posts available. Scores are computed as engagement data is captured.
           </div>
         )}
@@ -433,8 +433,8 @@ export function AnalyticsView() {
           <TimingHeatmap cells={heatmapCells} />
         ) : (
           <div className="rounded-lg border border-dashed border-border bg-surface p-6 text-center">
-            <h3 className="text-[14px] font-semibold text-text">Timing Heatmap</h3>
-            <p className="mt-1.5 text-[13px] text-text-dim">
+            <h3 className="text-[16px] font-semibold text-text">Timing Heatmap</h3>
+            <p className="mt-1.5 text-[19px] text-text-dim">
               Not enough timing data yet. The heatmap will show optimal posting times once sufficient posts with engagement data have been captured across different hours and days.
             </p>
           </div>

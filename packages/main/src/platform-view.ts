@@ -1,4 +1,4 @@
-﻿import { WebContentsView, session as electronSession } from 'electron';
+import { WebContentsView, session as electronSession } from 'electron';
 import path from 'path';
 import type { Platform } from './session-manager';
 
@@ -61,6 +61,9 @@ export class PlatformView {
       },
     });
 
+    // Enable background throttling to reduce CPU/timer load on hidden views
+    this.view.webContents.setBackgroundThrottling(true);
+
     // Configure webContents navigation restrictions
     this.configureWebContents(config.platform);
   }
@@ -117,6 +120,31 @@ export class PlatformView {
   /** Get the account UUID. */
   getAccountId(): string {
     return this.accountId;
+  }
+
+  /**
+   * Set view visibility and apply audio muting + visibility IPC notification.
+   */
+  setVisible(visible: boolean): void {
+    if (this.isDestroyed()) return;
+    this.view.setVisible(visible);
+    this.view.webContents.setAudioMuted(!visible);
+    try {
+      this.view.webContents.send('tab:visibility-changed', visible);
+    } catch {
+      // Ignore if webContents is being destroyed
+    }
+  }
+
+  /** Check if webContents is destroyed. */
+  isDestroyed(): boolean {
+    return this.view.webContents.isDestroyed();
+  }
+
+  /** Get current URL if webContents is active. */
+  getUrl(): string {
+    if (this.isDestroyed()) return '';
+    return this.view.webContents.getURL();
   }
 
   /** Close the webContents and clean up. */
