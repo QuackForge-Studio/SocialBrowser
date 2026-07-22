@@ -14,7 +14,7 @@ export class BaseWindow {
       minWidth: 900,
       minHeight: 600,
       frame: false,
-      title: '',
+      title: 'Social Browser',
       show: false,
       backgroundColor: '#0f1117',
       webPreferences: {
