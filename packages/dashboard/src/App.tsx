@@ -58,11 +58,10 @@ export function App() {
       await bridge.showDashboard();
       setActiveTabId(null);
     } else {
-      // Activate specific tab
+      // Activate existing specific tab
       setActiveTabId(id);
-      if ((bridge as any).navigateTab) {
-        // bring view forward
-        await bridge.openTab({ platform: 'google', accountId: id });
+      if ((bridge as any).activateTab) {
+        await (bridge as any).activateTab({ tabId: id });
       }
     }
   }, []);
@@ -153,14 +152,14 @@ export function App() {
         className="absolute bottom-0 right-0 overflow-y-auto transition-all duration-200"
         style={{
           left: sidebarOpen ? '232px' : '0px',
-          top: activeTabId ? '82px' : '44px',
+          top: activeTabId ? '90px' : '44px',
           pointerEvents: activeTabId ? 'none' : 'auto',
           display: activeTabId ? 'none' : undefined,
         }}
       >
         {renderContent()}
       </main>
-      {showPrivacyModal && <PrivacyModal onAcknowledge={handlePrivacyAcknowledge} />}
+      {!activeTabId && showPrivacyModal && <PrivacyModal onAcknowledge={handlePrivacyAcknowledge} />}
     </div>
   );
 }

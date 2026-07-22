@@ -22,6 +22,9 @@ export class BrowserTabView {
   public readonly view: WebContentsView;
   private readonly profileId: string;
   private readonly partition: string;
+  public favicon: string = '';
+  public isLoading: boolean = false;
+  public pageTitle: string = '';
 
   constructor(config: BrowserTabViewConfig) {
     this.profileId = config.profileId;
@@ -41,6 +44,28 @@ export class BrowserTabView {
         webSecurity: true,
         session: sess,
       },
+    });
+
+    // Track loading, favicon, and title states
+    this.view.webContents.on('did-start-loading', () => {
+      this.isLoading = true;
+    });
+    this.view.webContents.on('did-stop-loading', () => {
+      this.isLoading = false;
+    });
+    this.view.webContents.on('did-finish-load', () => {
+      this.isLoading = false;
+    });
+    this.view.webContents.on('did-fail-load', () => {
+      this.isLoading = false;
+    });
+    this.view.webContents.on('page-favicon-updated', (_event, favicons) => {
+      if (favicons && favicons.length > 0) {
+        this.favicon = favicons[0];
+      }
+    });
+    this.view.webContents.on('page-title-updated', (_event, title) => {
+      this.pageTitle = title;
     });
 
     // Enable background throttling to conserve memory & CPU on hidden tabs

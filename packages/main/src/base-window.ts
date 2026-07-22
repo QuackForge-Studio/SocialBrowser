@@ -15,7 +15,7 @@ export class BaseWindow {
       minHeight: 600,
       frame: false,
       title: 'Social Browser',
-      show: false,
+      show: true,
       backgroundColor: '#0f1117',
       webPreferences: {
         nodeIntegration: false,
@@ -33,7 +33,7 @@ export class BaseWindow {
   get contentView() { return this.win.contentView; }
   getContentBounds(): { width: number; height: number } {
     const cb = this.win.contentView.getBounds();
-    return { width: cb.width, height: cb.height };
+    return { width: cb.width || 1280, height: cb.height || 800 };
   }
   onResize(handler: () => void): void { this.resizeHandlers.push(handler); }
   onMaximize(handler: () => void): void { this.maximizeHandlers.push(handler); }

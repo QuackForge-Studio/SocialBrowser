@@ -103,6 +103,8 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
   getTabUrl: (params: { tabId: string }): Promise<unknown> => ipcRenderer.invoke('dash:get-tab-url', params),
   navigateTab: (params: { tabId: string; url: string }): Promise<unknown> =>
     ipcRenderer.invoke('dash:navigate-tab', params),
+  activateTab: (params: { tabId: string }): Promise<unknown> =>
+    ipcRenderer.invoke('dash:activate-tab', params),
   closeBrowserTab: (params: { tabId: string }): Promise<unknown> =>
     ipcRenderer.invoke('dash:close-browser-tab', params),
 

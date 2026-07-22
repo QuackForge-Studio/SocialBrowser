@@ -260,24 +260,57 @@ ipcMain.handle('dash:get-browser-tabs', () => {
   const activeTabId = layoutManager?.getActiveTabId() || null;
   return tabs.map(t => {
     const btv = browserTabRegistry.get(t.id);
+    const wc = t.view?.webContents;
+    const isWcLoading = wc && !wc.isDestroyed() ? wc.isLoading() : false;
+    const url = btv && !btv.isDestroyed() ? btv.getUrl() : (wc && !wc.isDestroyed() ? wc.getURL() : '');
+    const title = btv && !btv.isDestroyed() ? (btv.pageTitle || btv.getTitle()) : (wc && !wc.isDestroyed() ? wc.getTitle() : '');
+    const favicon = btv ? btv.favicon : '';
+    const isLoading = btv ? (btv.isLoading || isWcLoading) : isWcLoading;
     return {
       id: t.id,
-      label: t.label,
+      label: title || t.label,
       platform: 'browser',
-      url: btv && !btv.isDestroyed() ? btv.getUrl() : '',
+      url,
       active: t.id === activeTabId,
+      favicon,
+      isLoading,
     };
   });
 });
 
+ipcMain.handle('dash:activate-tab', (_event, params: { tabId: string }) => {
+  const { tabId } = params;
+  if (layoutManager) {
+    layoutManager.activateTab(tabId);
+    return { success: true };
+  }
+  return { success: false, error: 'Layout manager unavailable' };
+});
+
 ipcMain.handle('dash:navigate-tab', (_event, params: { tabId: string; url: string }) => {
   const { tabId, url } = params;
+  if (!url) return { success: false, error: 'No URL provided' };
+
+  let webContents: Electron.WebContents | undefined;
   const btv = browserTabRegistry.get(tabId);
-  if (btv && !btv.isDestroyed() && url) {
+  if (btv && !btv.isDestroyed()) {
+    webContents = btv.view.webContents;
+  } else if (layoutManager) {
+    const tabs = layoutManager.getTabs();
+    const entry = tabs.find(t => t.id === tabId);
+    if (entry && entry.view) {
+      webContents = entry.view.webContents;
+    }
+  }
+
+  if (webContents && !webContents.isDestroyed()) {
     if (url.startsWith('javascript:')) {
-      void btv.view.webContents.executeJavaScript(url.substring(11));
+      void webContents.executeJavaScript(url.substring(11));
     } else {
-      void btv.loadURL(url);
+      const finalUrl = url.startsWith('http://') || url.startsWith('https://') || url.startsWith('about:')
+        ? url
+        : 'https://' + url;
+      void webContents.loadURL(finalUrl);
     }
     return { success: true };
   }
@@ -286,10 +319,9 @@ ipcMain.handle('dash:navigate-tab', (_event, params: { tabId: string; url: strin
 
 ipcMain.handle('dash:close-browser-tab', (_event, params: { tabId: string }) => {
   const { tabId } = params;
-  const btv = browserTabRegistry.get(tabId);
-  if (btv) {
-    browserTabRegistry.delete(tabId);
-    layoutManager?.closeTab(tabId);
+  browserTabRegistry.delete(tabId);
+  if (layoutManager) {
+    layoutManager.closeTab(tabId);
     return { success: true };
   }
   return { success: false, error: 'Tab not found' };

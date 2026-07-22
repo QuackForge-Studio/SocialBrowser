@@ -20,6 +20,9 @@ export interface PlatformTab {
   label: string;
   platform: string;
   url?: string;
+  active?: boolean;
+  favicon?: string;
+  isLoading?: boolean;
 }
 
 /** Navigation state for the ShellView */

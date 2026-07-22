@@ -7,7 +7,7 @@
         "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit",
         "lint": "eslint src/",
         "build": "node ../../scripts/build-main.mjs",
-        "dev": "node ../../scripts/build-main.mjs && ../../node_modules/.bin/electron .",
+        "dev": "node scripts/dev.js",
         "package": "electron-builder --win --x64",
         "package:win": "electron-builder --win --x64",
         "package:mac": "electron-builder --mac --x64 --arm64",
