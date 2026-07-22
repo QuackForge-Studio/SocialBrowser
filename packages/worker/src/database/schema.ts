@@ -371,6 +371,7 @@ export const ALL_TABLE_NAMES: string[] = [
   'tab_groups',
   'group_accounts',
   'group_tabs',
+  'profiles',
   'audit_event_log',
   'acknowledgements',
   'rate_limits',

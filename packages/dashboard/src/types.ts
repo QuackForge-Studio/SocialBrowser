@@ -202,6 +202,13 @@ export interface DashboardBridge {
   handleGroupDeleted: (params: { groupId: string }) => Promise<{ success: boolean; error?: string }>;
   handleWorkspaceDeleted: (params: { workspaceId: string }) => Promise<{ success: boolean; error?: string }>;
 
+  // ===== Browser Profile APIs =====
+  getProfiles: () => Promise<BrowserProfile[]>;
+  createProfile: (params: { name: string; color?: string; icon?: string; groupId?: string; proxyUrl?: string }) => Promise<BrowserProfile>;
+  deleteProfile: (params: { id: string }) => Promise<{ deleted: boolean }>;
+  launchBrowserProfile: (params: { profileId: string; url?: string }) => Promise<{ success: boolean; error?: string }>;
+  openDefaultBrowserTab: (params?: { url?: string }) => Promise<{ success: boolean; error?: string }>;
+
   // ===== Compliance APIs =====
   acknowledgeAccount: (params: { accountId: string }) => Promise<{ acknowledged: boolean }>;
   checkAcknowledged: (params: { accountId: string }) => Promise<{ acknowledged: boolean }>;

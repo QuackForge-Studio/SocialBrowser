@@ -16,6 +16,7 @@ import { ShellView } from './shell-view';
 import { ViewLayoutManager } from './view-layout-manager';
 import { SessionManager } from './session-manager';
 import { WorkspaceTabController } from './workspace-tab-controller';
+import { BrowserTabView } from './browser-tab-view';
 
 let worker: Worker | null = null;
 let workerRestartCount = 0;
@@ -192,6 +193,53 @@ function setupDashboardIpc(): void {
       worker.postMessage({ type: 'update_settings', payload: settings, id: 'settings-' + Date.now() });
     }
   });
+}
+
+
+// ===== Browser Tab IPC handlers (non-worker, direct view management) =====
+
+ipcMain.handle('dash:launch-browser-profile', async (_event, params: { profileId: string; url?: string }) => {
+  try {
+    const { profileId, url } = params;
+    const partition = 'persist:social-browser:profile:' + profileId;
+    const initialUrl = url || 'https://google.com';
+    const btv = new BrowserTabView({ profileId, partition, initialUrl });
+    const wcId = btv.view.webContents.id;
+    const label = 'Browser:' + profileId.substring(0, 8);
+    layoutManager?.addTab(wcId.toString(), label, btv.view, () => { btv.close(); });
+    layoutManager?.activateTab(wcId.toString());
+    return { success: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg };
+  }
+});
+
+ipcMain.handle('dash:open-default-browser-tab', async (_event, params?: { url?: string }) => {
+  try {
+    const profileId = 'default-browser-' + Date.now();
+    const partition = 'persist:social-browser:default-browser';
+    const initialUrl = params?.url || 'https://google.com';
+    const btv = new BrowserTabView({ profileId, partition, initialUrl });
+    const wcId = btv.view.webContents.id;
+    layoutManager?.addTab(wcId.toString(), 'Browser', btv.view, () => { btv.close(); });
+    layoutManager?.activateTab(wcId.toString());
+    return { success: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg };
+  }
+});
+
+function autoLaunchDefaultBrowserTab(): void {
+  const btv = new BrowserTabView({
+    profileId: 'default-browser',
+    partition: 'persist:social-browser:default-browser',
+    initialUrl: 'https://google.com',
+  });
+  const wcId = btv.view.webContents.id;
+  layoutManager?.addTab(wcId.toString(), 'Browser', btv.view, () => { btv.close(); });
+  layoutManager?.activateTab(wcId.toString());
 }
 
 
@@ -407,7 +455,10 @@ app.whenReady().then(() => {
   // 5. Show the window immediately (first paint)
   baseWindow.show();
 
-  // 6. Defer background worker thread startup until after window is painted
+  // 6. Auto-launch a default browser tab so the app is browser-first on startup
+  autoLaunchDefaultBrowserTab();
+
+  // 7. Defer background worker thread startup until after window is painted
   setImmediate(() => {
     startWorker();
   });

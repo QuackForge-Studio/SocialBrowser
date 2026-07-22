@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { ALL_TABLE_STATEMENTS, WORKSPACE_TABLE_STATEMENTS, SQL_ENABLE_FOREIGN_KEYS, COMPLIANCE_TABLE_STATEMENTS } from './schema';
+import { ALL_TABLE_STATEMENTS, WORKSPACE_TABLE_STATEMENTS, SQL_ENABLE_FOREIGN_KEYS, COMPLIANCE_TABLE_STATEMENTS, CREATE_PROFILES } from './schema';
 
 // ===== Migration Types =====
 
@@ -213,6 +213,19 @@ export const MIGRATION_006: Migration = {
     }
   },
 };
+
+/**
+ * Migration 007: Browser profiles table
+ * Stores isolated browser profiles for multi-login browsing sessions.
+ */
+export const MIGRATION_007: Migration = {
+  version: 7,
+  description: 'Add browser profiles table',
+  up: (db: Database.Database) => {
+    db.exec(CREATE_PROFILES);
+  },
+};
+
 export const ALL_MIGRATIONS: Migration[] = [
   MIGRATION_001,
   MIGRATION_002,
@@ -220,6 +233,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   MIGRATION_004,
   MIGRATION_005,
   MIGRATION_006,
+  MIGRATION_007,
 ];
 
 // ===== Migration Runner =====

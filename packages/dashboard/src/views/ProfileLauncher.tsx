@@ -32,34 +32,13 @@ export function ProfileLauncher() {
     const bridge = window.__socialBrowserDashboard;
     if (!bridge) return;
     try {
-      let profData = (bridge as any).getProfiles ? await (bridge as any).getProfiles() : [];
+      const profData = await bridge.getProfiles() || [];
       const wsData = await bridge.getWorkspaces();
-
-      // If no profile exists, automatically create a Default Profile immediately
-      if (!profData || profData.length === 0) {
-        if ((bridge as any).createProfile) {
-          await (bridge as any).createProfile({
-            name: 'Default Profile',
-            color: '#6366f1',
-            icon: 'globe',
-            groupId: wsData && wsData.length > 0 ? wsData[0].id : 'default',
-          });
-          if ((bridge as any).getProfiles) {
-            profData = await (bridge as any).getProfiles();
-          }
-        }
-      }
 
       setProfiles(profData || []);
       setWorkspaces(wsData || []);
       if (wsData && wsData.length > 0) {
         setSelectedWorkspaceId(wsData[0].id);
-      }
-
-      // Auto-launch the first profile into the internal browser view immediately on startup
-      if (!autoLaunchedRef.current && profData && profData.length > 0) {
-        autoLaunchedRef.current = true;
-        handleLaunchProfile(profData[0]);
       }
     } catch {
       // Fallback empty list
@@ -71,8 +50,8 @@ export function ProfileLauncher() {
     if (!newProfileName.trim()) return;
 
     const bridge = window.__socialBrowserDashboard;
-    if (bridge && (bridge as any).createProfile) {
-      await (bridge as any).createProfile({
+    if (bridge) {
+      await bridge.createProfile({
         name: newProfileName.trim(),
         color: newProfileColor,
         icon: 'globe',
@@ -90,8 +69,8 @@ export function ProfileLauncher() {
   const handleDeleteProfile = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete profile "${name}"?`)) return;
     const bridge = window.__socialBrowserDashboard;
-    if (bridge && (bridge as any).deleteProfile) {
-      await (bridge as any).deleteProfile({ id });
+    if (bridge) {
+      await bridge.deleteProfile({ id });
       loadDataAndAutoLaunch();
     }
   };
@@ -99,10 +78,8 @@ export function ProfileLauncher() {
   const handleLaunchProfile = async (profile: BrowserProfile) => {
     const bridge = window.__socialBrowserDashboard;
     if (!bridge) return;
-    // Launch default tab or google homepage in profile
-    await bridge.navigateTo({
-      platform: 'google',
-      accountId: profile.id,
+    await bridge.launchBrowserProfile({
+      profileId: profile.id,
       url: 'https://google.com',
     });
   };

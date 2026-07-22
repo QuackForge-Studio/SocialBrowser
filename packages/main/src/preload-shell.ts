@@ -90,6 +90,15 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
   handleWorkspaceDeleted: (params: { workspaceId: string }): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('dash:workspace:workspace-deleted', params),
 
+  // ===== Browser Profile APIs =====
+  getProfiles: (): Promise<unknown> => ipcRenderer.invoke('dash:get-profiles'),
+  createProfile: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:create-profile', params),
+  deleteProfile: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:delete-profile', params),
+  launchBrowserProfile: (params: { profileId: string; url?: string }): Promise<unknown> =>
+    ipcRenderer.invoke('dash:launch-browser-profile', params),
+  openDefaultBrowserTab: (params?: { url?: string }): Promise<unknown> =>
+    ipcRenderer.invoke('dash:open-default-browser-tab', params),
+
   // ===== Compliance APIs =====
   acknowledgeAccount: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:acknowledge-account', params),
   checkAcknowledged: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:check-acknowledged', params),

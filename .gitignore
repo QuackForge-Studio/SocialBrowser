@@ -94,3 +94,6 @@ vitest.integration.config.d.ts.map
 vitest.integration.config.js
 vitest.integration.config.js.map
 
+social-browser.sqlite
+social-browser.sqlite-wal
+social-browser.sqlite-shm
