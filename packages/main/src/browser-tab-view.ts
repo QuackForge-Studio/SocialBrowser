@@ -1,5 +1,6 @@
-import { WebContentsView, session as electronSession } from 'electron';
+import { WebContentsView, Menu, MenuItem, clipboard, session as electronSession } from 'electron';
 import path from 'path';
+import { adBlockEngine } from './adblock-engine';
 
 export interface BrowserTabViewConfig {
   /** Unique BrowserProfile ID */
@@ -10,6 +11,10 @@ export interface BrowserTabViewConfig {
   initialUrl?: string;
   /** Optional preload script path. Defaults to preload-capture.js */
   preloadPath?: string;
+  /** Callback when user requests Peek Link Preview */
+  onOpenPeek?: (url: string) => void;
+  /** Callback when user requests opening link in new tab */
+  onOpenNewTab?: (url: string) => void;
 }
 
 /**
@@ -31,6 +36,7 @@ export class BrowserTabView {
     this.partition = config.partition;
 
     const sess = electronSession.fromPartition(config.partition);
+    adBlockEngine.attachToSession(sess);
 
     // Resolve preload path
     const preloadPath = config.preloadPath ?? path.join(__dirname, 'preload-capture.js');
@@ -79,6 +85,59 @@ export class BrowserTabView {
     });
     this.view.webContents.on('page-title-updated', (_event, title) => {
       this.pageTitle = title;
+    });
+
+    // Handle Context Menu (Right Click on Link / Text / Page)
+    this.view.webContents.on('context-menu', (_event, params) => {
+      const menu = new Menu();
+
+      if (params.linkURL) {
+        menu.append(new MenuItem({
+          label: '👁️ Xem Nhanh Link Trong Tab (Peek Preview)',
+          click: () => {
+            if (config.onOpenPeek) config.onOpenPeek(params.linkURL);
+          },
+        }));
+        menu.append(new MenuItem({
+          label: '🔗 Mở trong Tab mới',
+          click: () => {
+            if (config.onOpenNewTab) config.onOpenNewTab(params.linkURL);
+          },
+        }));
+        menu.append(new MenuItem({
+          label: '📋 Sao chép đường dẫn',
+          click: () => {
+            clipboard.writeText(params.linkURL);
+          },
+        }));
+        menu.append(new MenuItem({ type: 'separator' }));
+      }
+
+      if (params.selectionText) {
+        menu.append(new MenuItem({ role: 'copy', label: 'Sao chép' }));
+        menu.append(new MenuItem({
+          label: `🔍 Tìm kiếm "${params.selectionText.length > 25 ? params.selectionText.slice(0, 25) + '...' : params.selectionText}" trên Google`,
+          click: () => {
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(params.selectionText)}`;
+            if (config.onOpenNewTab) config.onOpenNewTab(searchUrl);
+          },
+        }));
+        menu.append(new MenuItem({ type: 'separator' }));
+      }
+
+      if (!params.linkURL && !params.selectionText) {
+        menu.append(new MenuItem({ role: 'reload', label: 'Tải lại trang' }));
+        menu.append(new MenuItem({ role: 'forceReload', label: 'Tải lại hoàn toàn' }));
+        menu.append(new MenuItem({ type: 'separator' }));
+        menu.append(new MenuItem({
+          label: '🔍 Kiểm tra phần tử (Inspect Element)',
+          click: () => {
+            this.view.webContents.inspectElement(params.x, params.y);
+          },
+        }));
+      }
+
+      menu.popup();
     });
 
     // Enable background throttling to conserve memory & CPU on hidden tabs

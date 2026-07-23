@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, X, SquaresFour, ArrowLeft, ArrowRight, ArrowClockwise, List, Lock, CircleNotch, Clock, MagnifyingGlass, Globe, Trash, Star, BookmarkSimple, DotsThreeVertical, Gear } from '@phosphor-icons/react';
+import { Plus, X, SquaresFour, ArrowLeft, ArrowRight, ArrowClockwise, List, Lock, CircleNotch, Clock, MagnifyingGlass, Globe, Trash, Star, BookmarkSimple, DotsThreeVertical, Gear, Copy, Check, SlidersHorizontal, ShieldCheck, Cookie, CaretRight, ArrowSquareOut, Info, ShieldWarning, Shield } from '@phosphor-icons/react';
 import type { PlatformTab, DashboardView } from './types';
 import logoPng from './logo.png';
 
@@ -311,7 +311,91 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
   const [showBookmarksMenu, setShowBookmarksMenu] = useState(false);
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
   const [showBrowserMenu, setShowBrowserMenu] = useState(false);
+  const [showSiteInfoMenu, setShowSiteInfoMenu] = useState(false);
+  const [showAdBlockMenu, setShowAdBlockMenu] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [adBlockEnabled, setAdBlockEnabled] = useState(true);
+  const [adBlockStats, setAdBlockStats] = useState<{ totalBlocked: number; tabBlocked: number } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+
+  const [isUrlActionsHovered, setIsUrlActionsHovered] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleActionsMouseEnter = () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsUrlActionsHovered(true);
+    }, 100);
+  };
+
+  const handleActionsMouseLeave = () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsUrlActionsHovered(false);
+    }, 250);
+  };
+
+  const isActionsExpanded = isUrlActionsHovered || showSiteInfoMenu || showAdBlockMenu;
+
+  // Loading progress bar state machine (Left-to-right load -> Bold finish -> Left-to-right wipe out)
+  const [loadingState, setLoadingState] = useState<'idle' | 'loading' | 'finishing' | 'fade-out'>('idle');
+  const prevLoadingRef = useRef<boolean>(false);
+  const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const isLoading = !!activeTab?.isLoading;
+
+    if (isLoading) {
+      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+      setLoadingState('loading');
+    } else if (prevLoadingRef.current && !isLoading) {
+      // Just finished loading! Line gets bold & surges to 100%, then wipes out from left to right
+      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+      setLoadingState('finishing');
+
+      loadingTimerRef.current = setTimeout(() => {
+        setLoadingState('fade-out');
+
+        loadingTimerRef.current = setTimeout(() => {
+          setLoadingState('idle');
+        }, 350);
+      }, 300);
+    }
+
+    prevLoadingRef.current = isLoading;
+  }, [activeTab?.isLoading]);
+
+  useEffect(() => {
+    const isOpen = showSiteInfoMenu || showAdBlockMenu || showBookmarksMenu || showHistoryMenu || showBrowserMenu || showAboutModal;
+    const bridge = (window as any).__socialBrowserDashboard;
+    if (bridge?.setPopoverOpen) {
+      bridge.setPopoverOpen(isOpen);
+    }
+  }, [showSiteInfoMenu, showAdBlockMenu, showBookmarksMenu, showHistoryMenu, showBrowserMenu, showAboutModal]);
+
+  useEffect(() => {
+    if (showAdBlockMenu) {
+      const bridge = (window as any).__socialBrowserDashboard;
+      if (bridge?.getAdBlockStats) {
+        bridge.getAdBlockStats(activeTabId).then((res: any) => {
+          if (res) {
+            setAdBlockEnabled(res.enabled);
+            setAdBlockStats({ totalBlocked: res.totalBlocked, tabBlocked: res.tabBlocked });
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [showAdBlockMenu, activeTabId]);
+
+  const handleCopyUrl = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const urlToCopy = currentUrl || activeTab?.url || '';
+    if (!urlToCopy) return;
+    navigator.clipboard.writeText(urlToCopy);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 1500);
+  };
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingNavRef = useRef<{ url: string; time: number } | null>(null);
@@ -342,7 +426,10 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
     const full = currentUrl || activeTab?.url || '';
     if (!full) return '';
 
-    const clean = full.replace(/^https?:\/\/(www\.)?/, '');
+    let clean = full.replace(/^https?:\/\/(www\.)?/, '');
+    if (clean.endsWith('/') && clean.indexOf('/') === clean.length - 1) {
+      clean = clean.slice(0, -1);
+    }
 
     // Hover state: show path after domain (without https:// or www.), hide page title
     if (isHovered) {
@@ -681,16 +768,21 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
           </button>
 
           <div className="relative flex-1 flex items-center rounded-xl bg-[#0e1017] border border-[#272d3e] focus-within:border-amber-500/70 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-8.5 text-[13.5px] transition-all shadow-inner">
-            <UrlBarIcon
-              currentUrl={currentUrl}
-              activeTab={activeTab}
-              tabs={tabs}
-              isInputFocused={isInputFocused}
-              urlInput={urlInput}
-              suggestions={suggestions}
-              selectedIndex={selectedIndex}
-              hasInlineCompletion={hasInlineCompletion}
-            />
+            {/* Left Section: Favicon / Secure Site Icon */}
+            <div className="flex items-center gap-1 shrink-0 mr-1.5" style={{ WebkitAppRegion: 'no-drag' as any }}>
+              <UrlBarIcon
+                currentUrl={currentUrl}
+                activeTab={activeTab}
+                tabs={tabs}
+                isInputFocused={isInputFocused}
+                urlInput={urlInput}
+                suggestions={suggestions}
+                selectedIndex={selectedIndex}
+                hasInlineCompletion={hasInlineCompletion}
+              />
+            </div>
+
+            {/* Middle Section: URL Input Box */}
             <div className="flex-1 flex items-center min-w-0 relative">
               <input
                 ref={inputRef}
@@ -710,7 +802,10 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                   setHasInlineCompletion(false);
 
                   const full = currentUrl || activeTab?.url || '';
-                  const clean = full.replace(/^https?:\/\/(www\.)?/, '');
+                  let clean = full.replace(/^https?:\/\/(www\.)?/, '');
+                  if (clean.endsWith('/') && clean.indexOf('/') === clean.length - 1) {
+                    clean = clean.slice(0, -1);
+                  }
                   setUrlInput(clean);
 
                   requestAnimationFrame(() => {
@@ -724,7 +819,10 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                   if (wasFocusedAndSelectedRef.current) {
                     wasFocusedAndSelectedRef.current = false;
                     setIsAllSelected(false);
-                    const full = currentUrl || activeTab?.url || '';
+                    let full = currentUrl || activeTab?.url || '';
+                    if (full.endsWith('/') && (full.match(/\//g) || []).length === 3) {
+                      full = full.slice(0, -1);
+                    }
                     setUrlInput(full);
                   }
                 }}
@@ -740,12 +838,8 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="Search Google or type a URL..."
-                className={`url-input-box bg-transparent text-[13.5px] text-white outline-none border-none placeholder:text-text-faint font-medium truncate ${navAnimClass}`}
-                style={{
-                  WebkitAppRegion: 'no-drag' as any,
-                  width: hasInlineCompletion ? undefined : '100%',
-                  flex: hasInlineCompletion ? '0 1 auto' : '1 1 0%',
-                }}
+                className={`url-input-box flex-1 min-w-0 bg-transparent text-[13.5px] text-white outline-none border-none placeholder:text-text-faint font-medium truncate ${navAnimClass}`}
+                style={{ WebkitAppRegion: 'no-drag' as any }}
               />
 
               {/* Translucent inline autocompletion indicator hint badge with dashed border */}
@@ -759,25 +853,226 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
               )}
             </div>
 
-            {/* Bookmark Star Icon inside URL bar - perfectly centered */}
-            {currentUrl && currentUrl.startsWith('http') && (
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  toggleBookmark(currentUrl, activeTab?.label || currentUrl);
-                  reloadBookmarks();
-                }}
-                title={isCurrentUrlBookmarked ? 'Remove bookmark' : 'Bookmark this page'}
-                className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-[#222736] transition-colors shrink-0 ml-1.5"
+            {/* Right End Action Cluster (Site Info & AdBlock expand to the LEFT of Copy & Star) */}
+            <div
+              onMouseEnter={handleActionsMouseEnter}
+              onMouseLeave={handleActionsMouseLeave}
+              className="flex items-center gap-1 shrink-0 ml-1.5 select-none"
+              style={{ WebkitAppRegion: 'no-drag' as any }}
+            >
+              {/* Expandable Action Icons (Site Info & AdBlock Engine) placed TO THE LEFT of Copy & Star */}
+              <div
+                className={`flex items-center gap-1 transition-all duration-300 ease-in-out ${
+                  isActionsExpanded ? 'max-w-[70px] opacity-100 scale-100 pointer-events-auto mr-0.5' : 'max-w-0 opacity-0 scale-95 pointer-events-none mr-0 overflow-hidden'
+                }`}
+                style={{ WebkitAppRegion: 'no-drag' as any }}
               >
-                <Star
-                  size={16}
-                  weight={isCurrentUrlBookmarked ? 'fill' : 'regular'}
-                  className={isCurrentUrlBookmarked ? 'text-amber-400' : 'text-text-muted hover:text-amber-400'}
-                />
-              </button>
-            )}
+                {/* 1. Site Information Button */}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowSiteInfoMenu(prev => !prev);
+                      setShowAdBlockMenu(false);
+                      setShowBookmarksMenu(false);
+                      setShowHistoryMenu(false);
+                      setShowBrowserMenu(false);
+                    }}
+                    title="Site Information & Security"
+                    className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
+                      showSiteInfoMenu ? 'bg-[#222736] text-white' : 'text-text-muted hover:bg-[#222736] hover:text-white'
+                    }`}
+                    style={{ WebkitAppRegion: 'no-drag' as any }}
+                  >
+                    <SlidersHorizontal size={14} />
+                  </button>
+
+                  {/* Site Info Dropdown Card */}
+                  {showSiteInfoMenu && (
+                    <div
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="absolute right-0 top-[34px] z-50 w-72 rounded-2xl bg-[#1d202c] border border-[#2e3548] shadow-2xl overflow-hidden p-3 animate-dropdown text-white"
+                      style={{ WebkitAppRegion: 'no-drag' as any }}
+                    >
+                      <div className="flex items-center justify-between border-b border-[#2b3144] pb-2.5 mb-2 px-1">
+                        <span className="text-[14px] font-semibold text-white truncate max-w-[210px]">
+                          {formatDisplayUrl(currentUrl || activeTab?.url || '') || 'Current Site'}
+                        </span>
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setShowSiteInfoMenu(false); }}
+                          className="text-text-muted hover:text-white p-1 rounded-md hover:bg-[#272d3e]"
+                          style={{ WebkitAppRegion: 'no-drag' as any }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col gap-1 text-[13px]">
+                        {/* Connection Security */}
+                        <div className="flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-[#262b3d] cursor-pointer transition-colors group">
+                          <div className="flex items-center gap-3">
+                            <Lock size={16} className={currentUrl?.startsWith('https') ? 'text-emerald-400' : 'text-red-400'} />
+                            <span className="font-medium text-[#e2e8f0]">
+                              {currentUrl?.startsWith('https') ? 'Connection is secure' : 'Not secure'}
+                            </span>
+                          </div>
+                          <CaretRight size={14} className="text-text-faint group-hover:text-white" />
+                        </div>
+
+                        {/* Cookies & Site Data */}
+                        <div className="flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-[#262b3d] cursor-pointer transition-colors group">
+                          <div className="flex items-center gap-3">
+                            <Cookie size={16} className="text-amber-400" />
+                            <span className="font-medium text-[#e2e8f0]">Cookies and site data</span>
+                          </div>
+                          <CaretRight size={14} className="text-text-faint group-hover:text-white" />
+                        </div>
+
+                        {/* Site Settings */}
+                        <div className="flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-[#262b3d] cursor-pointer transition-colors group">
+                          <div className="flex items-center gap-3">
+                            <Gear size={16} className="text-sky-400" />
+                            <span className="font-medium text-[#e2e8f0]">Site settings</span>
+                          </div>
+                          <ArrowSquareOut size={14} className="text-text-faint group-hover:text-white" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Brave AdBlock Engine Button */}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowAdBlockMenu(prev => !prev);
+                      setShowSiteInfoMenu(false);
+                      setShowBookmarksMenu(false);
+                      setShowHistoryMenu(false);
+                      setShowBrowserMenu(false);
+                    }}
+                    title="Brave AdBlock Engine"
+                    className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
+                      showAdBlockMenu ? 'bg-[#222736] text-emerald-400' : 'text-text-muted hover:bg-[#222736] hover:text-white'
+                    }`}
+                    style={{ WebkitAppRegion: 'no-drag' as any }}
+                  >
+                    <ShieldCheck size={15} className={adBlockEnabled ? 'text-emerald-400' : 'text-red-400'} />
+                  </button>
+
+                  {/* AdBlock Dropdown Popover */}
+                  {showAdBlockMenu && (
+                    <div
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="absolute right-0 top-[34px] z-50 w-80 rounded-2xl bg-[#1d202c] border border-[#2e3548] shadow-2xl overflow-hidden p-3.5 animate-dropdown text-white"
+                      style={{ WebkitAppRegion: 'no-drag' as any }}
+                    >
+                      <div className="flex items-center justify-between border-b border-[#2b3144] pb-2.5 mb-3">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck size={18} className="text-emerald-400" />
+                          <span className="text-[14px] font-bold text-white">Brave AdBlock Engine</span>
+                        </div>
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const bridge = (window as any).__socialBrowserDashboard;
+                            if (bridge?.toggleAdBlock) {
+                              bridge.toggleAdBlock().then((res: any) => {
+                                if (res) setAdBlockEnabled(res.enabled);
+                              });
+                            }
+                          }}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                            adBlockEnabled ? 'bg-emerald-500' : 'bg-gray-600'
+                          }`}
+                          style={{ WebkitAppRegion: 'no-drag' as any }}
+                        >
+                          <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                            adBlockEnabled ? 'translate-x-4' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+
+                      <div className="bg-[#141722] rounded-xl p-3 border border-[#282f42] mb-3">
+                        <div className="text-[12.5px] font-semibold text-text-muted mb-1 flex items-center justify-between">
+                          <span>Ads & Trackers Blocked:</span>
+                          <span className="text-emerald-400 font-bold text-[14px]">
+                            {adBlockStats?.tabBlocked ?? 0} on page
+                          </span>
+                        </div>
+                        <div className="text-[11.5px] text-text-faint">
+                          Total blocked across session: <strong className="text-white">{adBlockStats?.totalBlocked ?? 0}</strong>
+                        </div>
+                      </div>
+
+                      <button
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowAboutModal(true);
+                          setShowAdBlockMenu(false);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl bg-[#262c3f] hover:bg-[#313850] text-[12.5px] font-semibold text-amber-400 hover:text-amber-300 transition-colors flex items-center justify-center gap-2 border border-[#374059]"
+                        style={{ WebkitAppRegion: 'no-drag' as any }}
+                      >
+                        <Info size={15} />
+                        <span>About Social Browser & AdBlock Licenses</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Anchored Far Right Sub-group: Copy URL & Bookmark Star */}
+              <div className="flex items-center gap-1 shrink-0" style={{ WebkitAppRegion: 'no-drag' as any }}>
+                {/* Copy URL Button */}
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleCopyUrl(e);
+                  }}
+                  title={copiedUrl ? 'Copied!' : 'Copy URL'}
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-[#222736] hover:text-white transition-colors relative shrink-0"
+                  style={{ WebkitAppRegion: 'no-drag' as any }}
+                >
+                  {copiedUrl ? (
+                    <Check size={14} className="text-emerald-400 font-bold" />
+                  ) : (
+                    <Copy size={14} />
+                  )}
+                </button>
+
+                {/* Bookmark Star Button */}
+                {currentUrl && currentUrl.startsWith('http') && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleBookmark(currentUrl, activeTab?.label || currentUrl);
+                      reloadBookmarks();
+                    }}
+                    title={isCurrentUrlBookmarked ? 'Remove bookmark' : 'Bookmark this page'}
+                    className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-[#222736] transition-colors shrink-0"
+                    style={{ WebkitAppRegion: 'no-drag' as any }}
+                  >
+                    <Star
+                      size={15}
+                      weight={isCurrentUrlBookmarked ? 'fill' : 'regular'}
+                      className={isCurrentUrlBookmarked ? 'text-amber-400' : 'text-text-muted hover:text-amber-400'}
+                    />
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* URL Suggestions Dropdown */}
             {isInputFocused && suggestions.length > 0 && (
@@ -862,13 +1157,14 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                 className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                   showBookmarksMenu ? 'bg-[#222736] text-amber-400' : 'text-text-muted hover:bg-[#1f2330] hover:text-white'
                 }`}
+                style={{ WebkitAppRegion: 'no-drag' as any }}
               >
                 <BookmarkSimple size={17} weight="bold" />
               </button>
 
               {/* Bookmarks Dropdown */}
               {showBookmarksMenu && (
-                <div className="absolute right-0 top-[38px] z-50 w-72 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden py-2 animate-dropdown">
+                <div onMouseDown={(e) => e.stopPropagation()} className="absolute right-0 top-[38px] z-50 w-72 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden py-2 animate-dropdown" style={{ WebkitAppRegion: 'no-drag' as any }}>
                   <div className="px-3.5 py-1.5 text-[11.5px] font-bold text-text-faint uppercase tracking-wider flex items-center justify-between border-b border-border/40 pb-1.5 mb-1">
                     <span>Bookmarks ({bookmarks.length})</span>
                     {bookmarks.length > 0 && (
@@ -932,6 +1228,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   setShowHistoryMenu(prev => !prev);
                   setShowBookmarksMenu(false);
                   setShowBrowserMenu(false);
@@ -940,13 +1237,14 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                 className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                   showHistoryMenu ? 'bg-[#222736] text-amber-400' : 'text-[#8b9bb4] hover:bg-[#1f2330] hover:text-white'
                 }`}
+                style={{ WebkitAppRegion: 'no-drag' as any }}
               >
                 <Clock size={17} weight="bold" />
               </button>
 
               {/* History Dropdown */}
               {showHistoryMenu && (
-                <div className="absolute right-0 top-[38px] z-50 w-80 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden py-2 animate-dropdown">
+                <div onMouseDown={(e) => e.stopPropagation()} className="absolute right-0 top-[38px] z-50 w-80 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden py-2 animate-dropdown" style={{ WebkitAppRegion: 'no-drag' as any }}>
                   <div className="px-3.5 py-1.5 text-[11.5px] font-bold text-text-faint uppercase tracking-wider flex items-center justify-between border-b border-border/40 pb-1.5 mb-1">
                     <span>Browsing History</span>
                     {history.length > 0 && (
@@ -1010,6 +1308,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   setShowBrowserMenu(prev => !prev);
                   setShowBookmarksMenu(false);
                   setShowHistoryMenu(false);
@@ -1018,13 +1317,14 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                 className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                   showBrowserMenu ? 'bg-[#222736] text-amber-400' : 'text-[#8b9bb4] hover:bg-[#1f2330] hover:text-white'
                 }`}
+                style={{ WebkitAppRegion: 'no-drag' as any }}
               >
                 <DotsThreeVertical size={18} weight="bold" />
               </button>
 
               {/* Browser Menu Dropdown */}
               {showBrowserMenu && (
-                <div className="absolute right-0 top-[38px] z-50 w-56 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden p-1.5 animate-dropdown">
+                <div onMouseDown={(e) => e.stopPropagation()} className="absolute right-0 top-[38px] z-50 w-56 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden p-1.5 animate-dropdown" style={{ WebkitAppRegion: 'no-drag' as any }}>
                   <div className="px-3 py-1 text-[10.5px] font-bold text-text-faint uppercase tracking-wider">
                     Browser Menu
                   </div>
@@ -1087,12 +1387,87 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
             </div>
           </div>
 
-          {/* Animated orange loading bar at bottom of URL bar */}
-          {activeTab?.isLoading && (
-            <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-amber-500/20 overflow-hidden z-20">
-              <div className="h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300 animate-pulse w-full shadow-lg shadow-amber-500/50" style={{ animationDuration: '0.7s' }} />
+          {/* Animated orange loading line: Left-to-right progress -> Bold finish -> Left-to-right wipe out */}
+          {loadingState !== 'idle' && (
+            <div
+              className="absolute -bottom-[3.5px] left-0 right-0 z-20 pointer-events-none overflow-hidden transition-all duration-300 ease-out"
+              style={{
+                height: loadingState === 'finishing' || loadingState === 'fade-out' ? '3.5px' : '2.5px',
+                clipPath: loadingState === 'fade-out' ? 'inset(0 0% 0 100%)' : 'inset(0 0% 0 0%)',
+                transition: 'clip-path 350ms ease-in-out, height 200ms ease-out, opacity 350ms ease-in-out',
+              }}
+            >
+              <div
+                className={`h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300 transition-all ${
+                  loadingState === 'loading'
+                    ? 'w-[85%] animate-pulse opacity-90 shadow-sm shadow-amber-500/30'
+                    : 'w-full opacity-100 shadow-lg shadow-amber-400/90 brightness-125'
+                }`}
+                style={{
+                  transition: loadingState === 'finishing' ? 'width 300ms ease-out, opacity 200ms' : loadingState === 'loading' ? 'width 1000ms ease-out' : 'none',
+                }}
+              />
             </div>
           )}
+        </div>
+      )}
+
+      {/* About Social Browser & AdBlock Licenses Modal */}
+      {showAboutModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-dropdown">
+          <div className="w-full max-w-lg rounded-2xl bg-[#161925] border border-[#2f364a] shadow-2xl p-6 relative overflow-hidden text-white">
+            <button
+              onClick={() => setShowAboutModal(false)}
+              className="absolute right-4 top-4 text-text-muted hover:text-white p-1 rounded-lg hover:bg-[#232838]"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3.5 mb-4 pb-4 border-b border-[#2b3145]">
+              <img src={logoPng} alt="Social Browser" className="h-10 w-auto" />
+              <div>
+                <h2 className="text-[17px] font-bold text-white leading-tight">Social Browser</h2>
+                <p className="text-[12px] text-amber-400 font-medium">Version 0.1.0 (Built with Electron & Vite)</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1 text-[13px] text-[#94a3b8] [::-webkit-scrollbar]:w-1.5 [::-webkit-scrollbar-thumb]:bg-[#2c3347] [::-webkit-scrollbar-thumb]:rounded-full">
+              <div>
+                <h3 className="text-[14px] font-bold text-white mb-1 flex items-center gap-2">
+                  <ShieldCheck size={17} className="text-emerald-400" />
+                  Brave AdBlock Rust Engine Integration
+                </h3>
+                <p className="text-[12.5px] leading-relaxed">
+                  Social Browser integrates high-performance network request filter rules based on the <strong>Brave adblock-rust engine</strong> and EasyList/EasyPrivacy rulesets to block intrusive ads, trackers, and popup scripts automatically.
+                </p>
+              </div>
+
+              <div className="bg-[#0e1017] p-3.5 rounded-xl border border-[#252b3c] space-y-2.5 text-[11.5px] font-mono">
+                <div className="font-bold text-amber-400 text-[12px] font-sans uppercase tracking-wider">Open Source License Disclosures</div>
+                <div>
+                  <div className="text-white font-semibold">1. Mozilla Public License 2.0 (MPL-2.0)</div>
+                  <p className="text-text-muted text-[11px] leading-normal mt-0.5">
+                    Brave adblock-rust filter engine components are licensed under the Mozilla Public License v2.0. Copyright (c) Brave Software Inc. All rights reserved.
+                  </p>
+                </div>
+                <div>
+                  <div className="text-white font-semibold">2. MIT License</div>
+                  <p className="text-text-muted text-[11px] leading-normal mt-0.5">
+                    Copyright (c) Brave Software Inc. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files...
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-[#2b3145] flex justify-end">
+              <button
+                onClick={() => setShowAboutModal(false)}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-bold text-[13px] transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

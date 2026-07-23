@@ -21,6 +21,7 @@ import { ViewLayoutManager } from './view-layout-manager';
 import { SessionManager } from './session-manager';
 import { WorkspaceTabController } from './workspace-tab-controller';
 import { BrowserTabView } from './browser-tab-view';
+import { adBlockEngine, ADBLOCK_RULES_INFO } from './adblock-engine';
 
 let worker: Worker | null = null;
 let workerRestartCount = 0;
@@ -209,21 +210,38 @@ function setupDashboardIpc(): void {
 
 // ===== Browser Tab IPC handlers (non-worker, direct view management) =====
 
+const createBrowserTabHelper = (profileId: string, partition: string, initialUrl?: string, label?: string) => {
+  const btv = new BrowserTabView({
+    profileId,
+    partition,
+    initialUrl,
+    onOpenPeek: (url) => {
+      layoutManager?.openPeekPreview(url);
+    },
+    onOpenNewTab: (url) => {
+      const newProfileId = 'default-browser-' + Date.now();
+      const newPartition = 'persist:social-browser:default-browser';
+      createBrowserTabHelper(newProfileId, newPartition, url, 'Browser');
+    },
+  });
+  const wcId = btv.view.webContents.id;
+  const tabLabel = label || 'Browser';
+  registerBrowserTab(wcId, btv);
+  layoutManager?.addTab(wcId.toString(), tabLabel, btv.view, () => {
+    browserTabRegistry.delete(wcId.toString());
+    btv.close();
+  });
+  layoutManager?.activateTab(wcId.toString());
+  return wcId.toString();
+};
+
 ipcMain.handle('dash:launch-browser-profile', async (_event, params: { profileId: string; url?: string }) => {
   try {
     const { profileId, url } = params;
     const partition = 'persist:social-browser:profile:' + profileId;
     const initialUrl = url || 'https://google.com';
-    const btv = new BrowserTabView({ profileId, partition, initialUrl });
-    const wcId = btv.view.webContents.id;
-    const label = 'Browser:' + profileId.substring(0, 8);
-    registerBrowserTab(wcId, btv);
-    layoutManager?.addTab(wcId.toString(), label, btv.view, () => {
-      browserTabRegistry.delete(wcId.toString());
-      btv.close();
-    });
-    layoutManager?.activateTab(wcId.toString());
-    return { success: true };
+    const tabId = createBrowserTabHelper(profileId, partition, initialUrl, 'Browser:' + profileId.substring(0, 8));
+    return { success: true, tabId };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { success: false, error: msg };
@@ -235,15 +253,8 @@ ipcMain.handle('dash:open-default-browser-tab', async (_event, params?: { url?: 
     const profileId = 'default-browser-' + Date.now();
     const partition = 'persist:social-browser:default-browser';
     const initialUrl = params?.url || 'https://google.com';
-    const btv = new BrowserTabView({ profileId, partition, initialUrl });
-    const wcId = btv.view.webContents.id;
-    registerBrowserTab(wcId, btv);
-    layoutManager?.addTab(wcId.toString(), 'Browser', btv.view, () => {
-      browserTabRegistry.delete(wcId.toString());
-      btv.close();
-    });
-    layoutManager?.activateTab(wcId.toString());
-    return { success: true };
+    const tabId = createBrowserTabHelper(profileId, partition, initialUrl, 'Browser');
+    return { success: true, tabId };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { success: false, error: msg };
@@ -253,6 +264,42 @@ ipcMain.handle('dash:open-default-browser-tab', async (_event, params?: { url?: 
 ipcMain.handle('dash:set-sidebar-open', (_event, open: boolean) => {
   layoutManager?.setSidebarOpen(open);
   return { success: true };
+});
+
+ipcMain.handle('dash:set-popover-open', (_event, open: boolean) => {
+  layoutManager?.setPopoverOpen(open);
+  return { success: true };
+});
+
+ipcMain.handle('dash:close-peek-preview', () => {
+  layoutManager?.closePeekPreview();
+  return { success: true };
+});
+
+ipcMain.handle('dash:open-peek-in-tab', (_event, url?: string) => {
+  const targetUrl = url || layoutManager?.getPeekUrl() || 'https://google.com';
+  layoutManager?.closePeekPreview();
+  const profileId = 'default-browser-' + Date.now();
+  const partition = 'persist:social-browser:default-browser';
+  const tabId = createBrowserTabHelper(profileId, partition, targetUrl, 'Browser');
+  return { success: true, tabId };
+});
+
+ipcMain.handle('dash:get-adblock-stats', (_event, tabId?: string) => {
+  const numericId = tabId ? Number(tabId) : undefined;
+  const tabBlocked = numericId ? adBlockEngine.getTabBlockedCount(numericId) : 0;
+  return {
+    enabled: adBlockEngine.isEnabled(),
+    totalBlocked: adBlockEngine.getTotalBlockedCount(),
+    tabBlocked,
+    rulesInfo: ADBLOCK_RULES_INFO,
+  };
+});
+
+ipcMain.handle('dash:toggle-adblock', () => {
+  const current = adBlockEngine.isEnabled();
+  adBlockEngine.setEnabled(!current);
+  return { enabled: adBlockEngine.isEnabled() };
 });
 
 ipcMain.handle('dash:get-browser-tabs', () => {

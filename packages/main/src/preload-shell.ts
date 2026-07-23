@@ -112,4 +112,23 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
   acknowledgeAccount: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:acknowledge-account', params),
   checkAcknowledged: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:check-acknowledged', params),
   getAuditEvents: (params?: unknown): Promise<unknown> => ipcRenderer.invoke('dash:get-audit-events', params),
+
+  // ===== AdBlock APIs =====
+  getAdBlockStats: (tabId?: string): Promise<unknown> => ipcRenderer.invoke('dash:get-adblock-stats', tabId),
+  toggleAdBlock: (): Promise<unknown> => ipcRenderer.invoke('dash:toggle-adblock'),
+  setPopoverOpen: (open: boolean): Promise<unknown> => ipcRenderer.invoke('dash:set-popover-open', open),
+
+  // ===== Peek Link Preview APIs =====
+  closePeekPreview: (): Promise<unknown> => ipcRenderer.invoke('dash:close-peek-preview'),
+  openPeekInTab: (url?: string): Promise<unknown> => ipcRenderer.invoke('dash:open-peek-in-tab', url),
+  onPeekOpened: (callback: (data: { url: string }) => void) => {
+    const listener = (_e: unknown, data: { url: string }) => callback(data);
+    ipcRenderer.on('peek:opened', listener);
+    return () => ipcRenderer.removeListener('peek:opened', listener);
+  },
+  onPeekClosed: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('peek:closed', listener);
+    return () => ipcRenderer.removeListener('peek:closed', listener);
+  },
 });

@@ -31,10 +31,63 @@ export class ViewLayoutManager {
   }
 
   private sidebarOpen = false;
+  private popoverOpen = false;
+  private peekView: WebContentsView | null = null;
+  private peekUrl: string | null = null;
 
   setSidebarOpen(open: boolean): void {
     this.sidebarOpen = open;
     this.recalculateBounds();
+  }
+
+  setPopoverOpen(open: boolean): void {
+    this.popoverOpen = open;
+    this.recalculateBounds();
+  }
+
+  openPeekPreview(url: string): void {
+    this.closePeekPreview();
+
+    this.peekUrl = url;
+    this.peekView = new WebContentsView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        webSecurity: true,
+      },
+    });
+
+    this.peekView.webContents.loadURL(url).catch(() => {});
+    this.baseWindow.contentView.addChildView(this.peekView);
+
+    // Re-add shellView on top so header overlay & controls capture interaction
+    if (this.baseWindow.contentView.children.includes(this.shellView.view)) {
+      this.baseWindow.contentView.removeChildView(this.shellView.view);
+    }
+    this.baseWindow.contentView.addChildView(this.shellView.view);
+
+    this.shellView.webContents.send('peek:opened', { url });
+    this.recalculateBounds();
+  }
+
+  closePeekPreview(): void {
+    if (this.peekView) {
+      if (this.baseWindow.contentView.children.includes(this.peekView)) {
+        this.baseWindow.contentView.removeChildView(this.peekView);
+      }
+      if (!this.peekView.webContents.isDestroyed()) {
+        this.peekView.webContents.close();
+      }
+      this.peekView = null;
+      this.peekUrl = null;
+    }
+    this.shellView.webContents.send('peek:closed');
+    this.recalculateBounds();
+  }
+
+  getPeekUrl(): string | null {
+    return this.peekUrl;
   }
 
   // Full window bounds for shell view
@@ -43,7 +96,7 @@ export class ViewLayoutManager {
     return { x: 0, y: 0, width, height };
   }
 
-  // Title bar bounds for shell view (full bounds so dropdowns overlay smoothly)
+  // Title bar bounds for shell view (full window bounds; transparent body lets browser tabs show through)
   private getTitleBarBounds(): { x: number; y: number; width: number; height: number } {
     const { width, height } = this.baseWindow.getContentBounds();
     return { x: 0, y: 0, width, height };
@@ -63,6 +116,7 @@ export class ViewLayoutManager {
   }
 
   recalculateBounds(): void {
+    const { width, height } = this.baseWindow.getContentBounds();
     if (this.activeTabId) {
       const tab = this.tabs.get(this.activeTabId);
       if (tab) {
@@ -70,6 +124,19 @@ export class ViewLayoutManager {
         tab.view.setVisible(true);
       }
       this.shellView.setBounds(this.getTitleBarBounds());
+
+      if (this.peekView) {
+        const PEEK_MARGIN_X = Math.max(40, Math.floor(width * 0.1));
+        const PEEK_MARGIN_TOP = 145; // Below URL toolbar & Peek Header
+        const PEEK_MARGIN_BOTTOM = 25;
+        this.peekView.setBounds({
+          x: PEEK_MARGIN_X,
+          y: PEEK_MARGIN_TOP,
+          width: Math.max(200, width - PEEK_MARGIN_X * 2),
+          height: Math.max(100, height - PEEK_MARGIN_TOP - PEEK_MARGIN_BOTTOM),
+        });
+        this.peekView.setVisible(true);
+      }
     } else {
       this.shellView.setBounds(this.getFullBounds());
     }
@@ -110,10 +177,11 @@ export class ViewLayoutManager {
     tab.view.setBounds(this.getTabBounds());
     tab.view.setVisible(true);
 
-    // Ensure shell sits on top without redundant re-parenting
-    if (!this.baseWindow.contentView.children.includes(this.shellView.view)) {
-      this.baseWindow.contentView.addChildView(this.shellView.view);
+    // Ensure shell sits on top of tab.view in contentView z-stack
+    if (this.baseWindow.contentView.children.includes(this.shellView.view)) {
+      this.baseWindow.contentView.removeChildView(this.shellView.view);
     }
+    this.baseWindow.contentView.addChildView(this.shellView.view);
     this.shellView.setBounds(this.getTitleBarBounds());
     this.shellView.setVisible(true);
 
