@@ -7,6 +7,7 @@ export interface TabEntry {
   label: string;
   view: WebContentsView;
   onClose?: () => void;
+  favicon?: string;
 }
 
 export const SIDEBAR_WIDTH = 232;
@@ -63,6 +64,13 @@ export class ViewLayoutManager {
 
   addTab(id: string, label: string, view: WebContentsView, onClose?: () => void): TabEntry {
     const entry: TabEntry = { id, label, view, onClose };
+    if (view && view.webContents && !view.webContents.isDestroyed()) {
+      view.webContents.on('page-favicon-updated', (_event, favicons) => {
+        if (favicons && favicons.length > 0) {
+          entry.favicon = favicons[0];
+        }
+      });
+    }
     this.tabs.set(id, entry);
     view.setVisible(false);
     return entry;

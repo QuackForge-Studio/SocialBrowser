@@ -13,23 +13,82 @@ interface SidebarProps {
 }
 
 export function Sidebar({ navItems, activeView, isOpen, onNavigate }: SidebarProps) {
+  const [isSwitcherOpen, setIsSwitcherOpen] = React.useState(false);
+  const [workspaces, setWorkspaces] = React.useState<{ id: string; name: string }[]>([]);
+
+  React.useEffect(() => {
+    if (!isSwitcherOpen) return;
+    const bridge = (window as any).__socialBrowserDashboard;
+    if (bridge?.getWorkspaces) {
+      bridge.getWorkspaces().then((ws: any[]) => {
+        if (Array.isArray(ws)) setWorkspaces(ws);
+      }).catch(() => {});
+    }
+  }, [isSwitcherOpen]);
+
   return (
     <aside
       className="fixed top-11 left-0 bottom-0 z-40 flex w-[232px] flex-col border-r border-border/60 bg-bg-base/95 backdrop-blur-md transition-transform duration-200 ease-out"
       style={{
         WebkitAppRegion: 'no-drag' as any,
         transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+        pointerEvents: 'auto',
       }}
     >
       {/* Workspace quick switcher */}
-      <div className="border-b border-border/60 p-3">
-        <div className="flex items-center gap-2.5 rounded-xl bg-bg-elevated/80 border border-border px-3 py-2 cursor-pointer text-[13px] text-text hover:bg-bg-hover hover:border-accent/30 transition-all shadow-sm group">
+      <div className="relative border-b border-border/60 p-3">
+        <div
+          onClick={() => setIsSwitcherOpen(prev => !prev)}
+          className="flex items-center gap-2.5 rounded-xl bg-bg-elevated/80 border border-border px-3 py-2 cursor-pointer text-[13px] text-text hover:bg-bg-hover hover:border-accent/30 transition-all shadow-sm group select-none"
+        >
           <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent-soft text-accent">
             <Globe size={13} weight="duotone" />
           </div>
           <span className="flex-1 font-semibold truncate text-[13.5px]">Browser Profiles</span>
-          <CaretDown size={12} weight="bold" className="text-text-faint group-hover:text-text transition-colors" />
+          <CaretDown size={12} weight="bold" className={`text-text-faint group-hover:text-text transition-transform duration-150 ${isSwitcherOpen ? 'rotate-180 text-accent' : ''}`} />
         </div>
+
+        {/* Dropdown Menu */}
+        {isSwitcherOpen && (
+          <div className="absolute left-3 right-3 top-[52px] z-50 rounded-xl bg-bg-elevated border border-border/80 p-1.5 shadow-xl animate-dropdown">
+            <div className="px-2 py-1 text-[10.5px] font-bold text-text-faint uppercase tracking-wider">
+              Quick Switch
+            </div>
+            <button
+              onClick={() => { onNavigate("profiles"); setIsSwitcherOpen(false); }}
+              className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-text-muted hover:bg-bg-hover hover:text-text text-left transition-colors"
+            >
+              <Globe size={14} className="text-accent" />
+              <span>Browser Profiles</span>
+            </button>
+            <button
+              onClick={() => { onNavigate("workspaces"); setIsSwitcherOpen(false); }}
+              className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-text-muted hover:bg-bg-hover hover:text-text text-left transition-colors"
+            >
+              <SquaresFour size={14} className="text-accent" />
+              <span>All Workspaces ({workspaces.length})</span>
+            </button>
+
+            {workspaces.length > 0 && (
+              <>
+                <div className="my-1 border-t border-border/60" />
+                <div className="px-2 py-1 text-[10.5px] font-bold text-text-faint uppercase tracking-wider">
+                  Workspaces
+                </div>
+                {workspaces.map(ws => (
+                  <button
+                    key={ws.id}
+                    onClick={() => { onNavigate("workspaces"); setIsSwitcherOpen(false); }}
+                    className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12.5px] text-text-muted hover:bg-bg-hover hover:text-text text-left truncate transition-colors"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" />
+                    <span className="truncate">{ws.name}</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Nav */}

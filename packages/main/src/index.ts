@@ -264,7 +264,7 @@ ipcMain.handle('dash:get-browser-tabs', () => {
     const isWcLoading = wc && !wc.isDestroyed() ? wc.isLoading() : false;
     const url = btv && !btv.isDestroyed() ? btv.getUrl() : (wc && !wc.isDestroyed() ? wc.getURL() : '');
     const title = btv && !btv.isDestroyed() ? (btv.pageTitle || btv.getTitle()) : (wc && !wc.isDestroyed() ? wc.getTitle() : '');
-    const favicon = btv ? btv.favicon : '';
+    const favicon = (btv && btv.favicon) ? btv.favicon : (t.favicon || '');
     const isLoading = btv ? (btv.isLoading || isWcLoading) : isWcLoading;
     return {
       id: t.id,

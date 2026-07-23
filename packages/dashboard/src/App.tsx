@@ -124,7 +124,13 @@ export function App() {
   };
 
   return (
-    <div className="h-full w-full text-text" style={{ background: activeTabId ? 'transparent' : undefined }}>
+    <div
+      className="h-full w-full text-text"
+      style={{
+        background: activeTabId ? 'transparent' : 'var(--color-bg-base)',
+        pointerEvents: activeTabId ? 'none' : 'auto',
+      }}
+    >
       <TitleBar
         tabs={tabs}
         activeTabId={activeTabId}

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, X, SquaresFour, ArrowLeft, ArrowRight, ArrowClockwise, List, Lock, CircleNotch } from '@phosphor-icons/react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Plus, X, SquaresFour, ArrowLeft, ArrowRight, ArrowClockwise, List, Lock, CircleNotch, Clock, MagnifyingGlass, Globe, Trash, Star, BookmarkSimple, DotsThreeVertical, Gear } from '@phosphor-icons/react';
 import type { PlatformTab, DashboardView } from './types';
 import logoPng from './logo.png';
 
@@ -19,6 +19,84 @@ const PLATFORMS: Record<string, { color: string }> = {
   instagram: { color: '#E4405F' }, reddit: { color: '#FF4500' }, tiktok: { color: '#00F2EA' },
   browser: { color: '#f59e0b' },
 };
+
+const DEFAULT_PRESETS = [
+  { url: 'https://www.google.com', label: 'Google' },
+  { url: 'https://www.youtube.com', label: 'YouTube' },
+  { url: 'https://x.com', label: 'X (Twitter)' },
+  { url: 'https://www.facebook.com', label: 'Facebook' },
+  { url: 'https://www.instagram.com', label: 'Instagram' },
+  { url: 'https://www.linkedin.com', label: 'LinkedIn' },
+  { url: 'https://github.com', label: 'GitHub' },
+  { url: 'https://www.reddit.com', label: 'Reddit' },
+  { url: 'https://www.tiktok.com', label: 'TikTok' },
+];
+
+const HISTORY_KEY = 'social_browser_url_history';
+const BOOKMARKS_KEY = 'social_browser_bookmarks';
+
+interface BookmarkItem {
+  url: string;
+  title: string;
+  createdAt: number;
+}
+
+function getUrlHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUrlToHistory(url: string) {
+  if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) return;
+  try {
+    const list = getUrlHistory().filter(item => item !== url);
+    list.unshift(url);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 50)));
+  } catch {
+    // ignore
+  }
+}
+
+function removeUrlFromHistory(url: string) {
+  try {
+    const list = getUrlHistory().filter(item => item !== url);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+  } catch {
+    // ignore
+  }
+}
+
+function getBookmarks(): BookmarkItem[] {
+  try {
+    const raw = localStorage.getItem(BOOKMARKS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function toggleBookmark(url: string, title?: string): boolean {
+  if (!url || !url.startsWith('http')) return false;
+  try {
+    const list = getBookmarks();
+    const existingIndex = list.findIndex(b => b.url === url);
+    if (existingIndex >= 0) {
+      list.splice(existingIndex, 1);
+      localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(list));
+      return false;
+    } else {
+      list.unshift({ url, title: title || url, createdAt: Date.now() });
+      localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(list));
+      return true;
+    }
+  } catch {
+    return false;
+  }
+}
 
 function SvgIcon({ d, w, h }: { d: string; w: number; h: number }) {
   return <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none"><path d={d} stroke="currentColor" strokeWidth="1" /></svg>;
@@ -45,12 +123,93 @@ function WindowControls() {
   );
 }
 
+function TabFavicon({ tab, platformColor }: { tab: PlatformTab; platformColor: string }) {
+  const [imgState, setImgState] = useState<'primary' | 'fallback' | 'icon'>('primary');
+
+  const domain = useMemo(() => {
+    if (!tab.url || !tab.url.startsWith('http')) return '';
+    try {
+      return new URL(tab.url).hostname;
+    } catch {
+      return '';
+    }
+  }, [tab.url]);
+
+  const primarySrc = useMemo(() => {
+    if (tab.favicon) return tab.favicon;
+    if (domain) return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+    return '';
+  }, [tab.favicon, domain]);
+
+  const fallbackSrc = useMemo(() => {
+    if (domain) return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+    return '';
+  }, [domain]);
+
+  useEffect(() => {
+    setImgState('primary');
+  }, [tab.url, tab.favicon]);
+
+  if (tab.isLoading) {
+    return <CircleNotch size={15} weight="bold" className="animate-spin text-amber-400 shrink-0" />;
+  }
+
+  if (imgState === 'primary' && primarySrc) {
+    return (
+      <img
+        src={primarySrc}
+        alt=""
+        className="h-4 w-4 rounded-sm object-contain shrink-0"
+        onError={() => {
+          if (fallbackSrc) setImgState('fallback');
+          else setImgState('icon');
+        }}
+      />
+    );
+  }
+
+  if (imgState === 'fallback' && fallbackSrc) {
+    return (
+      <img
+        src={fallbackSrc}
+        alt=""
+        className="h-4 w-4 rounded-sm object-contain shrink-0"
+        onError={() => setImgState('icon')}
+      />
+    );
+  }
+
+  return (
+    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: platformColor }} />
+  );
+}
+
 export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSelect, onTabClose, onAddTab, onToggleSidebar }: TitleBarProps) {
   const [urlInput, setUrlInput] = useState('');
   const [currentUrl, setCurrentUrl] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
+  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
+  const [showBookmarksMenu, setShowBookmarksMenu] = useState(false);
+  const [showHistoryMenu, setShowHistoryMenu] = useState(false);
+  const [showBrowserMenu, setShowBrowserMenu] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
+
+  const isCurrentUrlBookmarked = useMemo(() => {
+    if (!currentUrl) return false;
+    return bookmarks.some(b => b.url === currentUrl);
+  }, [bookmarks, currentUrl]);
+
+  const reloadHistory = () => setHistory(getUrlHistory());
+  const reloadBookmarks = () => setBookmarks(getBookmarks());
+
+  useEffect(() => {
+    reloadHistory();
+    reloadBookmarks();
+  }, []);
 
   useEffect(() => {
     const bridge = (window as any).__socialBrowserDashboard;
@@ -61,6 +220,10 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
           const active = t.find((tab) => tab.id === activeTabId);
           if (active?.url) {
             setCurrentUrl(active.url);
+            if (active.url.startsWith('http')) {
+              saveUrlToHistory(active.url);
+              setHistory(getUrlHistory());
+            }
           }
         }
       }).catch(() => {});
@@ -70,9 +233,8 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
     return () => clearInterval(i);
   }, [activeTabId]);
 
-  const handleUrlSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'Enter' || !activeTabId) return;
-    let target = urlInput.trim();
+  const navigateTo = (rawUrl: string) => {
+    let target = rawUrl.trim();
     if (!target) return;
 
     if (!target.startsWith('http://') && !target.startsWith('https://') && !target.startsWith('about:')) {
@@ -82,18 +244,82 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
         target = 'https://www.google.com/search?q=' + encodeURIComponent(target);
       }
     }
-    (window as any).__socialBrowserDashboard?.navigateTab?.({ tabId: activeTabId, url: target });
+    saveUrlToHistory(target);
+    reloadHistory();
+    if (activeTabId) {
+      (window as any).__socialBrowserDashboard?.navigateTab?.({ tabId: activeTabId, url: target });
+    }
     setCurrentUrl(target);
+    setUrlInput(target);
     setIsInputFocused(false);
-    (e.target as HTMLInputElement).blur();
+    setShowBookmarksMenu(false);
+    setShowHistoryMenu(false);
+    setShowBrowserMenu(false);
+    setSelectedIndex(-1);
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+        navigateTo(suggestions[selectedIndex].url);
+      } else {
+        navigateTo(urlInput);
+      }
+    } else if (e.key === 'Escape') {
+      setIsInputFocused(false);
+      setSelectedIndex(-1);
+    }
+  };
+
+  const suggestions = useMemo(() => {
+    if (!isInputFocused) return [];
+    const query = urlInput.trim().toLowerCase();
+    const result: { type: 'history' | 'preset' | 'search'; url: string; label: string }[] = [];
+
+    // 1. History matches
+    const matchedHistory = history.filter(item => !query || item.toLowerCase().includes(query));
+    matchedHistory.slice(0, 5).forEach(item => {
+      result.push({ type: 'history', url: item, label: item });
+    });
+
+    // 2. Google Search option
+    if (query && !result.some(r => r.url.toLowerCase() === query)) {
+      const searchUrl = query.includes('.') && !query.includes(' ')
+        ? (query.startsWith('http') ? query : `https://${query}`)
+        : `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+
+      const searchLabel = query.includes('.') && !query.includes(' ')
+        ? `Go to https://${query.replace(/^https?:\/\//, '')}`
+        : `Search Google for "${query}"`;
+
+      result.push({ type: 'search', url: searchUrl, label: searchLabel });
+    }
+
+    // 3. Preset matches
+    const matchedPresets = DEFAULT_PRESETS.filter(p =>
+      !result.some(r => r.url === p.url) &&
+      (!query || p.url.toLowerCase().includes(query) || p.label.toLowerCase().includes(query))
+    );
+    matchedPresets.slice(0, 4).forEach(p => {
+      result.push({ type: 'preset', url: p.url, label: `${p.label} — ${p.url}` });
+    });
+
+    return result.slice(0, 8);
+  }, [isInputFocused, urlInput, history]);
 
   const sendNav = (js: string) => {
     if (activeTabId) (window as any).__socialBrowserDashboard?.navigateTab?.({ tabId: activeTabId, url: js });
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 select-none border-b border-[#1e2230] bg-[#0f1117] shadow-md">
+    <div className="fixed top-0 left-0 right-0 z-50 select-none border-b border-[#1e2230] bg-[#0f1117] shadow-md" style={{ pointerEvents: 'auto' }}>
       {/* Row 1: Tab strip */}
       <div className="flex h-11 items-stretch" style={{ WebkitAppRegion: 'drag' as any, paddingLeft: 10 }}>
         <button onClick={onToggleSidebar} title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
@@ -125,19 +351,6 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
             const active = tab.id === activeTabId;
             const pColor = PLATFORMS[tab.platform] ?? { color: '#f59e0b' };
 
-            let fallbackFavicon = '';
-            if (tab.url && tab.url.startsWith('http')) {
-              try {
-                const domain = new URL(tab.url).hostname;
-                if (domain) {
-                  fallbackFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-                }
-              } catch {
-                fallbackFavicon = '';
-              }
-            }
-            const faviconSrc = tab.favicon || fallbackFavicon;
-
             return (
               <button
                 key={tab.id}
@@ -149,23 +362,12 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                 }`}
                 style={{ WebkitAppRegion: 'no-drag' as any }}
               >
-                {/* Tab Favicon or Spinning Loading Animation */}
-                {tab.isLoading ? (
-                  <CircleNotch size={15} weight="bold" className="animate-spin text-amber-400 shrink-0" />
-                ) : faviconSrc ? (
-                  <img
-                    src={faviconSrc}
-                    alt=""
-                    className="h-4 w-4 rounded-sm object-contain shrink-0"
-                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: pColor.color }} />
-                )}
+                {/* Tab Favicon */}
+                <TabFavicon tab={tab} platformColor={pColor.color} />
 
                 <span className="truncate flex-1 text-left">{tab.label}</span>
 
-                {/* Larger Close Button & Larger Click Area */}
+                {/* Close Button */}
                 <span
                   onClick={e => { e.stopPropagation(); onTabClose(tab.id); }}
                   title="Close tab"
@@ -193,45 +395,359 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
         <div className="relative flex items-center gap-2 h-[46px] pb-2 pt-0.5 px-3 border-t border-[#1e2230]/60 bg-[#0f1117]"
           style={{ WebkitAppRegion: 'no-drag' as any }}>
           <button onClick={() => sendNav('javascript:history.back()')} title="Back"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-[#1f2330] hover:text-white transition-all"><ArrowLeft size={15} weight="bold" /></button>
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-[#1f2330] hover:text-white transition-all"><ArrowLeft size={16} weight="bold" /></button>
           <button onClick={() => sendNav('javascript:history.forward()')} title="Forward"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-[#1f2330] hover:text-white transition-all"><ArrowRight size={15} weight="bold" /></button>
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-[#1f2330] hover:text-white transition-all"><ArrowRight size={16} weight="bold" /></button>
           <button onClick={() => sendNav('javascript:location.reload()')} title="Reload"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-[#1f2330] hover:text-white transition-all mr-1">
-            {activeTab?.isLoading ? (
-              <CircleNotch size={14} weight="bold" className="animate-spin text-amber-400" />
-            ) : (
-              <ArrowClockwise size={14} weight="bold" />
-            )}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-[#1f2330] hover:text-white transition-all mr-0.5">
+            <ArrowClockwise size={16} weight="bold" />
           </button>
 
-          <div className="flex-1 flex items-center rounded-xl bg-[#161822] border border-[#262b3a] focus-within:border-amber-500/60 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-8 text-[12.5px] transition-all shadow-inner">
-            {activeTab?.isLoading ? (
-              <CircleNotch size={13} weight="bold" className="animate-spin text-amber-400 mr-2 shrink-0" />
-            ) : (
-              <Lock size={13} weight="fill" className="text-amber-500 mr-2 shrink-0" />
-            )}
+          <div className="relative flex-1 flex items-center rounded-xl bg-[#161822] border border-[#262b3a] focus-within:border-amber-500/60 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-9 text-[13.5px] transition-all shadow-inner">
+            <Lock
+              size={15}
+              weight="fill"
+              className={`mr-2 shrink-0 ${
+                (currentUrl || activeTab?.url || '').startsWith('https://')
+                  ? 'text-emerald-500'
+                  : 'text-red-500'
+              }`}
+            />
             <input
               type="text"
               value={isInputFocused ? urlInput : currentUrl}
-              onChange={e => setUrlInput(e.target.value)}
+              onChange={e => {
+                setUrlInput(e.target.value);
+                setSelectedIndex(-1);
+              }}
               onFocus={(e) => {
+                reloadHistory();
                 setIsInputFocused(true);
                 setUrlInput(currentUrl);
+                setSelectedIndex(-1);
                 e.target.select();
               }}
-              onBlur={() => setIsInputFocused(false)}
-              onKeyDown={handleUrlSubmit}
+              onBlur={() => {
+                setTimeout(() => setIsInputFocused(false), 150);
+              }}
+              onKeyDown={handleKeyDown}
               placeholder="Search Google or type a URL..."
-              className="w-full bg-transparent text-[12.5px] text-white outline-none border-none placeholder:text-text-faint font-medium"
+              className="flex-1 min-w-0 bg-transparent text-[13.5px] text-white outline-none border-none placeholder:text-text-faint font-medium"
               style={{ WebkitAppRegion: 'no-drag' as any }}
             />
+
+            {/* Bookmark Star Icon inside URL bar - perfectly centered */}
+            {currentUrl && currentUrl.startsWith('http') && (
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  toggleBookmark(currentUrl, activeTab?.label || currentUrl);
+                  reloadBookmarks();
+                }}
+                title={isCurrentUrlBookmarked ? 'Remove bookmark' : 'Bookmark this page'}
+                className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-[#222736] transition-colors shrink-0 ml-1.5"
+              >
+                <Star
+                  size={16}
+                  weight={isCurrentUrlBookmarked ? 'fill' : 'regular'}
+                  className={isCurrentUrlBookmarked ? 'text-amber-400' : 'text-text-muted hover:text-amber-400'}
+                />
+              </button>
+            )}
+
+            {/* URL Suggestions Dropdown */}
+            {isInputFocused && suggestions.length > 0 && (
+              <div
+                ref={dropdownRef}
+                className="absolute left-0 right-0 top-[40px] z-50 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden py-1.5 animate-dropdown"
+                style={{ WebkitAppRegion: 'no-drag' as any }}
+              >
+                <div className="px-3.5 py-1.5 text-[11.5px] font-bold text-text-faint uppercase tracking-wider flex items-center justify-between border-b border-border/40 pb-1.5 mb-1">
+                  <span>Suggestions & History</span>
+                  {history.length > 0 && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        localStorage.removeItem(HISTORY_KEY);
+                        setHistory([]);
+                      }}
+                      className="hover:text-red-400 text-[11.5px] normal-case transition-colors text-text-faint font-semibold"
+                    >
+                      Clear history
+                    </button>
+                  )}
+                </div>
+
+                {suggestions.map((item, index) => {
+                  const isSelected = index === selectedIndex;
+                  return (
+                    <div
+                      key={item.url + index}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        navigateTo(item.url);
+                      }}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      className={`flex items-center justify-between px-3.5 py-2.5 text-[14px] cursor-pointer transition-colors ${
+                        isSelected ? 'bg-amber-500/20 text-white font-semibold' : 'text-text-primary hover:bg-[#202433]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 truncate flex-1 mr-2">
+                        {item.type === 'history' && <Clock size={16} className="text-amber-400 shrink-0" />}
+                        {item.type === 'search' && <MagnifyingGlass size={16} className="text-sky-400 shrink-0" />}
+                        {item.type === 'preset' && <Globe size={16} className="text-emerald-400 shrink-0" />}
+                        <span className="truncate">{item.label}</span>
+                      </div>
+
+                      {item.type === 'history' && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            removeUrlFromHistory(item.url);
+                            reloadHistory();
+                          }}
+                          title="Remove from history"
+                          className="opacity-50 hover:opacity-100 hover:text-red-400 p-1 rounded transition-opacity"
+                        >
+                          <Trash size={14} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Toolbar Action Shortcuts: Bookmarks, History, Browser Settings Menu */}
+          <div className="flex items-center gap-1 shrink-0 ml-1">
+            {/* Bookmarks Popover Button */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowBookmarksMenu(prev => !prev);
+                  setShowHistoryMenu(false);
+                  setShowBrowserMenu(false);
+                }}
+                title="Bookmarks"
+                className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+                  showBookmarksMenu ? 'bg-[#222736] text-amber-400' : 'text-text-muted hover:bg-[#1f2330] hover:text-white'
+                }`}
+              >
+                <BookmarkSimple size={17} weight="bold" />
+              </button>
+
+              {/* Bookmarks Dropdown */}
+              {showBookmarksMenu && (
+                <div className="absolute right-0 top-[38px] z-50 w-72 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden py-2 animate-dropdown">
+                  <div className="px-3.5 py-1.5 text-[11.5px] font-bold text-text-faint uppercase tracking-wider flex items-center justify-between border-b border-border/40 pb-1.5 mb-1">
+                    <span>Bookmarks ({bookmarks.length})</span>
+                    {bookmarks.length > 0 && (
+                      <button
+                        onClick={() => {
+                          localStorage.removeItem(BOOKMARKS_KEY);
+                          setBookmarks([]);
+                        }}
+                        className="text-red-400 hover:underline text-[10.5px] normal-case"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto">
+                    {bookmarks.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-[12.5px] text-text-faint">
+                        No bookmarks saved yet.<br />Click the ⭐ in the URL bar to bookmark pages!
+                      </div>
+                    ) : (
+                      bookmarks.map(bm => (
+                        <div
+                          key={bm.url}
+                          onClick={() => navigateTo(bm.url)}
+                          className="flex items-center justify-between px-3 py-2 text-[13px] hover:bg-[#202433] cursor-pointer text-text-muted hover:text-white transition-colors group"
+                        >
+                          <div className="flex items-center gap-2 truncate mr-2">
+                            <Star size={13} weight="fill" className="text-amber-400 shrink-0" />
+                            <span className="truncate">{bm.title || bm.url}</span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleBookmark(bm.url);
+                              reloadBookmarks();
+                            }}
+                            title="Remove bookmark"
+                            className="opacity-40 group-hover:opacity-100 hover:text-red-400 p-1"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* History Popover Button */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowHistoryMenu(prev => !prev);
+                  setShowBookmarksMenu(false);
+                  setShowBrowserMenu(false);
+                }}
+                title="History"
+                className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+                  showHistoryMenu ? 'bg-[#222736] text-amber-400' : 'text-text-muted hover:bg-[#1f2330] hover:text-white'
+                }`}
+              >
+                <Clock size={17} weight="bold" />
+              </button>
+
+              {/* History Dropdown */}
+              {showHistoryMenu && (
+                <div className="absolute right-0 top-[38px] z-50 w-80 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden py-2 animate-dropdown">
+                  <div className="px-3.5 py-1.5 text-[11.5px] font-bold text-text-faint uppercase tracking-wider flex items-center justify-between border-b border-border/40 pb-1.5 mb-1">
+                    <span>Browsing History</span>
+                    {history.length > 0 && (
+                      <button
+                        onClick={() => {
+                          localStorage.removeItem(HISTORY_KEY);
+                          setHistory([]);
+                        }}
+                        className="text-red-400 hover:underline text-[10.5px] normal-case"
+                      >
+                        Clear history
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto">
+                    {history.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-[12.5px] text-text-faint">
+                        No browsing history recorded yet.
+                      </div>
+                    ) : (
+                      history.map((urlItem) => (
+                        <div
+                          key={urlItem}
+                          onClick={() => navigateTo(urlItem)}
+                          className="flex items-center justify-between px-3 py-2 text-[13px] hover:bg-[#202433] cursor-pointer text-text-muted hover:text-white transition-colors group"
+                        >
+                          <div className="flex items-center gap-2 truncate mr-2">
+                            <Clock size={13} className="text-amber-400 shrink-0" />
+                            <span className="truncate">{urlItem}</span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeUrlFromHistory(urlItem);
+                              reloadHistory();
+                            }}
+                            title="Remove"
+                            className="opacity-40 group-hover:opacity-100 hover:text-red-400 p-1"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Browser Settings & Menu (3 dots) */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowBrowserMenu(prev => !prev);
+                  setShowBookmarksMenu(false);
+                  setShowHistoryMenu(false);
+                }}
+                title="Browser Settings & Menu"
+                className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+                  showBrowserMenu ? 'bg-[#222736] text-amber-400' : 'text-text-muted hover:bg-[#1f2330] hover:text-white'
+                }`}
+              >
+                <DotsThreeVertical size={18} weight="bold" />
+              </button>
+
+              {/* Browser Menu Dropdown */}
+              {showBrowserMenu && (
+                <div className="absolute right-0 top-[38px] z-50 w-56 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden p-1.5 animate-dropdown">
+                  <div className="px-3 py-1 text-[10.5px] font-bold text-text-faint uppercase tracking-wider">
+                    Browser Menu
+                  </div>
+                  <button
+                    onClick={() => {
+                      onAddTab();
+                      setShowBrowserMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-text-muted hover:bg-[#202433] hover:text-white transition-colors text-left font-medium"
+                  >
+                    <Plus size={15} className="text-amber-400" />
+                    <span>New Tab</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowBookmarksMenu(true);
+                      setShowBrowserMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-text-muted hover:bg-[#202433] hover:text-white transition-colors text-left font-medium"
+                  >
+                    <BookmarkSimple size={15} className="text-amber-400" />
+                    <span>Bookmarks Manager</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowHistoryMenu(true);
+                      setShowBrowserMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-text-muted hover:bg-[#202433] hover:text-white transition-colors text-left font-medium"
+                  >
+                    <Clock size={15} className="text-amber-400" />
+                    <span>Browsing History</span>
+                  </button>
+                  <div className="my-1 border-t border-border/40" />
+                  <button
+                    onClick={() => {
+                      onTabSelect('');
+                      setShowBrowserMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-text-muted hover:bg-[#202433] hover:text-white transition-colors text-left font-medium"
+                  >
+                    <Gear size={15} className="text-amber-400" />
+                    <span>Browser Settings</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem(HISTORY_KEY);
+                      localStorage.removeItem(BOOKMARKS_KEY);
+                      setHistory([]);
+                      setBookmarks([]);
+                      setShowBrowserMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-red-400 hover:bg-error-soft transition-colors text-left font-medium"
+                  >
+                    <Trash size={15} />
+                    <span>Clear Browsing Data</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Animated orange loading bar at bottom of URL bar */}
           {activeTab?.isLoading && (
-            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-amber-500/30 overflow-hidden">
-              <div className="h-full bg-amber-500 animate-pulse w-full" style={{ animationDuration: '0.8s' }} />
+            <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-amber-500/20 overflow-hidden z-20">
+              <div className="h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300 animate-pulse w-full shadow-lg shadow-amber-500/50" style={{ animationDuration: '0.7s' }} />
             </div>
           )}
         </div>
