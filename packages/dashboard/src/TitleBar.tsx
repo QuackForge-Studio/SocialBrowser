@@ -196,6 +196,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const pendingNavRef = useRef<{ url: string; time: number } | null>(null);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
 
@@ -213,6 +214,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
   }, []);
 
   useEffect(() => {
+    pendingNavRef.current = null;
     const bridge = (window as any).__socialBrowserDashboard;
     if (!bridge?.getBrowserTabs) return;
     const poll = () => {
@@ -220,6 +222,18 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
         if (activeTabId && t) {
           const active = t.find((tab) => tab.id === activeTabId);
           if (active?.url) {
+            // If user recently triggered a navigation, prevent poll from reverting URL to old page
+            if (pendingNavRef.current) {
+              const { url: pUrl, time: pTime } = pendingNavRef.current;
+              const isRecent = Date.now() - pTime < 4000;
+              const isSameUrl = active.url === pUrl || active.url.startsWith(pUrl);
+
+              if (isRecent && !isSameUrl) {
+                return;
+              }
+              pendingNavRef.current = null;
+            }
+
             setCurrentUrl(active.url);
             if (active.url.startsWith('http')) {
               saveUrlToHistory(active.url);
@@ -245,6 +259,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
         target = 'https://www.google.com/search?q=' + encodeURIComponent(target);
       }
     }
+    pendingNavRef.current = { url: target, time: Date.now() };
     saveUrlToHistory(target);
     reloadHistory();
     if (activeTabId) {
