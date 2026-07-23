@@ -3,6 +3,19 @@ import { Plus, X, SquaresFour, ArrowLeft, ArrowRight, ArrowClockwise, List, Lock
 import type { PlatformTab, DashboardView } from './types';
 import logoPng from './logo.png';
 
+function formatDisplayUrl(url: string): string {
+  if (!url) return '';
+  try {
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return url;
+    const u = new URL(url);
+    let host = u.hostname;
+    if (host.startsWith('www.')) host = host.slice(4);
+    return host;
+  } catch {
+    return url;
+  }
+}
+
 interface TitleBarProps {
   tabs: PlatformTab[];
   activeTabId: string | null;
@@ -491,7 +504,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
             <input
               ref={inputRef}
               type="text"
-              value={isInputFocused ? urlInput : currentUrl}
+              value={isInputFocused ? urlInput : formatDisplayUrl(currentUrl)}
               onChange={handleInputChange}
               onFocus={(e) => {
                 reloadHistory();

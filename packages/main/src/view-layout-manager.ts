@@ -18,6 +18,7 @@ export class ViewLayoutManager {
   private readonly shellView: ShellView;
   private readonly tabs: Map<string, TabEntry> = new Map();
   private activeTabId: string | null = null;
+  private savedSidebarOpen = false;
 
   constructor(baseWindow: BaseWindow, shellView: ShellView) {
     this.baseWindow = baseWindow;
@@ -42,23 +43,33 @@ export class ViewLayoutManager {
     return { x: 0, y: 0, width, height };
   }
 
-  // Viewport bounds for browser tabs (docked below TitleBar and to the right of Sidebar)
+  // Title-bar-only bounds (no overlap with browser tab below)
+  private getTitleBarBounds(): { x: number; y: number; width: number; height: number } {
+    const { width } = this.baseWindow.getContentBounds();
+    return { x: 0, y: 0, width, height: TITLE_BAR_HEIGHT };
+  }
+
+  // Viewport bounds for browser tabs (docked below TitleBar, full width)
   private getTabBounds(): { x: number; y: number; width: number; height: number } {
     const { width, height } = this.baseWindow.getContentBounds();
-    const sidebarW = this.sidebarOpen ? SIDEBAR_WIDTH : 0;
     return {
-      x: sidebarW,
+      x: 0,
       y: TITLE_BAR_HEIGHT,
-      width: Math.max(0, width - sidebarW),
+      width,
       height: Math.max(0, height - TITLE_BAR_HEIGHT),
     };
   }
 
   recalculateBounds(): void {
-    this.shellView.setBounds(this.getFullBounds());
     if (this.activeTabId) {
       const tab = this.tabs.get(this.activeTabId);
-      if (tab) tab.view.setBounds(this.getTabBounds());
+      if (tab) {
+        tab.view.setBounds(this.getTabBounds());
+        tab.view.setVisible(true);
+      }
+      this.shellView.setBounds(this.getTitleBarBounds());
+    } else {
+      this.shellView.setBounds(this.getFullBounds());
     }
   }
 
@@ -84,19 +95,21 @@ export class ViewLayoutManager {
       if (current) current.view.setVisible(false);
     }
 
-    // Add browser tab view first (behind shell)
+    // Save sidebar state and close it so browser tab fills full width
+    this.savedSidebarOpen = this.sidebarOpen;
+    if (this.sidebarOpen) this.sidebarOpen = false;
+
+    // Add browser tab view below title bar (no overlap with shell)
     if (!this.baseWindow.contentView.children.includes(tab.view)) {
       this.baseWindow.contentView.addChildView(tab.view);
     }
     tab.view.setBounds(this.getTabBounds());
     tab.view.setVisible(true);
 
-    // Bring shell to top of z-order so TitleBar is clickable.
-    // Keep shellView full bounds so React UI renders naturally.
-    if (this.baseWindow.contentView.children.includes(this.shellView.view))
-      this.baseWindow.contentView.removeChildView(this.shellView.view);
-    this.baseWindow.contentView.addChildView(this.shellView.view);
-    this.shellView.setBounds(this.getFullBounds());
+    // Shell sits only at title bar area — no overlap with browser tab
+    this.shellView.setBounds(this.getTitleBarBounds());
+    if (!this.baseWindow.contentView.children.includes(this.shellView.view))
+      this.baseWindow.contentView.addChildView(this.shellView.view);
     this.shellView.setVisible(true);
 
     this.activeTabId = id;
@@ -105,9 +118,15 @@ export class ViewLayoutManager {
   activateDashboard(): void {
     if (this.activeTabId) {
       const current = this.tabs.get(this.activeTabId);
-      if (current) current.view.setVisible(false);
+      if (current) {
+        current.view.setVisible(false);
+        if (this.baseWindow.contentView.children.includes(current.view))
+          this.baseWindow.contentView.removeChildView(current.view);
+      }
       this.activeTabId = null;
     }
+    // Restore sidebar state
+    this.sidebarOpen = this.savedSidebarOpen;
     this.shellView.setBounds(this.getFullBounds());
     this.shellView.setVisible(true);
   }

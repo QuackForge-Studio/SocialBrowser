@@ -8,8 +8,14 @@ console.log('[main:dev] Building main process...');
 execSync(`node "${path.join(ROOT, 'scripts', 'build-main.mjs')}"`, { stdio: 'inherit', cwd: ROOT });
 
 console.log('[main:dev] Launching Electron...');
-// Use .exe directly (not .cmd wrapper) to avoid path-with-spaces quoting issues
-const electronExe = path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe');
+// Resolve the platform Electron binary
+// Windows: electron.exe; macOS: Electron.app/Contents/MacOS/Electron; Linux: electron
+const electronDir = path.join(ROOT, 'node_modules', 'electron', 'dist');
+const electronExe = process.platform === 'win32'
+  ? path.join(electronDir, 'electron.exe')
+  : process.platform === 'darwin'
+    ? path.join(electronDir, 'Electron.app', 'Contents', 'MacOS', 'Electron')
+    : path.join(electronDir, 'electron');
 
 const logFile = path.join(MAIN_DIR, 'electron-debug.log');
 const logStream = require('fs').openSync(logFile, 'w');
@@ -24,11 +30,3 @@ child.unref();
 
 console.log(`[main:dev] Electron launched detached (PID: ${child.pid})`);
 console.log(`[main:dev] Debug log → ${logFile}`);
-
-// Check if Electron stays alive after 2s
-setTimeout(() => {
-  try {
-    const alive = process.kill(child.pid, 0);
-    if (!alive) console.error('[main:dev] ⚠ Electron exited early — check electron-debug.log');
-  } catch { console.error('[main:dev] ⚠ Electron exited early — check electron-debug.log'); }
-}, 2000);
