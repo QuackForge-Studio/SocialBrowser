@@ -195,6 +195,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
   const [showBrowserMenu, setShowBrowserMenu] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
 
@@ -258,7 +259,66 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
     setSelectedIndex(-1);
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = e.target.value;
+    const nativeEvt = e.nativeEvent as InputEvent;
+    const isDeleting = nativeEvt?.inputType?.includes('delete') || nativeEvt?.inputType === 'deleteContentBackward';
+
+    setUrlInput(newVal);
+    setSelectedIndex(-1);
+
+    if (isDeleting || !newVal.trim()) return;
+
+    const typedLower = newVal.toLowerCase();
+    const allCandidates = Array.from(new Set([
+      ...history,
+      ...DEFAULT_PRESETS.map(p => p.url)
+    ]));
+
+    for (const candidateUrl of allCandidates) {
+      let cleanDomain = '';
+      try {
+        const parsed = new URL(candidateUrl);
+        cleanDomain = parsed.hostname.replace(/^www\./, '');
+      } catch {
+        cleanDomain = candidateUrl;
+      }
+
+      let matchText = '';
+      if (candidateUrl.toLowerCase().startsWith(typedLower)) {
+        matchText = candidateUrl;
+      } else if (cleanDomain.toLowerCase().startsWith(typedLower)) {
+        matchText = cleanDomain;
+      } else if (('www.' + cleanDomain).toLowerCase().startsWith(typedLower)) {
+        matchText = 'www.' + cleanDomain;
+      }
+
+      if (matchText && matchText.length > newVal.length) {
+        setUrlInput(matchText);
+        const start = newVal.length;
+        const end = matchText.length;
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            inputRef.current.setSelectionRange(start, end);
+          }
+        });
+        break;
+      }
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const el = inputRef.current;
+    const hasSelection = el && el.selectionStart !== null && el.selectionEnd !== null && el.selectionEnd > el.selectionStart;
+
+    if (e.key === 'Tab' || (e.key === 'ArrowRight' && hasSelection)) {
+      if (hasSelection && el) {
+        e.preventDefault();
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+      return;
+    }
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
@@ -414,12 +474,10 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
               }`}
             />
             <input
+              ref={inputRef}
               type="text"
               value={isInputFocused ? urlInput : currentUrl}
-              onChange={e => {
-                setUrlInput(e.target.value);
-                setSelectedIndex(-1);
-              }}
+              onChange={handleInputChange}
               onFocus={(e) => {
                 reloadHistory();
                 setIsInputFocused(true);
