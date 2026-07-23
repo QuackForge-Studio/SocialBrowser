@@ -11,7 +11,7 @@ export interface TabEntry {
 }
 
 export const SIDEBAR_WIDTH = 232;
-export const TITLE_BAR_HEIGHT = 90; // 44px tab strip + 46px URL bar & bottom spacing
+export const TITLE_BAR_HEIGHT = 91; // 40px tab strip + 5px top gap + 46px URL bar
 
 export class ViewLayoutManager {
   private readonly baseWindow: BaseWindow;
@@ -43,20 +43,22 @@ export class ViewLayoutManager {
     return { x: 0, y: 0, width, height };
   }
 
-  // Title-bar-only bounds (no overlap with browser tab below)
+  // Title bar bounds for shell view (full bounds so dropdowns overlay smoothly)
   private getTitleBarBounds(): { x: number; y: number; width: number; height: number } {
-    const { width } = this.baseWindow.getContentBounds();
-    return { x: 0, y: 0, width, height: TITLE_BAR_HEIGHT };
+    const { width, height } = this.baseWindow.getContentBounds();
+    return { x: 0, y: 0, width, height };
   }
 
-  // Viewport bounds for browser tabs (docked below TitleBar, full width)
+  // Viewport bounds for browser tabs (docked inside unified card below URL toolbar)
   private getTabBounds(): { x: number; y: number; width: number; height: number } {
     const { width, height } = this.baseWindow.getContentBounds();
+    const SIDE_INSET = 6; // 5px window margin + 1px card border
+    const BOTTOM_OFFSET = 97; // 91px top + 5px window bottom margin + 1px border
     return {
-      x: 0,
+      x: SIDE_INSET,
       y: TITLE_BAR_HEIGHT,
-      width,
-      height: Math.max(0, height - TITLE_BAR_HEIGHT),
+      width: Math.max(0, width - SIDE_INSET * 2),
+      height: Math.max(0, height - BOTTOM_OFFSET),
     };
   }
 
@@ -88,6 +90,8 @@ export class ViewLayoutManager {
   }
 
   activateTab(id: string): void {
+    if (this.activeTabId === id) return;
+
     const tab = this.tabs.get(id);
     if (!tab) { console.warn('[VLM] Unknown tab: ' + id); return; }
     if (this.activeTabId) {
@@ -99,17 +103,18 @@ export class ViewLayoutManager {
     this.savedSidebarOpen = this.sidebarOpen;
     if (this.sidebarOpen) this.sidebarOpen = false;
 
-    // Add browser tab view below title bar (no overlap with shell)
+    // Add browser tab view if not already added
     if (!this.baseWindow.contentView.children.includes(tab.view)) {
       this.baseWindow.contentView.addChildView(tab.view);
     }
     tab.view.setBounds(this.getTabBounds());
     tab.view.setVisible(true);
 
-    // Shell sits only at title bar area — no overlap with browser tab
-    this.shellView.setBounds(this.getTitleBarBounds());
-    if (!this.baseWindow.contentView.children.includes(this.shellView.view))
+    // Ensure shell sits on top without redundant re-parenting
+    if (!this.baseWindow.contentView.children.includes(this.shellView.view)) {
       this.baseWindow.contentView.addChildView(this.shellView.view);
+    }
+    this.shellView.setBounds(this.getTitleBarBounds());
     this.shellView.setVisible(true);
 
     this.activeTabId = id;

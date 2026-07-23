@@ -120,17 +120,26 @@ function WindowControls() {
   const api = () => (window as any).__socialBrowserWindow;
   return (
     <div className="flex h-full items-stretch shrink-0" style={{ WebkitAppRegion: 'no-drag' as any }}>
-      <button onClick={() => api()?.minimize()} title="Minimize" className="flex h-full w-[46px] items-center justify-center text-text-muted hover:bg-bg-hover hover:text-text">
-        <SvgIcon d="M0 5H10" w={10} h={10} />
+      <button onClick={() => api()?.minimize()} title="Minimize" className="flex h-full w-[44px] items-center justify-center text-text-muted hover:bg-[#1e2230] hover:text-white transition-colors">
+        <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
+          <rect width="10" height="1" />
+        </svg>
       </button>
-      <button onClick={async () => { const r = await api()?.maximize(); setIsMaxed(!!r); }} title={isMaxed ? "Restore" : "Maximize"} className="flex h-full w-[46px] items-center justify-center text-text-muted hover:bg-bg-hover hover:text-text">
-        {isMaxed
-          ? <SvgIcon d="M2.5 1.5H8.5V7.5M0.5 3.5H6.5V9.5" w={10} h={10} />
-          : <SvgIcon d="M0.5 0.5H9.5V9.5" w={10} h={10} />
-        }
+      <button onClick={async () => { const r = await api()?.maximize(); setIsMaxed(!!r); }} title={isMaxed ? "Restore" : "Maximize"} className="flex h-full w-[44px] items-center justify-center text-text-muted hover:bg-[#1e2230] hover:text-white transition-colors">
+        {isMaxed ? (
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
+            <path d="M3 1h6v6M1 3h6v6H1z" />
+          </svg>
+        ) : (
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
+            <rect x="1" y="1" width="8" height="8" rx="1" stroke="currentColor" fill="none" />
+          </svg>
+        )}
       </button>
-      <button onClick={() => api()?.close()} title="Close" className="flex h-full w-[46px] items-center justify-center text-text-muted hover:bg-[#e81123] hover:text-white">
-        <SvgIcon d="M1 1L9 9M9 1L1 9" w={10} h={10} />
+      <button onClick={() => api()?.close()} title="Close" className="flex h-full w-[44px] items-center justify-center text-text-muted hover:bg-[#e81123] hover:text-white transition-colors">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
+          <path d="M1 1l8 8M9 1l-8 8" />
+        </svg>
       </button>
     </div>
   );
@@ -197,10 +206,106 @@ function TabFavicon({ tab, platformColor }: { tab: PlatformTab; platformColor: s
   );
 }
 
+function UrlBarIcon({
+  currentUrl,
+  activeTab,
+  tabs,
+  isInputFocused,
+  urlInput,
+  suggestions,
+  selectedIndex,
+  hasInlineCompletion,
+}: {
+  currentUrl: string;
+  activeTab?: PlatformTab;
+  tabs: PlatformTab[];
+  isInputFocused: boolean;
+  urlInput: string;
+  suggestions: SuggestionItem[];
+  selectedIndex: number;
+  hasInlineCompletion: boolean;
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  // Determine effective URL being displayed or typed
+  const effectiveUrl = useMemo(() => {
+    if (isInputFocused) {
+      if (selectedIndex >= 0 && suggestions[selectedIndex]) {
+        return suggestions[selectedIndex].url;
+      }
+      if (urlInput) {
+        const matchedTab = tabs.find(t => t.url && (t.url.includes(urlInput) || urlInput.includes(t.url.replace(/^https?:\/\/(www\.)?/, ''))));
+        if (matchedTab?.url) return matchedTab.url;
+        if (urlInput.startsWith('http://') || urlInput.startsWith('https://')) return urlInput;
+        return `https://${urlInput}`;
+      }
+    }
+    return currentUrl || activeTab?.url || '';
+  }, [isInputFocused, selectedIndex, suggestions, urlInput, tabs, currentUrl, activeTab]);
+
+  // Reset imgError when effectiveUrl changes
+  useEffect(() => {
+    setImgError(false);
+  }, [effectiveUrl]);
+
+  // Determine if HTTPS/secure
+  const isSecure = useMemo(() => {
+    if (!effectiveUrl) return true;
+    if (effectiveUrl.startsWith('http://')) return false;
+    return true; // default to secure for https:// or plain domain
+  }, [effectiveUrl]);
+
+  // Determine Favicon URL
+  const faviconUrl = useMemo(() => {
+    if (!isSecure || !effectiveUrl) return '';
+
+    // Check if active tab has favicon
+    if (activeTab?.favicon && (effectiveUrl === currentUrl || effectiveUrl === activeTab.url)) {
+      return activeTab.favicon;
+    }
+
+    // Check if any open tab matches
+    const tabMatch = tabs.find(t => t.url && (t.url === effectiveUrl || t.url.includes(effectiveUrl)));
+    if (tabMatch?.favicon) return tabMatch.favicon;
+
+    // Extract domain for Google Favicon API
+    try {
+      const u = new URL(effectiveUrl.startsWith('http') ? effectiveUrl : `https://${effectiveUrl}`);
+      if (u.hostname && u.hostname.includes('.')) {
+        return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
+      }
+    } catch {
+      // ignore
+    }
+    return '';
+  }, [isSecure, effectiveUrl, activeTab, currentUrl, tabs]);
+
+  // Render logic:
+  if (!isSecure) {
+    return <Lock size={15} weight="fill" className="mr-2 shrink-0 text-red-500" />;
+  }
+
+  if (faviconUrl && !imgError) {
+    return (
+      <img
+        src={faviconUrl}
+        alt=""
+        onError={() => setImgError(true)}
+        className="mr-2 h-4 w-4 shrink-0 rounded-xs object-contain"
+      />
+    );
+  }
+
+  return <Lock size={15} weight="fill" className="mr-2 shrink-0 text-emerald-500" />;
+}
+
 export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSelect, onTabClose, onAddTab, onToggleSidebar }: TitleBarProps) {
   const [urlInput, setUrlInput] = useState('');
   const [currentUrl, setCurrentUrl] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isAllSelected, setIsAllSelected] = useState(false);
+  const [hasInlineCompletion, setHasInlineCompletion] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [showBookmarksMenu, setShowBookmarksMenu] = useState(false);
@@ -210,6 +315,9 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingNavRef = useRef<{ url: string; time: number } | null>(null);
+  const wasFocusedAndSelectedRef = useRef(false);
+  const [navAnimClass, setNavAnimClass] = useState('');
+  const navAnimTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
 
@@ -221,10 +329,56 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
   const reloadHistory = () => setHistory(getUrlHistory());
   const reloadBookmarks = () => setBookmarks(getBookmarks());
 
+  const triggerNavAnim = (direction: 'back' | 'forward') => {
+    if (navAnimTimeoutRef.current) clearTimeout(navAnimTimeoutRef.current);
+    const cls = direction === 'back' ? 'animate-url-back' : 'animate-url-forward';
+    setNavAnimClass(cls);
+    navAnimTimeoutRef.current = setTimeout(() => {
+      setNavAnimClass('');
+    }, 300);
+  };
+
+  const getUnfocusedDisplayText = () => {
+    const full = currentUrl || activeTab?.url || '';
+    if (!full) return '';
+
+    const clean = full.replace(/^https?:\/\/(www\.)?/, '');
+
+    // Hover state: show path after domain (without https:// or www.), hide page title
+    if (isHovered) {
+      return clean;
+    }
+
+    // Unfocused & not hovered state: show domain + web page title (only if title has > 2 words)
+    let domain = '';
+    try {
+      const u = new URL(full.startsWith('http') ? full : `https://${full}`);
+      domain = u.hostname.replace(/^www\./, '');
+    } catch {
+      domain = clean;
+    }
+
+    const title = activeTab?.label;
+    if (title && title !== domain && title !== full && !domain.includes(title)) {
+      const wordCount = title.trim().split(/\s+/).filter(Boolean).length;
+      if (wordCount > 2) {
+        return `${domain} — ${title}`;
+      }
+    }
+    return domain || clean;
+  };
+
   useEffect(() => {
     reloadHistory();
     reloadBookmarks();
   }, []);
+
+  useEffect(() => {
+    const active = tabs.find(t => t.id === activeTabId);
+    if (active?.url) {
+      setCurrentUrl(active.url);
+    }
+  }, [activeTabId, tabs]);
 
   useEffect(() => {
     pendingNavRef.current = null;
@@ -257,7 +411,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
       }).catch(() => {});
     };
     poll();
-    const i = setInterval(poll, 800);
+    const i = setInterval(poll, 1500);
     return () => clearInterval(i);
   }, [activeTabId]);
 
@@ -278,13 +432,30 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
     if (activeTabId) {
       (window as any).__socialBrowserDashboard?.navigateTab?.({ tabId: activeTabId, url: target });
     }
+
+    // Optimistically update active tab title & favicon immediately on navigation start
+    if (activeTab) {
+      try {
+        const u = new URL(target);
+        activeTab.url = target;
+        activeTab.favicon = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
+      } catch {}
+    }
+
     setCurrentUrl(target);
     setUrlInput(target);
     setIsInputFocused(false);
+    setIsAllSelected(false);
+    setHasInlineCompletion(false);
     setShowBookmarksMenu(false);
     setShowHistoryMenu(false);
     setShowBrowserMenu(false);
     setSelectedIndex(-1);
+
+    if (inputRef.current) {
+      inputRef.current.setSelectionRange(target.length, target.length);
+      inputRef.current.blur();
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -293,9 +464,13 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
     const isDeleting = nativeEvt?.inputType?.includes('delete') || nativeEvt?.inputType === 'deleteContentBackward';
 
     setUrlInput(newVal);
+    setIsAllSelected(false);
     setSelectedIndex(-1);
 
-    if (isDeleting || !newVal.trim()) return;
+    if (isDeleting || !newVal.trim()) {
+      setHasInlineCompletion(false);
+      return;
+    }
 
     const typedLower = newVal.toLowerCase();
     const allCandidates = Array.from(new Set([
@@ -303,6 +478,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
       ...DEFAULT_PRESETS.map(p => p.url)
     ]));
 
+    let foundMatch = false;
     for (const candidateUrl of allCandidates) {
       let cleanDomain = '';
       try {
@@ -323,6 +499,8 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
 
       if (matchText && matchText.length > newVal.length) {
         setUrlInput(matchText);
+        setHasInlineCompletion(true);
+        foundMatch = true;
         const start = newVal.length;
         const end = matchText.length;
         requestAnimationFrame(() => {
@@ -332,6 +510,9 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
         });
         break;
       }
+    }
+    if (!foundMatch) {
+      setHasInlineCompletion(false);
     }
   };
 
@@ -343,6 +524,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
       if (hasSelection && el) {
         e.preventDefault();
         el.setSelectionRange(el.value.length, el.value.length);
+        setHasInlineCompletion(false);
       }
       return;
     }
@@ -362,7 +544,13 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
       }
     } else if (e.key === 'Escape') {
       setIsInputFocused(false);
+      setIsAllSelected(false);
       setSelectedIndex(-1);
+      setHasInlineCompletion(false);
+      if (el) {
+        el.setSelectionRange(el.value.length, el.value.length);
+        el.blur();
+      }
     }
   };
 
@@ -402,14 +590,15 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
     return result.slice(0, 8);
   }, [isInputFocused, urlInput, history]);
 
-  const sendNav = (js: string) => {
+  const sendNav = (js: string, direction?: 'back' | 'forward') => {
+    if (direction) triggerNavAnim(direction);
     if (activeTabId) (window as any).__socialBrowserDashboard?.navigateTab?.({ tabId: activeTabId, url: js });
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 select-none border-b border-[#1e2230] bg-[#0f1117] shadow-md" style={{ pointerEvents: 'auto' }}>
+    <div className="fixed top-0 left-0 right-0 z-50 select-none pointer-events-auto">
       {/* Row 1: Tab strip */}
-      <div className="flex h-11 items-stretch" style={{ WebkitAppRegion: 'drag' as any, paddingLeft: 10 }}>
+      <div className="flex h-10 items-stretch bg-[#0c0e14] border-none" style={{ WebkitAppRegion: 'drag' as any, paddingLeft: 10 }}>
         <button onClick={onToggleSidebar} title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           className="flex items-center gap-2 mr-3 my-auto shrink-0 rounded-lg px-2 py-1 -ml-1 transition-all hover:bg-bg-hover active:scale-95"
           style={{ WebkitAppRegion: 'no-drag' as any }}>
@@ -419,18 +608,18 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
 
         <div className="h-4 w-px bg-border/40 my-auto mr-2 shrink-0" />
 
-        <div className="flex-1 flex items-center gap-2 overflow-x-auto py-1 pr-2">
+        <div className="flex-1 flex items-center gap-2 overflow-x-auto [::-webkit-scrollbar]:hidden py-1 pr-2">
           {/* Workspaces Tab Button */}
           <button
             onClick={() => onTabSelect('')}
-            className={`flex h-9 items-center gap-2.5 px-4 text-[13.5px] font-medium transition-all shrink-0 min-w-[130px] ${
+            className={`flex h-8 items-center gap-2.5 px-3.5 text-[13px] font-medium transition-all shrink-0 min-w-[125px] ${
               activeTabId === null
                 ? 'rounded-xl bg-[#222736] border border-amber-500/40 text-white shadow-sm ring-1 ring-amber-500/20'
                 : 'rounded-xl text-text-muted hover:bg-[#1a1d28] hover:text-text-primary'
             }`}
             style={{ WebkitAppRegion: 'no-drag' as any }}
           >
-            <SquaresFour size={16} weight="duotone" className={activeTabId === null ? 'text-amber-500' : 'text-text-faint'} />
+            <SquaresFour size={15} weight="duotone" className={activeTabId === null ? 'text-amber-500' : 'text-text-faint'} />
             <span>Workspaces</span>
           </button>
 
@@ -443,7 +632,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
               <button
                 key={tab.id}
                 onClick={() => onTabSelect(tab.id)}
-                className={`group relative flex h-9 items-center gap-2.5 px-3.5 text-[13.5px] font-medium transition-all shrink-0 min-w-[140px] max-w-[240px] ${
+                className={`group relative flex h-8 items-center gap-2.5 px-3 text-[13px] font-medium transition-all shrink-0 min-w-[135px] max-w-[230px] ${
                   active
                     ? 'rounded-xl bg-[#222736] border border-amber-500/40 text-white shadow-sm ring-1 ring-amber-500/20'
                     : 'rounded-xl text-text-muted hover:bg-[#1a1d28] hover:text-text-primary border border-transparent'
@@ -459,9 +648,9 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                 <span
                   onClick={e => { e.stopPropagation(); onTabClose(tab.id); }}
                   title="Close tab"
-                  className="ml-1 flex h-6 w-6 items-center justify-center rounded-lg opacity-60 group-hover:opacity-100 hover:bg-[#383e54] text-text-muted hover:text-white transition-all shrink-0"
+                  className="ml-1 flex h-5 w-5 items-center justify-center rounded-lg opacity-60 group-hover:opacity-100 hover:bg-[#383e54] text-text-muted hover:text-white transition-all shrink-0"
                 >
-                  <X size={13} weight="bold" />
+                  <X size={12} weight="bold" />
                 </span>
               </button>
             );
@@ -469,58 +658,106 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
 
           {/* New Tab Button */}
           <button onClick={onAddTab} title="New browser tab"
-            className="flex h-8 w-8 items-center justify-center rounded-xl text-text-faint hover:bg-[#1a1d28] hover:text-amber-400 transition-all shrink-0 ml-1 border border-transparent hover:border-[#2b3042]"
+            className="flex h-7 w-7 items-center justify-center rounded-xl text-text-faint hover:bg-[#1a1d28] hover:text-amber-400 transition-all shrink-0 ml-1 border border-transparent hover:border-[#2b3042]"
             style={{ WebkitAppRegion: 'no-drag' as any }}>
-            <Plus size={15} weight="bold" />
+            <Plus size={14} weight="bold" />
           </button>
         </div>
 
         <WindowControls />
       </div>
 
-      {/* Row 2: URL bar (only when a browser tab is active) */}
+      {/* Row 2: URL bar (only when a browser tab is active) — Integrated into Unified Container Card */}
       {activeTabId && (
-        <div className="relative flex items-center gap-2 h-[46px] pb-2 pt-0.5 px-3 border-t border-[#1e2230]/60 bg-[#0f1117]"
+        <div className="mx-[5px] mt-[5px] relative flex items-center gap-2 h-[46px] px-3.5 rounded-t-[15px] bg-[#161925] border-t border-x border-[#2d3345] shadow-xs"
           style={{ WebkitAppRegion: 'no-drag' as any }}>
-          <button onClick={() => sendNav('javascript:history.back()')} title="Back"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-[#1f2330] hover:text-white transition-all"><ArrowLeft size={16} weight="bold" /></button>
-          <button onClick={() => sendNav('javascript:history.forward()')} title="Forward"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-[#1f2330] hover:text-white transition-all"><ArrowRight size={16} weight="bold" /></button>
+          <button onClick={() => sendNav('javascript:history.back()', 'back')} title="Back"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-[#202535] hover:text-white transition-all"><ArrowLeft size={16} weight="bold" /></button>
+          <button onClick={() => sendNav('javascript:history.forward()', 'forward')} title="Forward"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-[#202535] hover:text-white transition-all"><ArrowRight size={16} weight="bold" /></button>
           <button onClick={() => sendNav('javascript:location.reload()')} title="Reload"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-[#1f2330] hover:text-white transition-all mr-0.5">
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-[#202535] hover:text-white transition-all mr-0.5">
             <ArrowClockwise size={16} weight="bold" />
           </button>
 
-          <div className="relative flex-1 flex items-center rounded-xl bg-[#161822] border border-[#262b3a] focus-within:border-amber-500/60 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-9 text-[13.5px] transition-all shadow-inner">
-            <Lock
-              size={15}
-              weight="fill"
-              className={`mr-2 shrink-0 ${
-                (currentUrl || activeTab?.url || '').startsWith('https://')
-                  ? 'text-emerald-500'
-                  : 'text-red-500'
-              }`}
+          <div className="relative flex-1 flex items-center rounded-xl bg-[#0e1017] border border-[#272d3e] focus-within:border-amber-500/70 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-8.5 text-[13.5px] transition-all shadow-inner">
+            <UrlBarIcon
+              currentUrl={currentUrl}
+              activeTab={activeTab}
+              tabs={tabs}
+              isInputFocused={isInputFocused}
+              urlInput={urlInput}
+              suggestions={suggestions}
+              selectedIndex={selectedIndex}
+              hasInlineCompletion={hasInlineCompletion}
             />
-            <input
-              ref={inputRef}
-              type="text"
-              value={isInputFocused ? urlInput : formatDisplayUrl(currentUrl)}
-              onChange={handleInputChange}
-              onFocus={(e) => {
-                reloadHistory();
-                setIsInputFocused(true);
-                setUrlInput(currentUrl);
-                setSelectedIndex(-1);
-                e.target.select();
-              }}
-              onBlur={() => {
-                setTimeout(() => setIsInputFocused(false), 150);
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Search Google or type a URL..."
-              className="flex-1 min-w-0 bg-transparent text-[13.5px] text-white outline-none border-none placeholder:text-text-faint font-medium"
-              style={{ WebkitAppRegion: 'no-drag' as any }}
-            />
+            <div className="flex-1 flex items-center min-w-0 relative">
+              <input
+                ref={inputRef}
+                type="text"
+                value={isInputFocused ? urlInput : getUnfocusedDisplayText()}
+                onChange={handleInputChange}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+                onMouseDown={() => {
+                  wasFocusedAndSelectedRef.current = isInputFocused && isAllSelected;
+                }}
+                onFocus={(e) => {
+                  reloadHistory();
+                  setIsInputFocused(true);
+                  setIsAllSelected(true);
+                  setSelectedIndex(-1);
+                  setHasInlineCompletion(false);
+
+                  const full = currentUrl || activeTab?.url || '';
+                  const clean = full.replace(/^https?:\/\/(www\.)?/, '');
+                  setUrlInput(clean);
+
+                  requestAnimationFrame(() => {
+                    if (inputRef.current) {
+                      inputRef.current.select();
+                    }
+                  });
+                }}
+                onClick={() => {
+                  // If input was ALREADY focused and ALL text was selected before this click:
+                  if (wasFocusedAndSelectedRef.current) {
+                    wasFocusedAndSelectedRef.current = false;
+                    setIsAllSelected(false);
+                    const full = currentUrl || activeTab?.url || '';
+                    setUrlInput(full);
+                  }
+                }}
+                onBlur={() => {
+                  if (inputRef.current) {
+                    inputRef.current.setSelectionRange(inputRef.current.value.length, inputRef.current.value.length);
+                  }
+                  setTimeout(() => {
+                    setIsInputFocused(false);
+                    setIsAllSelected(false);
+                    setHasInlineCompletion(false);
+                  }, 150);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Search Google or type a URL..."
+                className={`url-input-box bg-transparent text-[13.5px] text-white outline-none border-none placeholder:text-text-faint font-medium truncate ${navAnimClass}`}
+                style={{
+                  WebkitAppRegion: 'no-drag' as any,
+                  width: hasInlineCompletion ? undefined : '100%',
+                  flex: hasInlineCompletion ? '0 1 auto' : '1 1 0%',
+                }}
+              />
+
+              {/* Translucent inline autocompletion indicator hint badge with dashed border */}
+              {hasInlineCompletion && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-dashed border-white/20 text-[#8b9bb4] opacity-75 shrink-0 select-none ml-2 font-sans text-[10.5px]">
+                  <span className="text-[10px] text-[#94a3b8]/80 font-medium">Press</span>
+                  <kbd className="px-1.5 py-0.2 rounded bg-[#141722] text-[9.5px] font-mono text-[#cbd5e1] border border-dashed border-[#343d54]">Tab ↹</kbd>
+                  <span className="text-[10px] text-[#94a3b8]/80 font-medium">or</span>
+                  <kbd className="px-1.5 py-0.2 rounded bg-[#141722] text-[9.5px] font-mono text-[#cbd5e1] border border-dashed border-[#343d54]">↵ Enter</kbd>
+                </div>
+              )}
+            </div>
 
             {/* Bookmark Star Icon inside URL bar - perfectly centered */}
             {currentUrl && currentUrl.startsWith('http') && (
@@ -546,7 +783,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
             {isInputFocused && suggestions.length > 0 && (
               <div
                 ref={dropdownRef}
-                className="absolute left-0 right-0 top-[40px] z-50 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden py-1.5 animate-dropdown"
+                className="absolute left-0 right-0 top-[42px] z-50 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden py-1.5 animate-dropdown"
                 style={{ WebkitAppRegion: 'no-drag' as any }}
               >
                 <div className="px-3.5 py-1.5 text-[11.5px] font-bold text-text-faint uppercase tracking-wider flex items-center justify-between border-b border-border/40 pb-1.5 mb-1">
@@ -614,7 +851,9 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
             {/* Bookmarks Popover Button */}
             <div className="relative">
               <button
-                onClick={() => {
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
                   setShowBookmarksMenu(prev => !prev);
                   setShowHistoryMenu(false);
                   setShowBrowserMenu(false);
@@ -634,7 +873,9 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                     <span>Bookmarks ({bookmarks.length})</span>
                     {bookmarks.length > 0 && (
                       <button
-                        onClick={() => {
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
                           localStorage.removeItem(BOOKMARKS_KEY);
                           setBookmarks([]);
                         }}
@@ -654,7 +895,10 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                       bookmarks.map(bm => (
                         <div
                           key={bm.url}
-                          onClick={() => navigateTo(bm.url)}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            navigateTo(bm.url);
+                          }}
                           className="flex items-center justify-between px-3 py-2 text-[13px] hover:bg-[#202433] cursor-pointer text-text-muted hover:text-white transition-colors group"
                         >
                           <div className="flex items-center gap-2 truncate mr-2">
@@ -662,7 +906,9 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                             <span className="truncate">{bm.title || bm.url}</span>
                           </div>
                           <button
-                            onClick={(e) => {
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               toggleBookmark(bm.url);
                               reloadBookmarks();
@@ -683,14 +929,16 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
             {/* History Popover Button */}
             <div className="relative">
               <button
-                onClick={() => {
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
                   setShowHistoryMenu(prev => !prev);
                   setShowBookmarksMenu(false);
                   setShowBrowserMenu(false);
                 }}
                 title="History"
                 className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-                  showHistoryMenu ? 'bg-[#222736] text-amber-400' : 'text-text-muted hover:bg-[#1f2330] hover:text-white'
+                  showHistoryMenu ? 'bg-[#222736] text-amber-400' : 'text-[#8b9bb4] hover:bg-[#1f2330] hover:text-white'
                 }`}
               >
                 <Clock size={17} weight="bold" />
@@ -703,7 +951,9 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                     <span>Browsing History</span>
                     {history.length > 0 && (
                       <button
-                        onClick={() => {
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
                           localStorage.removeItem(HISTORY_KEY);
                           setHistory([]);
                         }}
@@ -723,7 +973,10 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                       history.map((urlItem) => (
                         <div
                           key={urlItem}
-                          onClick={() => navigateTo(urlItem)}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            navigateTo(urlItem);
+                          }}
                           className="flex items-center justify-between px-3 py-2 text-[13px] hover:bg-[#202433] cursor-pointer text-text-muted hover:text-white transition-colors group"
                         >
                           <div className="flex items-center gap-2 truncate mr-2">
@@ -731,7 +984,9 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                             <span className="truncate">{urlItem}</span>
                           </div>
                           <button
-                            onClick={(e) => {
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               removeUrlFromHistory(urlItem);
                               reloadHistory();
@@ -752,14 +1007,16 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
             {/* Browser Settings & Menu (3 dots) */}
             <div className="relative">
               <button
-                onClick={() => {
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
                   setShowBrowserMenu(prev => !prev);
                   setShowBookmarksMenu(false);
                   setShowHistoryMenu(false);
                 }}
                 title="Browser Settings & Menu"
                 className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
-                  showBrowserMenu ? 'bg-[#222736] text-amber-400' : 'text-text-muted hover:bg-[#1f2330] hover:text-white'
+                  showBrowserMenu ? 'bg-[#222736] text-amber-400' : 'text-[#8b9bb4] hover:bg-[#1f2330] hover:text-white'
                 }`}
               >
                 <DotsThreeVertical size={18} weight="bold" />

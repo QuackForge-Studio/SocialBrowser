@@ -37,7 +37,9 @@ export function App() {
           if (Array.isArray(t)) {
             setTabs(t);
             const active = t.find((item) => item.active);
-            if (active) setActiveTabId(active.id);
+            if (active) {
+              setActiveTabId((prev) => (prev === null ? active.id : prev));
+            }
           }
         }
       } catch {
@@ -46,7 +48,7 @@ export function App() {
     };
 
     syncTabs();
-    const interval = setInterval(syncTabs, 1000);
+    const interval = setInterval(syncTabs, 1500);
     return () => clearInterval(interval);
   }, []);
 
@@ -158,13 +160,27 @@ export function App() {
         className="absolute bottom-0 right-0 overflow-y-auto transition-all duration-200"
         style={{
           left: sidebarOpen ? '232px' : '0px',
-          top: activeTabId ? '90px' : '44px',
+          top: activeTabId ? '91px' : '40px',
           pointerEvents: activeTabId ? 'none' : 'auto',
           display: activeTabId ? 'none' : undefined,
         }}
       >
         {renderContent()}
       </main>
+
+      {/* Unified Browser Container Backdrop (URL Bar + Browser Body unified card) */}
+      {activeTabId && (
+        <div
+          className="fixed pointer-events-none z-10 rounded-2xl border border-[#2d3345] bg-[#08090e] shadow-2xl overflow-hidden"
+          style={{
+            top: '45px',
+            left: '5px',
+            right: '5px',
+            bottom: '5px',
+          }}
+        />
+      )}
+
       {!activeTabId && showPrivacyModal && <PrivacyModal onAcknowledge={handlePrivacyAcknowledge} />}
     </div>
   );

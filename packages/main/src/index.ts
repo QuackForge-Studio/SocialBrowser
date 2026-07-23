@@ -1,4 +1,4 @@
-import { app, ipcMain, clipboard, Menu, nativeImage } from 'electron';
+import { app, ipcMain, clipboard, Menu, nativeImage, globalShortcut } from 'electron';
 import { Worker } from 'worker_threads';
 import path from 'path';
 
@@ -568,7 +568,19 @@ app.whenReady().then(() => {
   // 7. Auto-launch a default browser tab so the app opens browser-first
   autoLaunchDefaultBrowserTab();
 
-  // 8. Defer background worker thread startup until after window is painted
+  // 8. Register keyboard shortcuts
+  const ret = globalShortcut.register('CommandOrControl+R', () => {
+    const activeId = layoutManager?.getActiveTabId();
+    if (activeId) {
+      const btv = browserTabRegistry.get(activeId);
+      if (btv && !btv.isDestroyed()) {
+        btv.view.webContents.reload();
+      }
+    }
+  });
+  if (!ret) console.warn('[Main] Failed to register reload shortcut');
+
+  // 9. Defer background worker thread startup until after window is painted
   setImmediate(() => {
     startWorker();
   });
@@ -602,6 +614,7 @@ app.on('before-quit', async (event) => {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[Main] Shutdown error:', msg);
   } finally {
+    globalShortcut.unregisterAll();
     app.quit();
   }
 });

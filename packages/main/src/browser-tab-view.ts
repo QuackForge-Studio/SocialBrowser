@@ -50,6 +50,19 @@ export class BrowserTabView {
     this.view.webContents.on('did-start-loading', () => {
       this.isLoading = true;
     });
+    this.view.webContents.on('did-start-navigation', (_event, url, _isInPlace, isMainFrame) => {
+      if (isMainFrame && url && !url.startsWith('about:')) {
+        this.isLoading = true;
+        try {
+          const u = new URL(url);
+          if (u.hostname) {
+            this.favicon = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    });
     this.view.webContents.on('did-stop-loading', () => {
       this.isLoading = false;
     });
