@@ -591,7 +591,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
     let target = rawUrl.trim();
     if (!target) return;
 
-    if (!target.startsWith('http://') && !target.startsWith('https://') && !target.startsWith('about:')) {
+    if (!target.startsWith('http://') && !target.startsWith('https://') && !target.startsWith('about:') && !target.startsWith('socialbrowser://')) {
       if (target.includes('.') && !target.includes(' ')) {
         target = 'https://' + target;
       } else {
@@ -858,7 +858,11 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
             <ArrowClockwise size={16} weight="bold" />
           </button>
 
-          <div className="relative flex-1 flex items-center rounded-xl bg-[#0e1017] border border-[#272d3e] focus-within:border-amber-500/70 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-8.5 text-[13.5px] transition-all shadow-inner">
+          <div
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            className="relative flex-1 flex items-center rounded-xl bg-[#0e1017] border border-[#272d3e] focus-within:border-amber-500/70 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-8.5 text-[13.5px] transition-all shadow-inner group"
+          >
             {/* Left Section: Favicon / Secure Site Icon */}
             <div className="flex items-center gap-1 shrink-0 mr-1.5" style={{ WebkitAppRegion: 'no-drag' as any }}>
               <UrlBarIcon
@@ -930,7 +934,9 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="Search Google or type a URL..."
-                className={`url-input-box flex-1 min-w-0 bg-transparent text-[13.5px] text-white outline-none border-none placeholder:text-text-faint font-medium truncate ${navAnimClass}`}
+                className={`url-input-box flex-1 min-w-0 bg-transparent text-[13.5px] outline-none border-none placeholder:text-text-faint font-medium truncate transition-colors duration-150 ${
+                  isInputFocused || isHovered ? 'text-white' : 'text-[#8b9bb4] group-hover:text-white focus:text-white'
+                } ${navAnimClass}`}
                 style={{ WebkitAppRegion: 'no-drag' as any }}
               />
 

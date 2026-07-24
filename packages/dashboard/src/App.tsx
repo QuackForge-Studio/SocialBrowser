@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Eye, ArrowSquareOut, Copy, X } from '@phosphor-icons/react';
 import type { DashboardView, PlatformTab } from './types';
 import type { DashboardBridge } from './types';
@@ -23,6 +23,7 @@ export function App() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [peekData, setPeekData] = useState<{ url: string } | null>(null);
+  const sidebarBeforeBrowserRef = useRef(false);
 
   // Sync open tabs from main process
   useEffect(() => {
@@ -100,25 +101,44 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [peekData, handleClosePeek]);
 
+  const closeSidebarForBrowser = useCallback(async () => {
+    if (!sidebarOpen) return;
+    sidebarBeforeBrowserRef.current = true;
+    setSidebarOpen(false);
+    const bridge = getBridge();
+    if (bridge && (bridge as any).setSidebarOpen) {
+      await (bridge as any).setSidebarOpen(false);
+    }
+  }, [sidebarOpen]);
+
   const handleSelectTab = useCallback(async (id: string) => {
     const bridge = getBridge();
     if (!bridge) return;
     if (!id) {
       // Return to Dashboard View
+      const shouldRestoreSidebar = !!activeTabId && sidebarBeforeBrowserRef.current;
       await bridge.showDashboard();
       setActiveTabId(null);
+      if (shouldRestoreSidebar) {
+        setSidebarOpen(true);
+        if ((bridge as any).setSidebarOpen) {
+          await (bridge as any).setSidebarOpen(true);
+        }
+      }
     } else {
       // Activate existing specific tab
+      await closeSidebarForBrowser();
       setActiveTabId(id);
       if ((bridge as any).activateTab) {
         await (bridge as any).activateTab({ tabId: id });
       }
     }
-  }, []);
+  }, [activeTabId, closeSidebarForBrowser]);
 
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((prev) => {
       const next = !prev;
+      sidebarBeforeBrowserRef.current = next;
       const bridge = getBridge();
       if (bridge && (bridge as any).setSidebarOpen) {
         (bridge as any).setSidebarOpen(next);
@@ -137,6 +157,7 @@ export function App() {
     const bridge = getBridge();
     if (!bridge) return;
     if ((bridge as any).openDefaultBrowserTab) {
+      await closeSidebarForBrowser();
       const res: any = await (bridge as any).openDefaultBrowserTab({ url: 'https://google.com' });
       if (res?.tabId) {
         setActiveTabId(res.tabId);
@@ -151,13 +172,14 @@ export function App() {
         }
       }
     }
-  }, []);
+  }, [closeSidebarForBrowser]);
 
   const handleOpenAboutTab = useCallback(async () => {
     const bridge = getBridge();
     if (!bridge) return;
     if ((bridge as any).openDefaultBrowserTab) {
-      const res: any = await (bridge as any).openDefaultBrowserTab({ url: 'about:social-browser' });
+      await closeSidebarForBrowser();
+      const res: any = await (bridge as any).openDefaultBrowserTab({ url: 'socialbrowser://about-us/' });
       if (res?.tabId) {
         setActiveTabId(res.tabId);
         if ((bridge as any).activateTab) {
@@ -169,7 +191,7 @@ export function App() {
         if (Array.isArray(t)) setTabs(t);
       }
     }
-  }, []);
+  }, [closeSidebarForBrowser]);
 
   const handleCloseTab = useCallback(async (tabId: string) => {
     const bridge = getBridge();

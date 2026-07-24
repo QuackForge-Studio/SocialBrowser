@@ -1,9 +1,13 @@
-import { app, ipcMain, clipboard, Menu, nativeImage, globalShortcut } from 'electron';
+import { app, ipcMain, clipboard, Menu, nativeImage, globalShortcut, protocol } from 'electron';
 import { Worker } from 'worker_threads';
 import path from 'path';
 
 // Tell Windows to identify this as Social Browser, not "electron.exe"
 app.setAppUserModelId('com.social-browser.app');
+protocol.registerSchemesAsPrivileged([{
+  scheme: 'socialbrowser',
+  privileges: { standard: true, secure: true, supportFetchAPI: true },
+}]);
 
 import {
   wireUpIpcGate,
@@ -379,10 +383,14 @@ ipcMain.handle('dash:navigate-tab', (_event, params: { tabId: string; url: strin
     if (url.startsWith('javascript:')) {
       void webContents.executeJavaScript(url.substring(11));
     } else {
-      const finalUrl = url.startsWith('http://') || url.startsWith('https://') || url.startsWith('about:')
+      const finalUrl = url.startsWith('http://') || url.startsWith('https://') || url.startsWith('about:') || url.startsWith('socialbrowser://')
         ? url
         : 'https://' + url;
-      void webContents.loadURL(finalUrl);
+      if (btv) {
+        void btv.loadURL(finalUrl);
+      } else {
+        void webContents.loadURL(finalUrl);
+      }
     }
     return { success: true };
   }

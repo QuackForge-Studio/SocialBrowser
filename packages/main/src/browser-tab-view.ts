@@ -2,6 +2,9 @@ import { WebContentsView, Menu, MenuItem, clipboard, session as electronSession 
 import path from 'path';
 import { adBlockEngine } from './adblock-engine';
 
+const ABOUT_URL = 'socialbrowser://about-us/';
+const aboutProtocolPartitions = new Set<string>();
+
 export interface BrowserTabViewConfig {
   /** Unique BrowserProfile ID */
   profileId: string;
@@ -38,6 +41,7 @@ export class BrowserTabView {
 
     const sess = electronSession.fromPartition(config.partition);
     adBlockEngine.attachToSession(sess);
+    registerAboutProtocol(sess, config.partition);
 
     // Resolve preload path
     const preloadPath = config.preloadPath ?? path.join(__dirname, 'preload-capture.js');
@@ -61,13 +65,18 @@ export class BrowserTabView {
       if (isMainFrame && url && !url.startsWith('about:')) {
         this.isLoading = true;
         this.pendingNavUrl = url;
-        try {
-          const u = new URL(url);
-          if (u.hostname) {
-            this.favicon = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
+        if (url.startsWith('socialbrowser://')) {
+          this.favicon = '';
+          this.pageTitle = 'About Social Browser';
+        } else {
+          try {
+            const u = new URL(url);
+            if (u.hostname) {
+              this.favicon = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
       }
     });
@@ -182,13 +191,15 @@ export class BrowserTabView {
     if (this.isDestroyed()) return;
     let targetUrl = url.trim();
     if (targetUrl === 'about:social-browser' || targetUrl === 'about:about') {
+      targetUrl = ABOUT_URL;
+    }
+    if (targetUrl === ABOUT_URL) {
       this.pageTitle = 'About Social Browser';
-      this.pendingNavUrl = 'about:social-browser';
-      const html = getAboutPageHtml();
-      await this.view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      this.pendingNavUrl = ABOUT_URL;
+      await this.view.webContents.loadURL(ABOUT_URL);
       return;
     }
-    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://') && !targetUrl.startsWith('about:')) {
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://') && !targetUrl.startsWith('about:') && !targetUrl.startsWith('socialbrowser://')) {
       targetUrl = 'https://' + targetUrl;
     }
     this.pendingNavUrl = targetUrl;
@@ -251,6 +262,21 @@ export class BrowserTabView {
       this.view.webContents.close();
     }
   }
+}
+
+function registerAboutProtocol(sess: Electron.Session, partition: string): void {
+  if (aboutProtocolPartitions.has(partition)) return;
+
+  sess.protocol.handle('socialbrowser', (request) => {
+    const url = new URL(request.url);
+    if (url.hostname !== 'about-us') {
+      return new Response('Not found', { status: 404 });
+    }
+    return new Response(getAboutPageHtml(), {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    });
+  });
+  aboutProtocolPartitions.add(partition);
 }
 
 function getAboutPageHtml(): string {
