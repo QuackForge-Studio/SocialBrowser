@@ -69,6 +69,7 @@
                 "AppImage",
                 "deb"
             ],
+            "artifactName": "SocialBrowser-${version}-${arch}.${ext}",
             "category": "Network"
         },
         "nsis": {
