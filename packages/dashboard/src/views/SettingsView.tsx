@@ -19,7 +19,7 @@ export function SettingsView() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [keyStatus, setKeyStatus] = useState<{ provider: string; configured: boolean } | null>(null);
   const [selectedProvider, setSelectedProvider] = useState('openai');
-  const [currentTheme, setCurrentTheme] = useState<'dark' | 'glassmorphism' | 'light'>('dark');
+  const [currentTheme, setCurrentTheme] = useState<'dark' | 'glassmorphism' | 'light' | 'auto'>('dark');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,11 +41,13 @@ export function SettingsView() {
         const savedProvider = s?.aiProvider || status?.provider || 'openai';
         setSelectedProvider(savedProvider);
         const rawTheme = s?.browser_theme;
-        const activeTheme: 'dark' | 'glassmorphism' | 'light' =
+        const activeTheme: 'dark' | 'glassmorphism' | 'light' | 'auto' =
           rawTheme === 'zen' || rawTheme === 'glassmorphism'
             ? 'glassmorphism'
             : rawTheme === 'light'
             ? 'light'
+            : rawTheme === 'auto'
+            ? 'auto'
             : 'dark';
         setCurrentTheme(activeTheme);
       })
@@ -67,7 +69,7 @@ export function SettingsView() {
     }
   };
 
-  const handleThemeChange = (newTheme: 'dark' | 'glassmorphism' | 'light') => {
+  const handleThemeChange = (newTheme: 'dark' | 'glassmorphism' | 'light' | 'auto') => {
     setCurrentTheme(newTheme);
     const bridge = getBridge();
     if (bridge && (bridge as any).setBrowserTheme) {
@@ -181,7 +183,7 @@ export function SettingsView() {
         <p className="text-[13px] text-text-dim mt-1">
           Select your preferred window theme style.
         </p>
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-4 gap-3">
           {/* Flat Dark Card */}
           <button
             type="button"
@@ -208,7 +210,7 @@ export function SettingsView() {
           <button
             type="button"
             onClick={() => handleThemeChange('glassmorphism')}
-            className={`flex flex-col gap-2.5 p-3.5 rounded-xl border text-left transition-all ${
+            className={`order-3 flex flex-col gap-2.5 p-3.5 rounded-xl border text-left transition-all ${
               currentTheme === 'glassmorphism'
                 ? 'border-amber-500 bg-amber-500/15 ring-1 ring-amber-500/40 shadow-md'
                 : 'border-border bg-surface hover:border-white/20'
@@ -230,7 +232,7 @@ export function SettingsView() {
           <button
             type="button"
             onClick={() => handleThemeChange('light')}
-            className={`flex flex-col gap-2.5 p-3.5 rounded-xl border text-left transition-all ${
+            className={`order-2 flex flex-col gap-2.5 p-3.5 rounded-xl border text-left transition-all ${
               currentTheme === 'light'
                 ? 'border-amber-500 bg-amber-500/15 ring-1 ring-amber-500/40 shadow-md'
                 : 'border-border bg-surface hover:border-white/20'
@@ -244,6 +246,28 @@ export function SettingsView() {
               <span className="text-[13.5px] font-semibold block text-text">Trắng Sáng (Light)</span>
               <span className="text-[11.5px] text-text-dim block leading-tight mt-0.5">
                 Clean, crisp white light theme
+              </span>
+            </div>
+          </button>
+
+          {/* Auto Card */}
+          <button
+            type="button"
+            onClick={() => handleThemeChange('auto')}
+            className={`order-4 flex flex-col gap-2.5 p-3.5 rounded-xl border text-left transition-all ${
+              currentTheme === 'auto'
+                ? 'border-amber-500 bg-amber-500/15 ring-1 ring-amber-500/40 shadow-md'
+                : 'border-border bg-surface hover:border-white/20'
+            }`}
+          >
+            <div className="h-16 rounded-lg border border-[#64748b] bg-[linear-gradient(90deg,#0e1017_0_50%,#f1f5f9_50%_100%)] flex flex-col p-2 justify-between">
+              <div className="h-2 w-12 rounded bg-[#64748b]" />
+              <div className="h-7 w-full rounded border border-[#64748b] bg-white/10" />
+            </div>
+            <div>
+              <span className="text-[13.5px] font-semibold block text-text">Auto</span>
+              <span className="text-[11.5px] text-text-dim block leading-tight mt-0.5">
+                Follows your Windows light or dark mode
               </span>
             </div>
           </button>

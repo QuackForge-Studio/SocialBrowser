@@ -69,6 +69,7 @@ export class ViewLayoutManager {
         this.sidebarTransitionTimer = setTimeout(animate, 16);
       } else {
         this.sidebarTransitionTimer = null;
+        this.recalculateBounds();
       }
     };
 
@@ -200,11 +201,9 @@ export class ViewLayoutManager {
   }
 
   activateTab(id: string): void {
-    if (this.activeTabId === id) return;
-
     const tab = this.tabs.get(id);
     if (!tab) { console.warn('[VLM] Unknown tab: ' + id); return; }
-    if (this.activeTabId) {
+    if (this.activeTabId && this.activeTabId !== id) {
       const current = this.tabs.get(this.activeTabId);
       if (current) current.view.setVisible(false);
     }
@@ -221,7 +220,7 @@ export class ViewLayoutManager {
       this.baseWindow.contentView.removeChildView(this.shellView.view);
     }
     this.baseWindow.contentView.addChildView(this.shellView.view);
-    this.shellView.setBounds(this.sidebarOpen || this.popoverOpen || this.peekView ? this.getFullBounds() : this.getTitleBarBounds());
+    this.shellView.setBounds(this.getFullBounds());
     this.shellView.setVisible(true);
 
     this.activeTabId = id;

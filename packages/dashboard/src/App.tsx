@@ -151,6 +151,7 @@ export function App() {
       }
     } else {
       // Activate existing specific tab
+      await closeSidebarForBrowser();
       setActiveTabId(id);
       if ((bridge as any).activateTab) {
         await (bridge as any).activateTab({ tabId: id });

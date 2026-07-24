@@ -93,12 +93,18 @@ html, body {
 
 .glass-window-controls {
   background: transparent;
-  border-left: none;
+  border-left: 0 !important;
+  box-shadow: none !important;
 }
 
 /* === Theme 1: Flat Dark Theme (Default) === */
 .theme-dark.ambient-bg {
   background: #0f1117;
+}
+
+.theme-dark .glass-browser-frame {
+  border-color: #171b27 !important;
+  box-shadow: none;
 }
 
 /* === Theme 2: Glassmorphism Theme (formerly Zen) === */

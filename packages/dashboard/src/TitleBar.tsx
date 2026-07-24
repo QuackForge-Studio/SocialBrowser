@@ -775,12 +775,12 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
           className="flex items-center gap-2 mr-3 my-auto shrink-0 rounded-lg px-2 py-1 -ml-1 transition-all hover:bg-bg-hover active:scale-95"
           style={{ WebkitAppRegion: 'no-drag' as any }}>
           <img src={logoPng} alt="Social Browser" className="h-6 w-auto" />
-          <span className="text-[10px] font-medium text-text-muted bg-bg-elevated px-1.5 py-0.5 rounded-md"><List size={14} weight="bold" /></span>
+          <span className="text-[10px] font-medium text-text-muted bg-[#1c202d] border border-[#272d3e] px-1.5 py-0.5 rounded-md"><List size={14} weight="bold" /></span>
         </button>
 
         <div className="h-4 w-px bg-border/40 my-auto mr-2 shrink-0" />
 
-        <div className="flex-1 flex items-center gap-2 overflow-x-auto [::-webkit-scrollbar]:hidden py-1 pr-2">
+        <div className="flex-1 flex items-center gap-2 overflow-x-auto overflow-y-hidden [::-webkit-scrollbar]:hidden py-1 pr-2 border-none outline-none">
           {/* Workspaces Tab Button */}
           <button
             onClick={() => onTabSelect('')}
@@ -842,7 +842,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
       {/* Row 2: URL bar (only when a browser tab is active) — Integrated into Unified Container Card */}
       {activeTabId && (
         <div
-          className="glass-browser-bar mt-[5px] relative flex items-center gap-2 h-[46px] px-3.5 rounded-t-[15px] border transition-all duration-200"
+          className="glass-browser-bar mt-[5px] relative flex items-center gap-2 h-[46px] px-3.5 rounded-t-[15px] border border-[#232838] transition-all duration-200"
           style={{
             marginLeft: sidebarOpen ? '238px' : '5px',
             marginRight: '5px',
@@ -861,7 +861,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
           <div
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="glass-url-field relative flex-1 flex items-center rounded-xl border focus-within:border-amber-500/70 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-8.5 text-[13.5px] transition-all group"
+            className="glass-url-field relative flex-1 flex items-center rounded-xl border border-[#232838] focus-within:border-amber-500/70 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-8.5 text-[13.5px] transition-all group"
           >
             {/* Left Section: Favicon / Secure Site Icon */}
             <div className="flex items-center gap-1 shrink-0 mr-1.5" style={{ WebkitAppRegion: 'no-drag' as any }}>

@@ -1,4 +1,4 @@
-import { app, ipcMain, clipboard, Menu, nativeImage, globalShortcut, protocol } from 'electron';
+import { app, ipcMain, clipboard, Menu, nativeImage, nativeTheme, globalShortcut, protocol } from 'electron';
 import { Worker } from 'worker_threads';
 import path from 'path';
 
@@ -214,14 +214,35 @@ function setupDashboardIpc(): void {
 
 // ===== Browser Tab IPC handlers (non-worker, direct view management) =====
 
-function applyBrowserTheme(theme: string): void {
-  const normTheme = theme === 'zen' || theme === 'glassmorphism' ? 'glassmorphism' : theme === 'light' ? 'light' : 'dark';
-  const bgColor = normTheme === 'light' ? '#ffffff' : '#0c0e14';
-  baseWindow?.win.setBackgroundMaterial(normTheme === 'glassmorphism' ? 'acrylic' : 'none');
-  viewLayoutManager?.setTabsBackgroundColor(bgColor);
-  shellView?.webContents.send('dash:theme-changed', normTheme);
-  worker?.postMessage({ type: 'update_settings', payload: { browser_theme: normTheme }, id: 'theme-' + Date.now() });
+type BrowserThemePreference = 'dark' | 'light' | 'glassmorphism' | 'auto';
+type ResolvedBrowserTheme = Exclude<BrowserThemePreference, 'auto'>;
+
+let browserThemePreference: BrowserThemePreference = 'dark';
+
+function normalizeBrowserTheme(theme: string): BrowserThemePreference {
+  if (theme === 'zen' || theme === 'glassmorphism') return 'glassmorphism';
+  if (theme === 'light') return 'light';
+  if (theme === 'auto') return 'auto';
+  return 'dark';
 }
+
+function resolveBrowserTheme(theme: BrowserThemePreference): ResolvedBrowserTheme {
+  return theme === 'auto' ? (nativeTheme.shouldUseDarkColors ? 'dark' : 'light') : theme;
+}
+
+function applyBrowserTheme(theme: string): void {
+  browserThemePreference = normalizeBrowserTheme(theme);
+  const resolvedTheme = resolveBrowserTheme(browserThemePreference);
+  const bgColor = resolvedTheme === 'light' ? '#ffffff' : '#0c0e14';
+  baseWindow?.win.setBackgroundMaterial(resolvedTheme === 'glassmorphism' ? 'acrylic' : 'none');
+  layoutManager?.setTabsBackgroundColor(bgColor);
+  shellView?.webContents.send('dash:theme-changed', resolvedTheme);
+  worker?.postMessage({ type: 'update_settings', payload: { browser_theme: browserThemePreference }, id: 'theme-' + Date.now() });
+}
+
+nativeTheme.on('updated', () => {
+  if (browserThemePreference === 'auto') applyBrowserTheme('auto');
+});
 
 ipcMain.handle('dash:set-browser-theme', (_event, theme: string) => {
   applyBrowserTheme(theme);

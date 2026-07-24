@@ -26,7 +26,7 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
     ipcRenderer.on('dash:theme-changed', listener);
     return () => ipcRenderer.removeListener('dash:theme-changed', listener);
   },
-  setBrowserTheme: (theme: 'dark' | 'glassmorphism' | 'light'): Promise<unknown> =>
+  setBrowserTheme: (theme: 'dark' | 'glassmorphism' | 'light' | 'auto'): Promise<unknown> =>
     ipcRenderer.invoke('dash:set-browser-theme', theme),
   getKeyStatus: (): Promise<{ provider: string; configured: boolean }> =>
     ipcRenderer.invoke('dash:get-key-status'),

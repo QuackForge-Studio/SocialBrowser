@@ -20,7 +20,7 @@ export interface BrowserTabViewConfig {
   /** Callback when user requests opening link in new tab */
   onOpenNewTab?: (url: string) => void;
   /** Callback when an internal page changes the application theme. */
-  onThemeChange?: (theme: 'dark' | 'zen') => void;
+  onThemeChange?: (theme: 'dark' | 'light' | 'glassmorphism' | 'auto' | 'zen') => void;
 }
 
 /**
@@ -77,7 +77,9 @@ export class BrowserTabView {
           this.pageTitle = internalUrl.hostname === 'settings' ? 'Settings' : 'About Social Browser';
           if (internalUrl.hostname === 'settings') {
             const theme = internalUrl.searchParams.get('theme');
-            if (theme === 'dark' || theme === 'zen') config.onThemeChange?.(theme);
+            if (theme === 'dark' || theme === 'light' || theme === 'glassmorphism' || theme === 'auto' || theme === 'zen') {
+              config.onThemeChange?.(theme);
+            }
           }
         } else {
           try {
@@ -293,11 +295,13 @@ function registerAboutProtocol(sess: Electron.Session, partition: string): void 
     }
     if (url.hostname === 'settings') {
       const rawTheme = url.searchParams.get('theme');
-      const theme: 'dark' | 'glassmorphism' | 'light' =
+      const theme: 'dark' | 'glassmorphism' | 'light' | 'auto' =
         rawTheme === 'zen' || rawTheme === 'glassmorphism'
           ? 'glassmorphism'
           : rawTheme === 'light'
           ? 'light'
+          : rawTheme === 'auto'
+          ? 'auto'
           : 'dark';
       return new Response(getInternalPageHtml('settings', theme), {
         headers: { 'content-type': 'text/html; charset=utf-8' },
@@ -308,14 +312,15 @@ function registerAboutProtocol(sess: Electron.Session, partition: string): void 
   aboutProtocolPartitions.add(partition);
 }
 
-function getInternalPageHtml(page: 'about-us' | 'settings', theme: 'dark' | 'glassmorphism' | 'light' = 'dark'): string {
+function getInternalPageHtml(page: 'about-us' | 'settings', theme: 'dark' | 'glassmorphism' | 'light' | 'auto' = 'dark'): string {
   const isSettings = page === 'settings';
   const content = isSettings
     ? `<span class="eyebrow">Social Browser</span><h1>Settings</h1><p class="intro">Control the browser appearance and privacy defaults.</p>
-       <section><h2>Appearance</h2><p>Choose the window material that fits your workspace.</p><div class="themes">
+       <section><h2>Appearance</h2><p>Choose how the browser chrome should look.</p><div class="themes" style="grid-template-columns:repeat(4,minmax(0,1fr))">
          <a class="theme ${theme === 'dark' ? 'selected' : ''}" href="socialbrowser://settings?theme=dark"><i class="preview dark"></i><strong>Flat Dark</strong><small>Clean, flat solid dark UI</small></a>
-         <a class="theme ${theme === 'glassmorphism' ? 'selected' : ''}" href="socialbrowser://settings?theme=glassmorphism"><i class="preview glassmorphism"></i><strong>Glassmorphism</strong><small>Frosted panels over a soft color field</small></a>
+         <a class="theme ${theme === 'glassmorphism' ? 'selected' : ''}" href="socialbrowser://settings?theme=glassmorphism" style="order:2"><i class="preview glassmorphism"></i><strong>Glassmorphism</strong><small>Frosted panels over a soft color field</small></a>
          <a class="theme ${theme === 'light' ? 'selected' : ''}" href="socialbrowser://settings?theme=light"><i class="preview light"></i><strong>Trắng Sáng (Light)</strong><small>Crisp white background & clean chrome</small></a>
+         <a class="theme ${theme === 'auto' ? 'selected' : ''}" href="socialbrowser://settings?theme=auto" style="order:3"><i class="preview" style="background:linear-gradient(90deg,#0e1017 0 50%,#f1f5f9 50% 100%);border-color:#64748b"></i><strong>Auto</strong><small>Follows your Windows light or dark mode</small></a>
        </div></section>
        <section class="row"><div><h2>Privacy</h2><p>Profiles keep cookies and site storage isolated.</p></div><b>Enabled</b></section>`
     : `<span class="eyebrow">Social Browser</span><h1>About Social Browser</h1><p class="intro">A privacy-first desktop browser for focused, multi-profile work.</p>
