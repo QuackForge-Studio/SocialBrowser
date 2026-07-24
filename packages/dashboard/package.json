@@ -1,6 +1,6 @@
 {
     "name": "@social-browser/dashboard",
-    "version": "0.2.1",
+    "version": "0.3.0",
     "private": true,
     "scripts": {
         "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit",

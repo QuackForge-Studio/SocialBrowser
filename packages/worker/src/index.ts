@@ -1,4 +1,4 @@
-export const WORKER_VERSION = '0.2.1';
+export const WORKER_VERSION = '0.3.0';
 
 export type WorkerMessageType =
   | 'get_workspaces'

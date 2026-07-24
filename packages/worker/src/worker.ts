@@ -138,7 +138,7 @@ function initialize(): void {
     ragPipeline = new RAGPipeline(db, embeddingPipeline);
 
     console.log('[Worker] Initialized successfully');
-    send({ id: 'ready', success: true, data: { version: '0.2.1', dbPath } });
+    send({ id: 'ready', success: true, data: { version: '0.3.0', dbPath } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[Worker] Failed to initialize:', msg);
@@ -351,7 +351,7 @@ if (port) {
 
     switch (type) {
       case 'ping':
-        send({ id: msgId, success: true, data: { pong: true, version: '0.2.1' } });
+        send({ id: msgId, success: true, data: { pong: true, version: '0.3.0' } });
         break;
       case 'process_capture':
         try {
