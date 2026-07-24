@@ -36,7 +36,6 @@ packages/worker/src/_test.txt
 packages/worker/src/_test_write.txt
 packages/worker/src/_write_worker.py
 pw_fix_worker.ps1
-scripts/copy-assets.js
 temp-rag-b64.txt
 temp-rag-template.txt
 temp-replace.js
