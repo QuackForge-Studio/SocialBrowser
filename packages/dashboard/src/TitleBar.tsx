@@ -126,7 +126,7 @@ function WindowControls() {
   const [isMaxed, setIsMaxed] = useState(false);
   const api = () => (window as any).__socialBrowserWindow;
   return (
-    <div className="flex h-full items-stretch shrink-0" style={{ WebkitAppRegion: 'no-drag' as any }}>
+    <div className="glass-window-controls flex h-full items-stretch shrink-0" style={{ WebkitAppRegion: 'no-drag' as any }}>
       <button onClick={() => api()?.minimize()} title="Minimize" className="flex h-full w-[44px] items-center justify-center text-text-muted hover:bg-[#1e2230] hover:text-white transition-colors">
         <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
           <rect width="10" height="1" />
@@ -770,7 +770,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
   return (
     <div className="fixed top-0 left-0 right-0 z-50 select-none pointer-events-auto">
       {/* Row 1: Tab strip */}
-      <div className="flex h-10 items-stretch bg-[#0c0e14] border-none" style={{ WebkitAppRegion: 'drag' as any, paddingLeft: 10 }}>
+      <div className="glass-titlebar flex h-10 items-stretch" style={{ WebkitAppRegion: 'drag' as any, paddingLeft: 10 }}>
         <button onClick={onToggleSidebar} title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           className="flex items-center gap-2 mr-3 my-auto shrink-0 rounded-lg px-2 py-1 -ml-1 transition-all hover:bg-bg-hover active:scale-95"
           style={{ WebkitAppRegion: 'no-drag' as any }}>
@@ -842,7 +842,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
       {/* Row 2: URL bar (only when a browser tab is active) — Integrated into Unified Container Card */}
       {activeTabId && (
         <div
-          className="mt-[5px] relative flex items-center gap-2 h-[46px] px-3.5 rounded-t-[15px] bg-[#161925] border border-[#2d3345] shadow-xs transition-all duration-200"
+          className="glass-browser-bar mt-[5px] relative flex items-center gap-2 h-[46px] px-3.5 rounded-t-[15px] border transition-all duration-200"
           style={{
             marginLeft: sidebarOpen ? '238px' : '5px',
             marginRight: '5px',
@@ -861,7 +861,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
           <div
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="relative flex-1 flex items-center rounded-xl bg-[#0e1017] border border-[#272d3e] focus-within:border-amber-500/70 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-8.5 text-[13.5px] transition-all shadow-inner group"
+            className="glass-url-field relative flex-1 flex items-center rounded-xl border focus-within:border-amber-500/70 focus-within:ring-2 focus-within:ring-amber-500/20 px-3 h-8.5 text-[13.5px] transition-all group"
           >
             {/* Left Section: Favicon / Secure Site Icon */}
             <div className="flex items-center gap-1 shrink-0 mr-1.5" style={{ WebkitAppRegion: 'no-drag' as any }}>

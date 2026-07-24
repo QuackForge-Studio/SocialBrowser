@@ -21,6 +21,13 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
   generateDraft: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:generate-draft', params),
   getSettings: (): Promise<unknown> => ipcRenderer.invoke('dash:get-settings'),
   updateSettings: (settings: unknown): Promise<void> => ipcRenderer.invoke('dash:update-settings', settings),
+  onThemeChanged: (callback: (theme: 'dark' | 'glassmorphism' | 'light') => void) => {
+    const listener = (_event: unknown, theme: 'dark' | 'glassmorphism' | 'light') => callback(theme);
+    ipcRenderer.on('dash:theme-changed', listener);
+    return () => ipcRenderer.removeListener('dash:theme-changed', listener);
+  },
+  setBrowserTheme: (theme: 'dark' | 'glassmorphism' | 'light'): Promise<unknown> =>
+    ipcRenderer.invoke('dash:set-browser-theme', theme),
   getKeyStatus: (): Promise<{ provider: string; configured: boolean }> =>
     ipcRenderer.invoke('dash:get-key-status'),
   navigateTo: (params: { platform: string; accountId: string; url?: string }): Promise<unknown> =>

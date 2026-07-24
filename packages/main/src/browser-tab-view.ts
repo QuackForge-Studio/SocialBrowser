@@ -3,6 +3,7 @@ import path from 'path';
 import { adBlockEngine } from './adblock-engine';
 
 const ABOUT_URL = 'socialbrowser://about-us/';
+const SETTINGS_URL = 'socialbrowser://settings/';
 const aboutProtocolPartitions = new Set<string>();
 
 export interface BrowserTabViewConfig {
@@ -18,6 +19,8 @@ export interface BrowserTabViewConfig {
   onOpenPeek?: (url: string) => void;
   /** Callback when user requests opening link in new tab */
   onOpenNewTab?: (url: string) => void;
+  /** Callback when an internal page changes the application theme. */
+  onThemeChange?: (theme: 'dark' | 'zen') => void;
 }
 
 /**
@@ -67,7 +70,12 @@ export class BrowserTabView {
         this.pendingNavUrl = url;
         if (url.startsWith('socialbrowser://')) {
           this.favicon = '';
-          this.pageTitle = 'About Social Browser';
+          const internalUrl = new URL(url);
+          this.pageTitle = internalUrl.hostname === 'settings' ? 'Settings' : 'About Social Browser';
+          if (internalUrl.hostname === 'settings') {
+            const theme = internalUrl.searchParams.get('theme');
+            if (theme === 'dark' || theme === 'zen') config.onThemeChange?.(theme);
+          }
         } else {
           try {
             const u = new URL(url);
@@ -199,6 +207,12 @@ export class BrowserTabView {
       await this.view.webContents.loadURL(ABOUT_URL);
       return;
     }
+    if (targetUrl === SETTINGS_URL) {
+      this.pageTitle = 'Settings';
+      this.pendingNavUrl = SETTINGS_URL;
+      await this.view.webContents.loadURL(SETTINGS_URL);
+      return;
+    }
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://') && !targetUrl.startsWith('about:') && !targetUrl.startsWith('socialbrowser://')) {
       targetUrl = 'https://' + targetUrl;
     }
@@ -269,14 +283,46 @@ function registerAboutProtocol(sess: Electron.Session, partition: string): void 
 
   sess.protocol.handle('socialbrowser', (request) => {
     const url = new URL(request.url);
-    if (url.hostname !== 'about-us') {
-      return new Response('Not found', { status: 404 });
+    if (url.hostname === 'about-us') {
+      return new Response(getInternalPageHtml('about-us'), {
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      });
     }
-    return new Response(getAboutPageHtml(), {
-      headers: { 'content-type': 'text/html; charset=utf-8' },
-    });
+    if (url.hostname === 'settings') {
+      const rawTheme = url.searchParams.get('theme');
+      const theme: 'dark' | 'glassmorphism' | 'light' =
+        rawTheme === 'zen' || rawTheme === 'glassmorphism'
+          ? 'glassmorphism'
+          : rawTheme === 'light'
+          ? 'light'
+          : 'dark';
+      return new Response(getInternalPageHtml('settings', theme), {
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      });
+    }
+    return new Response('Not found', { status: 404 });
   });
   aboutProtocolPartitions.add(partition);
+}
+
+function getInternalPageHtml(page: 'about-us' | 'settings', theme: 'dark' | 'glassmorphism' | 'light' = 'dark'): string {
+  const isSettings = page === 'settings';
+  const content = isSettings
+    ? `<span class="eyebrow">Social Browser</span><h1>Settings</h1><p class="intro">Control the browser appearance and privacy defaults.</p>
+       <section><h2>Appearance</h2><p>Choose the window material that fits your workspace.</p><div class="themes">
+         <a class="theme ${theme === 'dark' ? 'selected' : ''}" href="socialbrowser://settings?theme=dark"><i class="preview dark"></i><strong>Flat Dark</strong><small>Clean, flat solid dark UI</small></a>
+         <a class="theme ${theme === 'glassmorphism' ? 'selected' : ''}" href="socialbrowser://settings?theme=glassmorphism"><i class="preview glassmorphism"></i><strong>Glassmorphism</strong><small>Frosted panels over a soft color field</small></a>
+         <a class="theme ${theme === 'light' ? 'selected' : ''}" href="socialbrowser://settings?theme=light"><i class="preview light"></i><strong>Trắng Sáng (Light)</strong><small>Crisp white background & clean chrome</small></a>
+       </div></section>
+       <section class="row"><div><h2>Privacy</h2><p>Profiles keep cookies and site storage isolated.</p></div><b>Enabled</b></section>`
+    : `<span class="eyebrow">Social Browser</span><h1>About Social Browser</h1><p class="intro">A privacy-first desktop browser for focused, multi-profile work.</p>
+       <section><h2>Brave AdBlock Engine</h2><p>Network-level ad and tracker filtering powered by adblock-rust.</p></section>
+       <section><h2>Isolated Profiles</h2><p>Separate cookies, sessions, and local storage for every browser profile.</p></section>
+       <section class="row"><div><h2>Version</h2><p>Social Browser 0.2.1</p></div><b>Stable</b></section>`;
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${isSettings ? 'Settings' : 'About Social Browser'}</title><style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#10131b;color:#e8edf5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.layout{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}aside{padding:20px 14px;background:rgb(17 20 29 / .76);border-right:1px solid rgb(255 255 255 / .08)}.brand{display:flex;align-items:center;gap:10px;padding:0 9px 24px;color:#fff;font-size:14px;font-weight:700}.mark{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:#f97316;color:#10131b;font-size:12px;font-weight:900}nav{display:grid;gap:5px}nav a{color:#9aa6b8;text-decoration:none;border-radius:9px;padding:10px 11px;font-size:13px;font-weight:600}nav a:hover{background:rgb(255 255 255 / .06);color:#f8fafc}nav a.active{background:rgb(249 115 22 / .13);box-shadow:inset 0 0 0 1px rgb(249 115 22 / .26);color:#fff}main{width:min(760px,100%);padding:58px 48px}.eyebrow{color:#f59e0b;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}h1{margin:8px 0 6px;font-size:28px;letter-spacing:-.03em}h2{margin:0;font-size:14px;letter-spacing:-.01em}p{margin:4px 0 0;color:#9aa6b8;font-size:13px;line-height:1.55}.intro{max-width:500px}section{margin-top:20px;padding:18px;border:1px solid rgb(255 255 255 / .09);border-radius:14px;background:rgb(255 255 255 / .025)}.themes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.theme{display:grid;gap:6px;padding:10px;border:1px solid rgb(255 255 255 / .08);border-radius:11px;color:#eef2f8;text-decoration:none}.theme:hover{border-color:rgb(255 255 255 / .2)}.theme.selected{border-color:rgb(249 115 22 / .68);box-shadow:0 0 0 1px rgb(249 115 22 / .2)}.preview{display:block;height:58px;border-radius:7px;border:1px solid rgb(255 255 255 / .08)}.dark{background:#0e1017}.glassmorphism{background:radial-gradient(circle at 20% 20%,rgb(143 110 173 / .7),transparent 42%),radial-gradient(circle at 80% 80%,rgb(178 111 72 / .64),transparent 48%),#2b2936}.light{background:#f1f5f9;border-color:#cbd5e1}.theme strong{font-size:13px}.theme small{color:#9aa6b8;font-size:11px;line-height:1.35}.row{display:flex;align-items:center;justify-content:space-between;gap:20px}.row b{flex:none;border-radius:999px;padding:4px 8px;background:rgb(52 211 153 / .12);color:#6ee7b7;font-size:11px}@media(max-width:640px){.layout{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid rgb(255 255 255 / .08);padding:12px}.brand{padding:0 5px 12px}nav{grid-template-columns:repeat(2,1fr)}main{padding:32px 20px}}
+  </style></head><body><div class="layout"><aside><div class="brand"><span class="mark">SB</span>Social Browser</div><nav><a class="${isSettings ? 'active' : ''}" href="socialbrowser://settings">Settings</a><a class="${isSettings ? '' : 'active'}" href="socialbrowser://about-us">About Us</a></nav></aside><main>${content}</main></div></body></html>`;
 }
 
 function getAboutPageHtml(): string {

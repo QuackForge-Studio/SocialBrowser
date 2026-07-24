@@ -32,7 +32,7 @@ export function Sidebar({ navItems, activeView, isOpen, onNavigate }: SidebarPro
 
   return (
     <aside
-      className="fixed top-[45px] left-[5px] bottom-[5px] z-40 flex w-[226px] flex-col overflow-hidden rounded-2xl border border-[#2d3345] bg-bg-base/95 shadow-2xl backdrop-blur-md transition-transform duration-200 ease-out"
+      className="glass-surface fixed top-[45px] left-[5px] bottom-[5px] z-40 flex w-[226px] flex-col overflow-hidden rounded-2xl border transition-transform duration-200 ease-out"
       style={{
         WebkitAppRegion: 'no-drag' as any,
         transform: isOpen ? 'translateX(0)' : 'translateX(calc(-100% - 5px))',
@@ -57,7 +57,7 @@ export function Sidebar({ navItems, activeView, isOpen, onNavigate }: SidebarPro
           <div
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            className="absolute left-3 right-3 top-[52px] z-50 rounded-xl bg-bg-elevated border border-border/80 p-1.5 shadow-xl animate-dropdown"
+            className="glass-surface absolute left-3 right-3 top-[52px] z-50 rounded-xl border p-1.5 animate-dropdown"
           >
             <div className="px-2 py-1 text-[10.5px] font-bold text-text-faint uppercase tracking-wider">
               Quick Switch

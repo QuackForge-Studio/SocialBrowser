@@ -23,6 +23,7 @@ export function App() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [peekData, setPeekData] = useState<{ url: string } | null>(null);
+  const [theme, setTheme] = useState<'dark' | 'glassmorphism' | 'light'>('dark');
   const sidebarBeforeBrowserRef = useRef(false);
 
   // Sync open tabs from main process
@@ -31,7 +32,17 @@ export function App() {
     if (!bridge) return;
 
     bridge.getSettings().then((settings) => {
-      if ((settings as Record<string, string>).privacy_acknowledged !== 'true') setShowPrivacyModal(true);
+      const saved = settings as Record<string, string>;
+      if (saved.privacy_acknowledged !== 'true') setShowPrivacyModal(true);
+      const rawTheme = saved.browser_theme;
+      const activeTheme: 'dark' | 'glassmorphism' | 'light' =
+        rawTheme === 'zen' || rawTheme === 'glassmorphism'
+          ? 'glassmorphism'
+          : rawTheme === 'light'
+          ? 'light'
+          : 'dark';
+      setTheme(activeTheme);
+      (bridge as any).setBrowserTheme?.(activeTheme);
     }).catch(() => setShowPrivacyModal(true));
 
     const syncTabs = async () => {
@@ -52,6 +63,19 @@ export function App() {
     syncTabs();
     const interval = setInterval(syncTabs, 1500);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const bridge = getBridge() as any;
+    return bridge?.onThemeChanged?.((nextTheme: string) => {
+      const activeTheme: 'dark' | 'glassmorphism' | 'light' =
+        nextTheme === 'zen' || nextTheme === 'glassmorphism'
+          ? 'glassmorphism'
+          : nextTheme === 'light'
+          ? 'light'
+          : 'dark';
+      setTheme(activeTheme);
+    });
   }, []);
 
   // Listen to Peek Preview events
@@ -193,14 +217,27 @@ export function App() {
     }
   }, [closeSidebarForBrowser]);
 
+  const handleOpenSettingsTab = useCallback(async () => {
+    const bridge = getBridge();
+    if (!bridge || !(bridge as any).openDefaultBrowserTab) return;
+    await closeSidebarForBrowser();
+    const res: any = await (bridge as any).openDefaultBrowserTab({ url: 'socialbrowser://settings/' });
+    if (res?.tabId) {
+      setActiveTabId(res.tabId);
+      await (bridge as any).activateTab?.({ tabId: res.tabId });
+    }
+    const t: any[] = await (bridge as any).getBrowserTabs?.();
+    if (Array.isArray(t)) setTabs(t);
+  }, [closeSidebarForBrowser]);
+
   const handleCloseTab = useCallback(async (tabId: string) => {
     const bridge = getBridge();
-    if (bridge) {
-      if ((bridge as any).closeBrowserTab) {
-        await (bridge as any).closeBrowserTab({ tabId });
-      }
-    }
-  }, []);
+    if (!bridge || !(bridge as any).closeBrowserTab) return;
+
+    setTabs((currentTabs) => currentTabs.filter((tab) => tab.id !== tabId));
+    if (activeTabId === tabId) setActiveTabId(null);
+    await (bridge as any).closeBrowserTab({ tabId });
+  }, [activeTabId]);
 
   const handleNavigateToPlatform = useCallback((platform: string, accountId: string) => {
     const bridge = getBridge();
@@ -221,7 +258,7 @@ export function App() {
 
   return (
     <div
-      className="h-full w-full text-text overflow-hidden relative"
+      className={`ambient-bg h-full w-full text-text overflow-hidden relative theme-${theme}`}
       style={{
         background: activeTabId ? 'transparent' : 'var(--color-bg-base)',
         pointerEvents: activeTabId ? 'none' : 'auto',
@@ -239,6 +276,8 @@ export function App() {
         onNavigateView={(view) => {
           if (view === 'about') {
             handleOpenAboutTab();
+          } else if (view === 'settings') {
+            handleOpenSettingsTab();
           } else {
             setActiveView(view);
             handleSelectTab('');
@@ -252,6 +291,8 @@ export function App() {
         onNavigate={(view) => {
           if (view === 'about') {
             handleOpenAboutTab();
+          } else if (view === 'settings') {
+            handleOpenSettingsTab();
           } else {
             setActiveView(view);
             handleSelectTab(''); // show dashboard when selecting sidebar item
@@ -277,7 +318,7 @@ export function App() {
       {/* Unified Browser Container Backdrop (URL Bar + Browser Body unified card) */}
       {activeTabId && (
         <div
-          className="fixed pointer-events-none z-10 rounded-2xl border border-[#2d3345] bg-transparent overflow-hidden transition-all duration-200"
+          className="glass-browser-frame fixed pointer-events-none z-10 rounded-t-2xl border bg-transparent overflow-hidden transition-all duration-200"
           style={{
             top: '45px',
             left: sidebarOpen ? '238px' : '5px',
@@ -295,7 +336,7 @@ export function App() {
           style={{ WebkitAppRegion: 'no-drag' as any }}
         >
           <div
-            className="w-[80%] max-w-[1200px] flex items-center justify-between bg-[#161925] border border-[#2f374e] rounded-t-2xl px-4 py-2.5 shadow-2xl text-white"
+            className="glass-surface w-[80%] max-w-[1200px] flex items-center justify-between border rounded-t-2xl px-4 py-2.5 text-white"
             onClick={(e) => e.stopPropagation()}
             style={{ WebkitAppRegion: 'no-drag' as any }}
           >

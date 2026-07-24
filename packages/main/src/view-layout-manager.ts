@@ -46,6 +46,7 @@ export class ViewLayoutManager {
     const activeTab = this.activeTabId ? this.tabs.get(this.activeTabId) : undefined;
     const fromBounds = activeTab?.view.getBounds();
     this.sidebarOpen = open;
+    this.shellView.setBounds(open || this.popoverOpen || this.peekView ? this.getFullBounds() : this.getTitleBarBounds());
 
     if (!activeTab || !fromBounds) {
       this.recalculateBounds();
@@ -130,10 +131,11 @@ export class ViewLayoutManager {
     return { x: 0, y: 0, width, height };
   }
 
-  // Title bar bounds for shell view (full window bounds; transparent body lets browser tabs show through)
+  // Keep the shell above browser tabs only where it renders browser controls.
+  // A full-window shell view consumes pointer input even when its DOM is transparent.
   private getTitleBarBounds(): { x: number; y: number; width: number; height: number } {
-    const { width, height } = this.baseWindow.getContentBounds();
-    return { x: 0, y: 0, width, height };
+    const { width } = this.baseWindow.getContentBounds();
+    return { x: 0, y: 0, width, height: TITLE_BAR_HEIGHT };
   }
 
   // Viewport bounds for browser tabs (docked inside unified card below URL toolbar)
@@ -158,7 +160,7 @@ export class ViewLayoutManager {
         tab.view.setBounds(this.getTabBounds());
         tab.view.setVisible(true);
       }
-      this.shellView.setBounds(this.getTitleBarBounds());
+      this.shellView.setBounds(this.peekView || this.sidebarOpen || this.popoverOpen ? this.getFullBounds() : this.getTitleBarBounds());
 
       if (this.peekView) {
         const PEEK_MARGIN_X = Math.max(40, Math.floor(width * 0.1));
@@ -218,7 +220,7 @@ export class ViewLayoutManager {
       this.baseWindow.contentView.removeChildView(this.shellView.view);
     }
     this.baseWindow.contentView.addChildView(this.shellView.view);
-    this.shellView.setBounds(this.getTitleBarBounds());
+    this.shellView.setBounds(this.sidebarOpen || this.popoverOpen || this.peekView ? this.getFullBounds() : this.getTitleBarBounds());
     this.shellView.setVisible(true);
 
     this.activeTabId = id;

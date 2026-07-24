@@ -214,6 +214,18 @@ function setupDashboardIpc(): void {
 
 // ===== Browser Tab IPC handlers (non-worker, direct view management) =====
 
+function applyBrowserTheme(theme: string): void {
+  const normTheme = theme === 'zen' || theme === 'glassmorphism' ? 'glassmorphism' : theme === 'light' ? 'light' : 'dark';
+  baseWindow?.win.setBackgroundMaterial(normTheme === 'glassmorphism' ? 'acrylic' : 'none');
+  shellView?.webContents.send('dash:theme-changed', normTheme);
+  worker?.postMessage({ type: 'update_settings', payload: { browser_theme: normTheme }, id: 'theme-' + Date.now() });
+}
+
+ipcMain.handle('dash:set-browser-theme', (_event, theme: string) => {
+  applyBrowserTheme(theme);
+  return { success: true };
+});
+
 const createBrowserTabHelper = (profileId: string, partition: string, initialUrl?: string, label?: string) => {
   const btv = new BrowserTabView({
     profileId,
@@ -227,6 +239,7 @@ const createBrowserTabHelper = (profileId: string, partition: string, initialUrl
       const newPartition = 'persist:social-browser:default-browser';
       createBrowserTabHelper(newProfileId, newPartition, url, 'Browser');
     },
+    onThemeChange: applyBrowserTheme,
   });
   const wcId = btv.view.webContents.id;
   const tabLabel = label || 'Browser';
@@ -413,7 +426,7 @@ function autoLaunchDefaultBrowserTab(): void {
     const profileId = 'auto-launch-' + Date.now();
     const partition = 'persist:social-browser:auto-launch';
     const initialUrl = 'https://google.com';
-    const btv = new BrowserTabView({ profileId, partition, initialUrl });
+    const btv = new BrowserTabView({ profileId, partition, initialUrl, onThemeChange: applyBrowserTheme });
     const wcId = btv.view.webContents.id;
     registerBrowserTab(wcId, btv);
     layoutManager?.addTab(wcId.toString(), 'Browser', btv.view, () => {
