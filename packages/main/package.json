@@ -2,6 +2,11 @@
     "name":  "@social-browser/main",
     "version":  "0.2.1",
     "private":  true,
+    "author": {
+        "name": "Lương Duy Khang",
+        "email": "duykhang.sunext@gmail.com"
+    },
+    "homepage": "https://github.com/QuackForge-Studio/SocialBrowser",
     "main":  "dist/index.js",
     "scripts": {
         "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit",
