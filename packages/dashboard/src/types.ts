@@ -1,5 +1,5 @@
 /** Dashboard view identifiers */
-export type DashboardView = 'profiles' | 'workspaces' | 'proxies' | 'calendar' | 'analytics' | 'settings';
+export type DashboardView = 'profiles' | 'workspaces' | 'proxies' | 'calendar' | 'analytics' | 'settings' | 'about';
 
 export interface BrowserProfile {
   id: string;

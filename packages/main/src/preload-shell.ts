@@ -113,10 +113,17 @@ contextBridge.exposeInMainWorld('__socialBrowserDashboard', {
   checkAcknowledged: (params: unknown): Promise<unknown> => ipcRenderer.invoke('dash:check-acknowledged', params),
   getAuditEvents: (params?: unknown): Promise<unknown> => ipcRenderer.invoke('dash:get-audit-events', params),
 
-  // ===== AdBlock APIs =====
+  // ===== AdBlock & Popover & Site Data APIs =====
   getAdBlockStats: (tabId?: string): Promise<unknown> => ipcRenderer.invoke('dash:get-adblock-stats', tabId),
   toggleAdBlock: (): Promise<unknown> => ipcRenderer.invoke('dash:toggle-adblock'),
+  clearSiteData: (params: { tabId?: string; url?: string }): Promise<unknown> =>
+    ipcRenderer.invoke('dash:clear-site-data', params),
   setPopoverOpen: (open: boolean): Promise<unknown> => ipcRenderer.invoke('dash:set-popover-open', open),
+  onClosePopovers: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('dash:close-popovers', listener);
+    return () => ipcRenderer.removeListener('dash:close-popovers', listener);
+  },
 
   // ===== Peek Link Preview APIs =====
   closePeekPreview: (): Promise<unknown> => ipcRenderer.invoke('dash:close-peek-preview'),

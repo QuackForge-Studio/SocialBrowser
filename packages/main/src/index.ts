@@ -302,6 +302,31 @@ ipcMain.handle('dash:toggle-adblock', () => {
   return { enabled: adBlockEngine.isEnabled() };
 });
 
+ipcMain.handle('dash:clear-site-data', async (_event, params: { tabId?: string; url?: string }) => {
+  try {
+    const { tabId, url } = params;
+    const targetId = tabId || layoutManager?.getActiveTabId();
+    if (!targetId) return { success: false, error: 'No active tab' };
+
+    const btv = browserTabRegistry.get(targetId);
+    if (btv && !btv.isDestroyed()) {
+      const sess = btv.view.webContents.session;
+      const targetUrl = url || btv.getUrl();
+      if (targetUrl && targetUrl.startsWith('http')) {
+        const u = new URL(targetUrl);
+        await sess.clearStorageData({
+          origin: u.origin,
+          storages: ['cookies', 'localstorage', 'indexdb', 'serviceworkers', 'cachestorage'],
+        });
+        return { success: true, domain: u.hostname };
+      }
+    }
+    return { success: false, error: 'Tab not found or non-HTTP URL' };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to clear site data' };
+  }
+});
+
 ipcMain.handle('dash:get-browser-tabs', () => {
   const tabs = layoutManager?.getTabs() || [];
   const activeTabId = layoutManager?.getActiveTabId() || null;

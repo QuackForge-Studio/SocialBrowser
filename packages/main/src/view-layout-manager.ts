@@ -1,4 +1,4 @@
-import type { WebContentsView } from 'electron';
+import { WebContentsView } from 'electron';
 import type { BaseWindow } from './base-window';
 import type { ShellView } from './shell-view';
 
@@ -12,6 +12,7 @@ export interface TabEntry {
 
 export const SIDEBAR_WIDTH = 232;
 export const TITLE_BAR_HEIGHT = 91; // 40px tab strip + 5px top gap + 46px URL bar
+const SIDEBAR_TRANSITION_MS = 200;
 
 export class ViewLayoutManager {
   private readonly baseWindow: BaseWindow;
@@ -31,13 +32,46 @@ export class ViewLayoutManager {
   }
 
   private sidebarOpen = false;
+  private sidebarTransitionTimer: ReturnType<typeof setTimeout> | null = null;
   private popoverOpen = false;
   private peekView: WebContentsView | null = null;
   private peekUrl: string | null = null;
 
   setSidebarOpen(open: boolean): void {
+    if (this.sidebarTransitionTimer) {
+      clearTimeout(this.sidebarTransitionTimer);
+      this.sidebarTransitionTimer = null;
+    }
+
+    const activeTab = this.activeTabId ? this.tabs.get(this.activeTabId) : undefined;
+    const fromBounds = activeTab?.view.getBounds();
     this.sidebarOpen = open;
-    this.recalculateBounds();
+
+    if (!activeTab || !fromBounds) {
+      this.recalculateBounds();
+      return;
+    }
+
+    const toBounds = this.getTabBounds();
+    const startedAt = Date.now();
+    const animate = () => {
+      const progress = Math.min(1, (Date.now() - startedAt) / SIDEBAR_TRANSITION_MS);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      activeTab.view.setBounds({
+        x: Math.round(fromBounds.x + (toBounds.x - fromBounds.x) * eased),
+        y: toBounds.y,
+        width: Math.round(fromBounds.width + (toBounds.width - fromBounds.width) * eased),
+        height: toBounds.height,
+      });
+
+      if (progress < 1) {
+        this.sidebarTransitionTimer = setTimeout(animate, 16);
+      } else {
+        this.sidebarTransitionTimer = null;
+      }
+    };
+
+    animate();
   }
 
   setPopoverOpen(open: boolean): void {
@@ -105,12 +139,13 @@ export class ViewLayoutManager {
   // Viewport bounds for browser tabs (docked inside unified card below URL toolbar)
   private getTabBounds(): { x: number; y: number; width: number; height: number } {
     const { width, height } = this.baseWindow.getContentBounds();
-    const SIDE_INSET = 6; // 5px window margin + 1px card border
+    const SIDEBAR_OFFSET = this.sidebarOpen ? 238 : 6;
+    const TOTAL_MARGIN_X = this.sidebarOpen ? 244 : 12;
     const BOTTOM_OFFSET = 97; // 91px top + 5px window bottom margin + 1px border
     return {
-      x: SIDE_INSET,
+      x: SIDEBAR_OFFSET,
       y: TITLE_BAR_HEIGHT,
-      width: Math.max(0, width - SIDE_INSET * 2),
+      width: Math.max(0, width - TOTAL_MARGIN_X),
       height: Math.max(0, height - BOTTOM_OFFSET),
     };
   }
@@ -150,6 +185,11 @@ export class ViewLayoutManager {
           entry.favicon = favicons[0];
         }
       });
+      view.webContents.on('focus', () => {
+        if (this.shellView && !this.shellView.isDestroyed()) {
+          this.shellView.webContents.send('dash:close-popovers');
+        }
+      });
     }
     this.tabs.set(id, entry);
     view.setVisible(false);
@@ -165,10 +205,6 @@ export class ViewLayoutManager {
       const current = this.tabs.get(this.activeTabId);
       if (current) current.view.setVisible(false);
     }
-
-    // Save sidebar state and close it so browser tab fills full width
-    this.savedSidebarOpen = this.sidebarOpen;
-    if (this.sidebarOpen) this.sidebarOpen = false;
 
     // Add browser tab view if not already added
     if (!this.baseWindow.contentView.children.includes(tab.view)) {

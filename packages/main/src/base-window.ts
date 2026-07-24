@@ -16,7 +16,7 @@ export class BaseWindow {
       frame: false,
       title: 'Social Browser',
       show: true,
-      backgroundColor: '#0f1117',
+      backgroundColor: '#0c0e14',
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,

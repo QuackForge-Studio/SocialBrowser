@@ -30,6 +30,7 @@ export class BrowserTabView {
   public favicon: string = '';
   public isLoading: boolean = false;
   public pageTitle: string = '';
+  public pendingNavUrl: string | null = null;
 
   constructor(config: BrowserTabViewConfig) {
     this.profileId = config.profileId;
@@ -59,6 +60,7 @@ export class BrowserTabView {
     this.view.webContents.on('did-start-navigation', (_event, url, _isInPlace, isMainFrame) => {
       if (isMainFrame && url && !url.startsWith('about:')) {
         this.isLoading = true;
+        this.pendingNavUrl = url;
         try {
           const u = new URL(url);
           if (u.hostname) {
@@ -71,12 +73,15 @@ export class BrowserTabView {
     });
     this.view.webContents.on('did-stop-loading', () => {
       this.isLoading = false;
+      this.pendingNavUrl = null;
     });
     this.view.webContents.on('did-finish-load', () => {
       this.isLoading = false;
+      this.pendingNavUrl = null;
     });
     this.view.webContents.on('did-fail-load', () => {
       this.isLoading = false;
+      this.pendingNavUrl = null;
     });
     this.view.webContents.on('page-favicon-updated', (_event, favicons) => {
       if (favicons && favicons.length > 0) {
@@ -153,7 +158,7 @@ export class BrowserTabView {
 
     // Load initial URL if provided
     if (config.initialUrl) {
-      void this.view.webContents.loadURL(config.initialUrl);
+      void this.loadURL(config.initialUrl);
     }
   }
 
@@ -176,9 +181,17 @@ export class BrowserTabView {
   async loadURL(url: string): Promise<void> {
     if (this.isDestroyed()) return;
     let targetUrl = url.trim();
+    if (targetUrl === 'about:social-browser' || targetUrl === 'about:about') {
+      this.pageTitle = 'About Social Browser';
+      this.pendingNavUrl = 'about:social-browser';
+      const html = getAboutPageHtml();
+      await this.view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      return;
+    }
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://') && !targetUrl.startsWith('about:')) {
       targetUrl = 'https://' + targetUrl;
     }
+    this.pendingNavUrl = targetUrl;
     await this.view.webContents.loadURL(targetUrl);
   }
 
@@ -223,7 +236,7 @@ export class BrowserTabView {
   /** Get current active URL string. */
   getUrl(): string {
     if (this.isDestroyed()) return '';
-    return this.view.webContents.getURL();
+    return this.pendingNavUrl || this.view.webContents.getURL();
   }
 
   /** Get current page title. */
@@ -238,4 +251,150 @@ export class BrowserTabView {
       this.view.webContents.close();
     }
   }
+}
+
+function getAboutPageHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About Social Browser</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0c0e14;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .card {
+      background: #161925;
+      border: 1px solid #2d3345;
+      border-radius: 20px;
+      max-width: 650px;
+      width: 100%;
+      padding: 36px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #272d3e;
+      margin-bottom: 24px;
+    }
+    .logo {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 24px;
+      color: #0c0e14;
+      box-shadow: 0 8px 16px rgba(245, 158, 11, 0.3);
+    }
+    .title-area h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fbbf24;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .feature-box {
+      background: #1d2130;
+      border: 1px solid #282f42;
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .feature-box h3 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .feature-box p {
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    .footer-box {
+      background: #11131c;
+      border: 1px solid #222736;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.6;
+    }
+    .footer-box strong {
+      color: #cbd5e1;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo">SB</div>
+      <div class="title-area">
+        <h1>Social Browser</h1>
+        <span class="badge">Version 0.2.0 • Stable Release</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="feature-box">
+        <h3>🛡️ Brave AdBlock Engine</h3>
+        <p>Built-in high performance ad and tracker blocking powered by Rust & Brave AdBlock rules.</p>
+      </div>
+      <div class="feature-box">
+        <h3>🔒 Isolated Profiles</h3>
+        <p>Independent browser partitions for complete privacy, multi-account isolation, and separate cookies.</p>
+      </div>
+      <div class="feature-box">
+        <h3>🤖 AI RAG Assistant</h3>
+        <p>Integrated local AI assistant with sqlite-vec vector memory and automated context indexing.</p>
+      </div>
+      <div class="feature-box">
+        <h3>⚡ Electron & Vite Core</h3>
+        <p>Ultra-fast GPU accelerated browser architecture with instant tab switching and smooth UI motion.</p>
+      </div>
+    </div>
+
+    <div class="footer-box">
+      <strong>Social Browser Architecture</strong><br>
+      © 2026 Social Browser Team. All rights reserved.<br>
+      Engine: Electron WebContentsView • AdBlocker Engine: adblock-rs • License: MIT / Proprietary Core
+    </div>
+  </div>
+</body>
+</html>`;
 }

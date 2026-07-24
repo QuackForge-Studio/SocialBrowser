@@ -1,5 +1,5 @@
 import React from "react";
-import { Globe, SquaresFour, CalendarBlank, ChartLine, Gear, CaretDown } from "@phosphor-icons/react";
+import { Globe, SquaresFour, CalendarBlank, ChartLine, Gear, Info, CaretDown } from "@phosphor-icons/react";
 import type { DashboardView } from "./types";
 
 export interface NavItem { view: DashboardView; label: string; icon: React.ReactNode; }
@@ -24,21 +24,25 @@ export function Sidebar({ navItems, activeView, isOpen, onNavigate }: SidebarPro
         if (Array.isArray(ws)) setWorkspaces(ws);
       }).catch(() => {});
     }
+
+    const handleOutsideClick = () => setIsSwitcherOpen(false);
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [isSwitcherOpen]);
 
   return (
     <aside
-      className="fixed top-11 left-0 bottom-0 z-40 flex w-[232px] flex-col border-r border-border/60 bg-bg-base/95 backdrop-blur-md transition-transform duration-200 ease-out"
+      className="fixed top-[45px] left-[5px] bottom-[5px] z-40 flex w-[226px] flex-col overflow-hidden rounded-2xl border border-[#2d3345] bg-bg-base/95 shadow-2xl backdrop-blur-md transition-transform duration-200 ease-out"
       style={{
         WebkitAppRegion: 'no-drag' as any,
-        transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+        transform: isOpen ? 'translateX(0)' : 'translateX(calc(-100% - 5px))',
         pointerEvents: 'auto',
       }}
     >
       {/* Workspace quick switcher */}
       <div className="relative border-b border-border/60 p-3">
         <div
-          onClick={() => setIsSwitcherOpen(prev => !prev)}
+          onClick={(e) => { e.stopPropagation(); setIsSwitcherOpen(prev => !prev); }}
           className="flex items-center gap-2.5 rounded-xl bg-bg-elevated/80 border border-border px-3 py-2 cursor-pointer text-[13px] text-text hover:bg-bg-hover hover:border-accent/30 transition-all shadow-sm group select-none"
         >
           <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent-soft text-accent">
@@ -50,7 +54,11 @@ export function Sidebar({ navItems, activeView, isOpen, onNavigate }: SidebarPro
 
         {/* Dropdown Menu */}
         {isSwitcherOpen && (
-          <div className="absolute left-3 right-3 top-[52px] z-50 rounded-xl bg-bg-elevated border border-border/80 p-1.5 shadow-xl animate-dropdown">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="absolute left-3 right-3 top-[52px] z-50 rounded-xl bg-bg-elevated border border-border/80 p-1.5 shadow-xl animate-dropdown"
+          >
             <div className="px-2 py-1 text-[10.5px] font-bold text-text-faint uppercase tracking-wider">
               Quick Switch
             </div>
@@ -141,4 +149,5 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
   { view: "calendar", label: "Tools: Calendar", icon: <CalendarBlank size={18} weight="duotone" /> },
   { view: "analytics", label: "Tools: Analytics", icon: <ChartLine size={18} weight="duotone" /> },
   { view: "settings", label: "Settings", icon: <Gear size={18} weight="duotone" /> },
+  { view: "about", label: "About Us", icon: <Info size={18} weight="duotone" /> },
 ];

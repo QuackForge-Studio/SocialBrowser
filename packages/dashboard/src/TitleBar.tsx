@@ -25,6 +25,7 @@ interface TitleBarProps {
   onTabClose: (id: string) => void;
   onAddTab: () => void;
   onToggleSidebar: () => void;
+  onNavigateView?: (view: DashboardView) => void;
 }
 
 const PLATFORMS: Record<string, { color: string }> = {
@@ -52,6 +53,12 @@ interface BookmarkItem {
   url: string;
   title: string;
   createdAt: number;
+}
+
+interface SuggestionItem {
+  type: 'history' | 'preset' | 'search';
+  url: string;
+  label: string;
 }
 
 function getUrlHistory(): string[] {
@@ -259,26 +266,38 @@ function UrlBarIcon({
   const faviconUrl = useMemo(() => {
     if (!isSecure || !effectiveUrl) return '';
 
-    // Check if active tab has favicon
-    if (activeTab?.favicon && (effectiveUrl === currentUrl || effectiveUrl === activeTab.url)) {
-      return activeTab.favicon;
-    }
-
-    // Check if any open tab matches
-    const tabMatch = tabs.find(t => t.url && (t.url === effectiveUrl || t.url.includes(effectiveUrl)));
-    if (tabMatch?.favicon) return tabMatch.favicon;
-
-    // Extract domain for Google Favicon API
+    let effectiveHost = '';
     try {
       const u = new URL(effectiveUrl.startsWith('http') ? effectiveUrl : `https://${effectiveUrl}`);
-      if (u.hostname && u.hostname.includes('.')) {
-        return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
-      }
-    } catch {
-      // ignore
+      effectiveHost = u.hostname.replace(/^www\./, '');
+    } catch {}
+
+    if (!effectiveHost) return '';
+
+    // Check if active tab has matching domain and a favicon
+    if (activeTab?.favicon && activeTab.url) {
+      try {
+        const activeHost = new URL(activeTab.url).hostname.replace(/^www\./, '');
+        if (activeHost === effectiveHost) {
+          return activeTab.favicon;
+        }
+      } catch {}
     }
-    return '';
-  }, [isSecure, effectiveUrl, activeTab, currentUrl, tabs]);
+
+    // Check if any open tab has matching domain and a favicon
+    const matchingTab = tabs.find(t => {
+      if (!t.url || !t.favicon) return false;
+      try {
+        return new URL(t.url).hostname.replace(/^www\./, '') === effectiveHost;
+      } catch {
+        return false;
+      }
+    });
+    if (matchingTab?.favicon) return matchingTab.favicon;
+
+    // Fallback to Google S2 Favicon API for effectiveHost
+    return `https://www.google.com/s2/favicons?domain=${effectiveHost}&sz=64`;
+  }, [isSecure, effectiveUrl, activeTab, tabs]);
 
   // Render logic:
   if (!isSecure) {
@@ -299,7 +318,7 @@ function UrlBarIcon({
   return <Lock size={15} weight="fill" className="mr-2 shrink-0 text-emerald-500" />;
 }
 
-export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSelect, onTabClose, onAddTab, onToggleSidebar }: TitleBarProps) {
+export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSelect, onTabClose, onAddTab, onToggleSidebar, onNavigateView }: TitleBarProps) {
   const [urlInput, setUrlInput] = useState('');
   const [currentUrl, setCurrentUrl] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -338,10 +357,12 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
 
   const isActionsExpanded = isUrlActionsHovered || showSiteInfoMenu || showAdBlockMenu;
 
-  // Loading progress bar state machine (Left-to-right load -> Bold finish -> Left-to-right wipe out)
+  // Loading progress bar state machine: Smooth continuous CSS transition, accelerating fast to 100% on finish
   const [loadingState, setLoadingState] = useState<'idle' | 'loading' | 'finishing' | 'fade-out'>('idle');
+  const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const prevLoadingRef = useRef<boolean>(false);
   const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const activeTab = tabs.find(t => t.id === activeTabId);
 
   useEffect(() => {
     const isLoading = !!activeTab?.isLoading;
@@ -349,9 +370,12 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
     if (isLoading) {
       if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
       setLoadingState('loading');
+      setLoadingProgress(88);
     } else if (prevLoadingRef.current && !isLoading) {
-      // Just finished loading! Line gets bold & surges to 100%, then wipes out from left to right
+      // Just finished loading! Accelerate rapidly from current position to 100% in 220ms
       if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+
+      setLoadingProgress(100);
       setLoadingState('finishing');
 
       loadingTimerRef.current = setTimeout(() => {
@@ -359,8 +383,11 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
 
         loadingTimerRef.current = setTimeout(() => {
           setLoadingState('idle');
-        }, 350);
-      }, 300);
+          setLoadingProgress(0);
+        }, 300);
+      }, 200);
+    } else if (!isLoading && loadingState === 'idle') {
+      setLoadingProgress(0);
     }
 
     prevLoadingRef.current = isLoading;
@@ -388,6 +415,66 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
     }
   }, [showAdBlockMenu, activeTabId]);
 
+  const [siteInfoView, setSiteInfoView] = useState<'main' | 'security' | 'cookies'>('main');
+  const [clearedSiteDataStatus, setClearedSiteDataStatus] = useState<string | null>(null);
+
+  const closeAllPopovers = React.useCallback(() => {
+    setShowBookmarksMenu(false);
+    setShowHistoryMenu(false);
+    setShowBrowserMenu(false);
+    setShowSiteInfoMenu(false);
+    setShowAdBlockMenu(false);
+    setIsInputFocused(false);
+    setSelectedIndex(-1);
+    setSiteInfoView('main');
+    setClearedSiteDataStatus(null);
+  }, []);
+
+  useEffect(() => {
+    const isAnyPopoverOpen =
+      showBookmarksMenu ||
+      showHistoryMenu ||
+      showBrowserMenu ||
+      showSiteInfoMenu ||
+      showAdBlockMenu ||
+      isInputFocused;
+
+    if (!isAnyPopoverOpen) return;
+
+    const handleOutsideClick = () => {
+      closeAllPopovers();
+    };
+
+    const handleWindowBlur = () => {
+      closeAllPopovers();
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    window.addEventListener('blur', handleWindowBlur);
+
+    const bridge = (window as any).__socialBrowserDashboard;
+    let unsub: (() => void) | undefined;
+    if (bridge?.onClosePopovers) {
+      unsub = bridge.onClosePopovers(() => {
+        closeAllPopovers();
+      });
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      window.removeEventListener('blur', handleWindowBlur);
+      if (unsub) unsub();
+    };
+  }, [
+    showBookmarksMenu,
+    showHistoryMenu,
+    showBrowserMenu,
+    showSiteInfoMenu,
+    showAdBlockMenu,
+    isInputFocused,
+    closeAllPopovers,
+  ]);
+
   const handleCopyUrl = (e: React.MouseEvent) => {
     e.preventDefault();
     const urlToCopy = currentUrl || activeTab?.url || '';
@@ -402,8 +489,6 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
   const wasFocusedAndSelectedRef = useRef(false);
   const [navAnimClass, setNavAnimClass] = useState('');
   const navAnimTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const activeTab = tabs.find(t => t.id === activeTabId);
 
   const isCurrentUrlBookmarked = useMemo(() => {
     if (!currentUrl) return false;
@@ -756,8 +841,14 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
 
       {/* Row 2: URL bar (only when a browser tab is active) — Integrated into Unified Container Card */}
       {activeTabId && (
-        <div className="mx-[5px] mt-[5px] relative flex items-center gap-2 h-[46px] px-3.5 rounded-t-[15px] bg-[#161925] border-t border-x border-[#2d3345] shadow-xs"
-          style={{ WebkitAppRegion: 'no-drag' as any }}>
+        <div
+          className="mt-[5px] relative flex items-center gap-2 h-[46px] px-3.5 rounded-t-[15px] bg-[#161925] border border-[#2d3345] shadow-xs transition-all duration-200"
+          style={{
+            marginLeft: sidebarOpen ? '238px' : '5px',
+            marginRight: '5px',
+            WebkitAppRegion: 'no-drag' as any,
+          }}
+        >
           <button onClick={() => sendNav('javascript:history.back()', 'back')} title="Back"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-[#202535] hover:text-white transition-all"><ArrowLeft size={16} weight="bold" /></button>
           <button onClick={() => sendNav('javascript:history.forward()', 'forward')} title="Forward"
@@ -791,7 +882,8 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                 onChange={handleInputChange}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
-                onMouseDown={() => {
+                onMouseDown={(e) => {
+                  e.stopPropagation();
                   wasFocusedAndSelectedRef.current = isInputFocused && isAllSelected;
                 }}
                 onFocus={(e) => {
@@ -874,7 +966,13 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                     onMouseDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setShowSiteInfoMenu(prev => !prev);
+                      setShowSiteInfoMenu(prev => {
+                        if (!prev) {
+                          setSiteInfoView('main');
+                          setClearedSiteDataStatus(null);
+                        }
+                        return !prev;
+                      });
                       setShowAdBlockMenu(false);
                       setShowBookmarksMenu(false);
                       setShowHistoryMenu(false);
@@ -893,52 +991,167 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                   {showSiteInfoMenu && (
                     <div
                       onMouseDown={(e) => e.stopPropagation()}
-                      className="absolute right-0 top-[34px] z-50 w-72 rounded-2xl bg-[#1d202c] border border-[#2e3548] shadow-2xl overflow-hidden p-3 animate-dropdown text-white"
+                      className="absolute right-0 top-[34px] z-50 w-80 rounded-2xl bg-[#1d202c] border border-[#2e3548] shadow-2xl overflow-hidden p-3.5 animate-dropdown text-white select-none"
                       style={{ WebkitAppRegion: 'no-drag' as any }}
                     >
-                      <div className="flex items-center justify-between border-b border-[#2b3144] pb-2.5 mb-2 px-1">
-                        <span className="text-[14px] font-semibold text-white truncate max-w-[210px]">
-                          {formatDisplayUrl(currentUrl || activeTab?.url || '') || 'Current Site'}
-                        </span>
-                        <button
-                          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setShowSiteInfoMenu(false); }}
-                          className="text-text-muted hover:text-white p-1 rounded-md hover:bg-[#272d3e]"
-                          style={{ WebkitAppRegion: 'no-drag' as any }}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-
-                      <div className="flex flex-col gap-1 text-[13px]">
-                        {/* Connection Security */}
-                        <div className="flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-[#262b3d] cursor-pointer transition-colors group">
-                          <div className="flex items-center gap-3">
-                            <Lock size={16} className={currentUrl?.startsWith('https') ? 'text-emerald-400' : 'text-red-400'} />
-                            <span className="font-medium text-[#e2e8f0]">
-                              {currentUrl?.startsWith('https') ? 'Connection is secure' : 'Not secure'}
+                      {/* Main View */}
+                      {siteInfoView === 'main' && (
+                        <>
+                          <div className="flex items-center justify-between border-b border-[#2b3144] pb-2.5 mb-2.5 px-1">
+                            <span className="text-[14px] font-bold text-white truncate max-w-[220px]">
+                              {formatDisplayUrl(currentUrl || activeTab?.url || '') || 'Current Site'}
                             </span>
+                            <button
+                              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setShowSiteInfoMenu(false); }}
+                              className="text-text-muted hover:text-white p-1 rounded-md hover:bg-[#272d3e]"
+                              style={{ WebkitAppRegion: 'no-drag' as any }}
+                            >
+                              <X size={14} />
+                            </button>
                           </div>
-                          <CaretRight size={14} className="text-text-faint group-hover:text-white" />
-                        </div>
 
-                        {/* Cookies & Site Data */}
-                        <div className="flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-[#262b3d] cursor-pointer transition-colors group">
-                          <div className="flex items-center gap-3">
-                            <Cookie size={16} className="text-amber-400" />
-                            <span className="font-medium text-[#e2e8f0]">Cookies and site data</span>
-                          </div>
-                          <CaretRight size={14} className="text-text-faint group-hover:text-white" />
-                        </div>
+                          <div className="flex flex-col gap-1 text-[13px]">
+                            {/* 1. Connection Security */}
+                            <div
+                              onClick={() => setSiteInfoView('security')}
+                              className="flex items-center justify-between px-2.5 py-2.5 rounded-xl hover:bg-[#262b3d] cursor-pointer transition-colors group"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Lock size={16} className={currentUrl?.startsWith('https') ? 'text-emerald-400' : 'text-red-400'} />
+                                <span className="font-medium text-[#e2e8f0]">
+                                  {currentUrl?.startsWith('https') ? 'Connection is secure' : 'Not secure'}
+                                </span>
+                              </div>
+                              <CaretRight size={14} className="text-text-faint group-hover:text-white" />
+                            </div>
 
-                        {/* Site Settings */}
-                        <div className="flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-[#262b3d] cursor-pointer transition-colors group">
-                          <div className="flex items-center gap-3">
-                            <Gear size={16} className="text-sky-400" />
-                            <span className="font-medium text-[#e2e8f0]">Site settings</span>
+                            {/* 2. Cookies & Site Data */}
+                            <div
+                              onClick={() => { setSiteInfoView('cookies'); setClearedSiteDataStatus(null); }}
+                              className="flex items-center justify-between px-2.5 py-2.5 rounded-xl hover:bg-[#262b3d] cursor-pointer transition-colors group"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Cookie size={16} className="text-amber-400" />
+                                <span className="font-medium text-[#e2e8f0]">Cookies and site data</span>
+                              </div>
+                              <CaretRight size={14} className="text-text-faint group-hover:text-white" />
+                            </div>
+
+                            {/* 3. Site Settings */}
+                            <div
+                              onClick={() => {
+                                setShowSiteInfoMenu(false);
+                                onTabSelect('');
+                                if (onNavigateView) onNavigateView('settings');
+                              }}
+                              className="flex items-center justify-between px-2.5 py-2.5 rounded-xl hover:bg-[#262b3d] cursor-pointer transition-colors group"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Gear size={16} className="text-sky-400" />
+                                <span className="font-medium text-[#e2e8f0]">Site settings</span>
+                              </div>
+                              <ArrowSquareOut size={14} className="text-text-faint group-hover:text-white" />
+                            </div>
                           </div>
-                          <ArrowSquareOut size={14} className="text-text-faint group-hover:text-white" />
+                        </>
+                      )}
+
+                      {/* Security Details Sub-View */}
+                      {siteInfoView === 'security' && (
+                        <div>
+                          <div className="flex items-center gap-2 border-b border-[#2b3144] pb-2.5 mb-3">
+                            <button
+                              onClick={() => setSiteInfoView('main')}
+                              className="p-1 rounded-lg text-text-muted hover:text-white hover:bg-[#272d3e] transition-colors"
+                            >
+                              <ArrowLeft size={16} />
+                            </button>
+                            <span className="text-[13.5px] font-bold text-white">Connection Security</span>
+                          </div>
+
+                          <div className="bg-[#141722] rounded-xl p-3.5 border border-[#282f42] space-y-2.5">
+                            <div className="flex items-center gap-2.5">
+                              {currentUrl?.startsWith('https') ? (
+                                <ShieldCheck size={24} className="text-emerald-400 shrink-0" />
+                              ) : (
+                                <ShieldWarning size={24} className="text-red-400 shrink-0" />
+                              )}
+                              <div>
+                                <h4 className="text-[13px] font-bold text-white">
+                                  {currentUrl?.startsWith('https') ? 'Your connection is private' : 'Connection is unencrypted'}
+                                </h4>
+                                <p className="text-[11px] text-amber-400 font-mono">
+                                  {formatDisplayUrl(currentUrl || activeTab?.url || '')}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-[11.5px] text-[#94a3b8] leading-relaxed">
+                              {currentUrl?.startsWith('https')
+                                ? 'Information you send to this site (passwords, messages, or cookies) is protected with 256-bit TLS encryption.'
+                                : 'You should not enter sensitive info on this site (passwords, credit cards) because it could be intercepted by attackers.'}
+                            </p>
+                            <div className="pt-1 border-t border-[#252b3d] flex items-center justify-between text-[11px] text-text-faint">
+                              <span>Certificate:</span>
+                              <span className={currentUrl?.startsWith('https') ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
+                                {currentUrl?.startsWith('https') ? 'Valid (TLS 1.3)' : 'Insecure (HTTP)'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      )}
+
+                      {/* Cookies Sub-View */}
+                      {siteInfoView === 'cookies' && (
+                        <div>
+                          <div className="flex items-center gap-2 border-b border-[#2b3144] pb-2.5 mb-3">
+                            <button
+                              onClick={() => setSiteInfoView('main')}
+                              className="p-1 rounded-lg text-text-muted hover:text-white hover:bg-[#272d3e] transition-colors"
+                            >
+                              <ArrowLeft size={16} />
+                            </button>
+                            <span className="text-[13.5px] font-bold text-white">Cookies & Site Storage</span>
+                          </div>
+
+                          <div className="bg-[#141722] rounded-xl p-3.5 border border-[#282f42] space-y-3">
+                            <div>
+                              <div className="text-[13px] font-bold text-white flex items-center gap-2">
+                                <Cookie size={16} className="text-amber-400" />
+                                <span>{formatDisplayUrl(currentUrl || activeTab?.url || '')}</span>
+                              </div>
+                              <p className="text-[11.5px] text-[#94a3b8] leading-relaxed mt-1">
+                                Cookies and site data are stored in an isolated browser profile partition for this tab.
+                              </p>
+                            </div>
+
+                            {clearedSiteDataStatus ? (
+                              <div className="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[12px] flex items-center justify-center gap-2">
+                                <Check size={16} />
+                                <span>{clearedSiteDataStatus}</span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const bridge = (window as any).__socialBrowserDashboard;
+                                  if (bridge?.clearSiteData) {
+                                    const res: any = await bridge.clearSiteData({ tabId: activeTabId, url: currentUrl });
+                                    if (res?.success) {
+                                      setClearedSiteDataStatus(`Cleared storage for ${res.domain || 'site'}`);
+                                    } else {
+                                      setClearedSiteDataStatus(res?.error || 'Failed to clear data');
+                                    }
+                                  }
+                                }}
+                                className="w-full py-2 px-3 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 hover:text-red-300 font-semibold text-[12.5px] transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                              >
+                                <Trash size={15} />
+                                <span>Clear Cookies & Site Data</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -999,7 +1212,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                         </button>
                       </div>
 
-                      <div className="bg-[#141722] rounded-xl p-3 border border-[#282f42] mb-3">
+                      <div className="bg-[#141722] rounded-xl p-3 border border-[#282f42]">
                         <div className="text-[12.5px] font-semibold text-text-muted mb-1 flex items-center justify-between">
                           <span>Ads & Trackers Blocked:</span>
                           <span className="text-emerald-400 font-bold text-[14px]">
@@ -1010,20 +1223,6 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                           Total blocked across session: <strong className="text-white">{adBlockStats?.totalBlocked ?? 0}</strong>
                         </div>
                       </div>
-
-                      <button
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setShowAboutModal(true);
-                          setShowAdBlockMenu(false);
-                        }}
-                        className="w-full py-2 px-3 rounded-xl bg-[#262c3f] hover:bg-[#313850] text-[12.5px] font-semibold text-amber-400 hover:text-amber-300 transition-colors flex items-center justify-center gap-2 border border-[#374059]"
-                        style={{ WebkitAppRegion: 'no-drag' as any }}
-                      >
-                        <Info size={15} />
-                        <span>About Social Browser & AdBlock Licenses</span>
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1078,6 +1277,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
             {isInputFocused && suggestions.length > 0 && (
               <div
                 ref={dropdownRef}
+                onMouseDown={(e) => e.stopPropagation()}
                 className="absolute left-0 right-0 top-[42px] z-50 rounded-xl bg-[#161822] border border-[#2b3042] shadow-2xl overflow-hidden py-1.5 animate-dropdown"
                 style={{ WebkitAppRegion: 'no-drag' as any }}
               >
@@ -1362,12 +1562,29 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
                   <button
                     onClick={() => {
                       onTabSelect('');
+                      if (onNavigateView) onNavigateView('settings');
                       setShowBrowserMenu(false);
                     }}
                     className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-text-muted hover:bg-[#202433] hover:text-white transition-colors text-left font-medium"
                   >
                     <Gear size={15} className="text-amber-400" />
                     <span>Browser Settings</span>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setShowBrowserMenu(false);
+                      const bridge = (window as any).__socialBrowserDashboard;
+                      if (bridge?.openDefaultBrowserTab) {
+                        const res: any = await bridge.openDefaultBrowserTab({ url: 'about:social-browser' });
+                        if (res?.tabId && bridge?.activateTab) {
+                          await bridge.activateTab({ tabId: res.tabId });
+                        }
+                      }
+                    }}
+                    className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-text-muted hover:bg-[#202433] hover:text-white transition-colors text-left font-medium"
+                  >
+                    <Info size={15} className="text-amber-400" />
+                    <span>About Us</span>
                   </button>
                   <button
                     onClick={() => {
@@ -1387,24 +1604,34 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
             </div>
           </div>
 
-          {/* Animated orange loading line: Left-to-right progress -> Bold finish -> Left-to-right wipe out */}
+          {/* Animated orange loading line: High-contrast subtle 2.5px line with dark outline/shadow for white/light & dark web pages */}
           {loadingState !== 'idle' && (
             <div
-              className="absolute -bottom-[3.5px] left-0 right-0 z-20 pointer-events-none overflow-hidden transition-all duration-300 ease-out"
+              className="absolute -bottom-[2.5px] left-0 right-0 z-30 pointer-events-none overflow-hidden drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
               style={{
-                height: loadingState === 'finishing' || loadingState === 'fade-out' ? '3.5px' : '2.5px',
+                height: loadingState === 'finishing' || loadingState === 'fade-out' ? '3px' : '2.5px',
                 clipPath: loadingState === 'fade-out' ? 'inset(0 0% 0 100%)' : 'inset(0 0% 0 0%)',
-                transition: 'clip-path 350ms ease-in-out, height 200ms ease-out, opacity 350ms ease-in-out',
+                transition: 'clip-path 300ms ease-in-out, height 180ms ease-out, opacity 250ms ease-in-out',
               }}
             >
+              {/* Dark track overlay for ultra high contrast against white/light background web pages */}
+              <div className="absolute inset-0 bg-black/50 border-b border-[#2d3345]" />
+
+              {/* Vibrant progress line */}
               <div
-                className={`h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300 transition-all ${
-                  loadingState === 'loading'
-                    ? 'w-[85%] animate-pulse opacity-90 shadow-sm shadow-amber-500/30'
-                    : 'w-full opacity-100 shadow-lg shadow-amber-400/90 brightness-125'
+                className={`relative h-full bg-gradient-to-r from-amber-400 via-orange-500 to-amber-300 border-b border-[#2d3345] ${
+                  loadingState === 'finishing'
+                    ? 'opacity-100 shadow-[0_0_12px_rgba(245,158,11,1)] brightness-125'
+                    : 'opacity-95 shadow-[0_0_6px_rgba(245,158,11,0.7)]'
                 }`}
                 style={{
-                  transition: loadingState === 'finishing' ? 'width 300ms ease-out, opacity 200ms' : loadingState === 'loading' ? 'width 1000ms ease-out' : 'none',
+                  width: `${loadingProgress}%`,
+                  transition:
+                    loadingState === 'finishing'
+                      ? 'width 220ms cubic-bezier(0.2, 0.9, 0.3, 1)'
+                      : loadingState === 'loading'
+                      ? 'width 9.5s cubic-bezier(0.08, 0.6, 0.12, 1)'
+                      : 'none',
                 }}
               />
             </div>
@@ -1427,7 +1654,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
               <img src={logoPng} alt="Social Browser" className="h-10 w-auto" />
               <div>
                 <h2 className="text-[17px] font-bold text-white leading-tight">Social Browser</h2>
-                <p className="text-[12px] text-amber-400 font-medium">Version 0.1.0 (Built with Electron & Vite)</p>
+                <p className="text-[12px] text-amber-400 font-medium">Version 0.2.0 (Built with Electron & Vite)</p>
               </div>
             </div>
 

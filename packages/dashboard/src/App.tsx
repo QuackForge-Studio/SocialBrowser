@@ -9,6 +9,7 @@ import { CalendarView } from './views/CalendarView';
 import { AnalyticsView } from './views/AnalyticsView';
 import { SettingsView } from './views/SettingsView';
 import { WorkspaceManager } from './views/WorkspaceManager';
+import { AboutView } from './views/AboutView';
 import { PrivacyModal } from './PrivacyModal';
 
 function getBridge(): DashboardBridge | undefined {
@@ -69,6 +70,7 @@ export function App() {
         if (unsub2) unsub2();
       };
     }
+    return undefined;
   }, []);
 
   const handleClosePeek = useCallback(async () => {
@@ -115,13 +117,6 @@ export function App() {
   }, []);
 
   const toggleSidebar = useCallback(() => {
-    // When a browser tab is active, clicking hamburger returns to dashboard
-    if (activeTabId) {
-      handleSelectTab('');
-      const bridge = getBridge();
-      if (bridge) bridge.showDashboard();
-      return;
-    }
     setSidebarOpen((prev) => {
       const next = !prev;
       const bridge = getBridge();
@@ -130,7 +125,7 @@ export function App() {
       }
       return next;
     });
-  }, [activeTabId, handleSelectTab]);
+  }, []);
 
   const handlePrivacyAcknowledge = useCallback(() => {
     const bridge = getBridge();
@@ -158,6 +153,24 @@ export function App() {
     }
   }, []);
 
+  const handleOpenAboutTab = useCallback(async () => {
+    const bridge = getBridge();
+    if (!bridge) return;
+    if ((bridge as any).openDefaultBrowserTab) {
+      const res: any = await (bridge as any).openDefaultBrowserTab({ url: 'about:social-browser' });
+      if (res?.tabId) {
+        setActiveTabId(res.tabId);
+        if ((bridge as any).activateTab) {
+          await (bridge as any).activateTab({ tabId: res.tabId });
+        }
+      }
+      if ((bridge as any).getBrowserTabs) {
+        const t: any[] = await (bridge as any).getBrowserTabs();
+        if (Array.isArray(t)) setTabs(t);
+      }
+    }
+  }, []);
+
   const handleCloseTab = useCallback(async (tabId: string) => {
     const bridge = getBridge();
     if (bridge) {
@@ -179,6 +192,7 @@ export function App() {
       case 'calendar': return <CalendarView />;
       case 'analytics': return <AnalyticsView />;
       case 'settings': return <SettingsView />;
+      case 'about': return <AboutView />;
       default: return <ProfileLauncher />;
     }
   };
@@ -200,14 +214,26 @@ export function App() {
         onTabClose={handleCloseTab}
         onAddTab={handleAddTab}
         onToggleSidebar={toggleSidebar}
+        onNavigateView={(view) => {
+          if (view === 'about') {
+            handleOpenAboutTab();
+          } else {
+            setActiveView(view);
+            handleSelectTab('');
+          }
+        }}
       />
       <Sidebar
         navItems={DEFAULT_NAV_ITEMS}
         activeView={activeView}
         isOpen={sidebarOpen}
         onNavigate={(view) => {
-          setActiveView(view);
-          handleSelectTab(''); // show dashboard when selecting sidebar item
+          if (view === 'about') {
+            handleOpenAboutTab();
+          } else {
+            setActiveView(view);
+            handleSelectTab(''); // show dashboard when selecting sidebar item
+          }
         }}
         onNavigateToPlatform={handleNavigateToPlatform}
       />
@@ -229,10 +255,10 @@ export function App() {
       {/* Unified Browser Container Backdrop (URL Bar + Browser Body unified card) */}
       {activeTabId && (
         <div
-          className="fixed pointer-events-none z-10 rounded-2xl border border-[#2d3345] bg-transparent shadow-2xl overflow-hidden"
+          className="fixed pointer-events-none z-10 rounded-2xl border border-[#2d3345] bg-transparent overflow-hidden transition-all duration-200"
           style={{
             top: '45px',
-            left: '5px',
+            left: sidebarOpen ? '238px' : '5px',
             right: '5px',
             bottom: '5px',
           }}
