@@ -318,7 +318,7 @@ export function App() {
       {/* Unified Browser Container Backdrop (URL Bar + Browser Body unified card) */}
       {activeTabId && (
         <div
-          className="glass-browser-frame fixed pointer-events-none z-10 rounded-t-2xl border bg-transparent overflow-hidden transition-all duration-200"
+          className="glass-browser-frame fixed pointer-events-none z-20 rounded-2xl border bg-transparent overflow-hidden transition-all duration-200"
           style={{
             top: '45px',
             left: sidebarOpen ? '238px' : '5px',
