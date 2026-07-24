@@ -1660,7 +1660,7 @@ export function TitleBar({ tabs, activeTabId, activeView, sidebarOpen, onTabSele
               <img src={logoPng} alt="Social Browser" className="h-10 w-auto" />
               <div>
                 <h2 className="text-[17px] font-bold text-white leading-tight">Social Browser</h2>
-                <p className="text-[12px] text-amber-400 font-medium">Version 0.2.0 (Built with Electron & Vite)</p>
+                <p className="text-[12px] text-amber-400 font-medium">Version 0.2.1 (Built with Electron & Vite)</p>
               </div>
             </div>
 

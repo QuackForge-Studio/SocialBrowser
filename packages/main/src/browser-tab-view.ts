@@ -392,7 +392,7 @@ function getAboutPageHtml(): string {
       <div class="logo">SB</div>
       <div class="title-area">
         <h1>Social Browser</h1>
-        <span class="badge">Version 0.2.0 • Stable Release</span>
+        <span class="badge">Version 0.2.1 • Stable Release</span>
       </div>
     </div>
 
