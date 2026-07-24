@@ -24,6 +24,7 @@ export class BaseWindow {
         sandbox: true,
       },
     });
+    this.win.contentView.setBackgroundColor('#0c0e14');
 
     this.win.on('resize', () => { for (const h of this.resizeHandlers) h(); });
     this.win.on('maximize', () => { for (const h of this.maximizeHandlers) h(); });
@@ -35,6 +36,9 @@ export class BaseWindow {
   getContentBounds(): { width: number; height: number } {
     const cb = this.win.contentView.getBounds();
     return { width: cb.width || 1280, height: cb.height || 800 };
+  }
+  setContentBackgroundColor(color: string): void {
+    this.win.contentView.setBackgroundColor(color);
   }
   onResize(handler: () => void): void { this.resizeHandlers.push(handler); }
   onMaximize(handler: () => void): void { this.maximizeHandlers.push(handler); }

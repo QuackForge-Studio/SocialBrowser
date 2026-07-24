@@ -235,6 +235,7 @@ function applyBrowserTheme(theme: string): void {
   const resolvedTheme = resolveBrowserTheme(browserThemePreference);
   const bgColor = resolvedTheme === 'light' ? '#ffffff' : '#0c0e14';
   baseWindow?.win.setBackgroundMaterial(resolvedTheme === 'glassmorphism' ? 'acrylic' : 'none');
+  baseWindow?.setContentBackgroundColor(resolvedTheme === 'glassmorphism' ? '#00000000' : bgColor);
   layoutManager?.setTabsBackgroundColor(bgColor);
   shellView?.webContents.send('dash:theme-changed', resolvedTheme);
   worker?.postMessage({ type: 'update_settings', payload: { browser_theme: browserThemePreference }, id: 'theme-' + Date.now() });

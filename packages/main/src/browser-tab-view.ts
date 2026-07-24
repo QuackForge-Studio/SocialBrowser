@@ -74,8 +74,10 @@ export class BrowserTabView {
         if (url.startsWith('socialbrowser://')) {
           this.favicon = '';
           const internalUrl = new URL(url);
-          this.pageTitle = internalUrl.hostname === 'settings' ? 'Settings' : 'About Social Browser';
-          if (internalUrl.hostname === 'settings') {
+          const isSet = internalUrl.hostname === 'settings';
+          this.pageTitle = isSet ? 'Settings' : 'About Social Browser';
+          this.pendingNavUrl = isSet ? 'about:settings' : 'about:social-browser';
+          if (isSet) {
             const theme = internalUrl.searchParams.get('theme');
             if (theme === 'dark' || theme === 'light' || theme === 'glassmorphism' || theme === 'auto' || theme === 'zen') {
               config.onThemeChange?.(theme);
@@ -266,7 +268,14 @@ export class BrowserTabView {
   /** Get current active URL string. */
   getUrl(): string {
     if (this.isDestroyed()) return '';
-    return this.pendingNavUrl || this.view.webContents.getURL();
+    const current = this.view.webContents.getURL();
+    if (current.startsWith(ABOUT_URL) || current.includes('About%20Social%20Browser') || current.includes('About%20Social%20Bro')) {
+      return 'about:social-browser';
+    }
+    if (current.startsWith(SETTINGS_URL) || current.includes('Settings')) {
+      return 'about:settings';
+    }
+    return this.pendingNavUrl || current;
   }
 
   /** Get current page title. */
