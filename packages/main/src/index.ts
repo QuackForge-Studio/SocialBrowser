@@ -216,7 +216,9 @@ function setupDashboardIpc(): void {
 
 function applyBrowserTheme(theme: string): void {
   const normTheme = theme === 'zen' || theme === 'glassmorphism' ? 'glassmorphism' : theme === 'light' ? 'light' : 'dark';
+  const bgColor = normTheme === 'light' ? '#ffffff' : '#0c0e14';
   baseWindow?.win.setBackgroundMaterial(normTheme === 'glassmorphism' ? 'acrylic' : 'none');
+  viewLayoutManager?.setTabsBackgroundColor(bgColor);
   shellView?.webContents.send('dash:theme-changed', normTheme);
   worker?.postMessage({ type: 'update_settings', payload: { browser_theme: normTheme }, id: 'theme-' + Date.now() });
 }

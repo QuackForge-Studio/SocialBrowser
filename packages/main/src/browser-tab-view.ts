@@ -59,6 +59,9 @@ export class BrowserTabView {
         session: sess,
       },
     });
+    if (typeof (this.view as any).setBackgroundColor === 'function') {
+      (this.view as any).setBackgroundColor('#0c0e14');
+    }
 
     // Track loading, favicon, and title states
     this.view.webContents.on('did-start-loading', () => {

@@ -80,6 +80,14 @@ export class ViewLayoutManager {
     this.recalculateBounds();
   }
 
+  setTabsBackgroundColor(color: string): void {
+    for (const tab of this.tabs.values()) {
+      if (typeof (tab.view as any).setBackgroundColor === 'function') {
+        (tab.view as any).setBackgroundColor(color);
+      }
+    }
+  }
+
   openPeekPreview(url: string): void {
     this.closePeekPreview();
 
